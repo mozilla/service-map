@@ -26,6 +26,7 @@ type serviceResponse struct {
 	Services    []rraService `json:"services,omitempty"`
 	SystemGroup sysGroup     `json:"systemgroup,omitempty"`
 	Found       bool         `json:"found"`
+	Stats       stats        `json:"stats,omitempty"`
 }
 
 func (s *serviceResponse) jsonString() string {
@@ -66,6 +67,10 @@ func (s *serviceResponse) mergeSystemGroups(groups []sysGroup) error {
 	return nil
 }
 
+type stats struct {
+	Source string `json:"source,omitempty"`
+}
+
 type sysGroup struct {
 	Name string `json:"name,omitempty"`
 	ID   int    `json:"id,omitempty"`
@@ -76,10 +81,26 @@ type rraService struct {
 }
 
 type Config struct {
+	General struct {
+		Listen string
+	}
 	Database struct {
 		Hostname string
 		Database string
 	}
+}
+
+func (c *Config) validate() error {
+	if c.General.Listen == "" {
+		return fmt.Errorf("missing configuration option: general..listen")
+	}
+	if c.Database.Hostname == "" {
+		return fmt.Errorf("missing configuration option: database..hostname")
+	}
+	if c.Database.Database == "" {
+		return fmt.Errorf("missing configuration option: database..database")
+	}
+	return nil
 }
 
 var cfg Config
@@ -137,12 +158,18 @@ func searchUsingHostMatch(hn string) (serviceResponse, error) {
 }
 
 func searchHost(hn string) (serviceResponse, error) {
-	sr, err := searchUsingHostMatch(hn)
+	sr, err := searchUsingHost(hn)
 	if err != nil || sr.Found {
+		if sr.Found {
+			sr.Stats.Source = "host"
+		}
 		return sr, err
 	}
-	sr, err = searchUsingHost(hn)
+	sr, err = searchUsingHostMatch(hn)
 	if err != nil || sr.Found {
+		if sr.Found {
+			sr.Stats.Source = "hostmatch"
+		}
 		return sr, err
 	}
 	return sr, nil
@@ -154,6 +181,7 @@ func serviceSearch(rw http.ResponseWriter, req *http.Request) {
 
 	if hostreq == "" {
 		http.Error(rw, "no search criteria specified", 500)
+		return
 	}
 
 	ret, err := searchHost(hostreq)
@@ -193,7 +221,17 @@ func main() {
 	flag.StringVar(&cfgpath, "f", "", "path to configuration file")
 	flag.Parse()
 
+	if cfgpath == "" {
+		fmt.Fprintf(os.Stderr, "error: must specify configuration file with -f\n")
+		os.Exit(1)
+	}
+
 	err := gcfg.ReadFileInto(&cfg, cfgpath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	err = cfg.validate()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -220,7 +258,7 @@ func main() {
 	s := r.PathPrefix("/api/v1").Subrouter()
 	s.HandleFunc("/search", serviceSearch).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
-	listenAddr := "0.0.0.0:4444"
+	listenAddr := cfg.General.Listen
 	err = http.ListenAndServe(listenAddr, nil)
 
 	doExit(0)
