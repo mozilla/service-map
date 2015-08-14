@@ -1,0 +1,21 @@
+TARGETS = importrra serviceapi
+GO = GOPATH=$(shell pwd):$(shell go env GOROOT)/bin go
+
+all: $(TARGETS)
+
+depends:
+	$(GO) get github.com/mattbaird/elastigo
+	$(GO) get github.com/lib/pq
+	$(GO) get code.google.com/p/gcfg
+	$(GO) get github.com/gorilla/context
+	$(GO) get github.com/gorilla/mux
+
+serviceapi:
+	$(GO) install serviceapi
+
+importrra:
+	$(GO) install importrra
+
+clean:
+	rm -f bin/*
+	rm -rf pkg/*
