@@ -8,8 +8,8 @@
 from distutils.core import setup
 
 setup(
-    name = "pyservicemap",
-    packages = [ "pyservicemap" ],
+    name = "pyservicelib",
+    packages = [ "pyservicelib" ],
     version = "1.0.0",
     author = "Aaron Meihm",
     author_email = "ameihm@mozilla.com",

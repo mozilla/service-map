@@ -5,4 +5,4 @@
 # Copyright (c) 2015 Mozilla Corporation
 # Author: ameihm@mozilla.com
 
-from pyservicemap import *
+from pyservicelib import *
