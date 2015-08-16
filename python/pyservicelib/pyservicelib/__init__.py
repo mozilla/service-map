@@ -5,4 +5,4 @@
 # Copyright (c) 2015 Mozilla Corporation
 # Author: ameihm@mozilla.com
 
-from pyservicelib import *
+from search import *
