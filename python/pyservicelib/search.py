@@ -17,9 +17,10 @@ class SearchException(Exception):
         return self._message
 
 class Search(object):
-    def __init__(self, url):
+    def __init__(self, url, verify=True):
         self._url = url
         self._searches = {}
+        self._verify = verify
 
     def add_host(self, hostname):
         self._searches[str(uuid.uuid4())] = {'host': hostname}
@@ -32,6 +33,7 @@ class Search(object):
             if res['host'] != hostname:
                 continue
             return res['result']['service']
+        return None
 
     def execute(self):
         searchlist = []
@@ -42,7 +44,7 @@ class Search(object):
         s = {'search': searchlist}
         u = self._url + '/search'
         payload = {'params': json.dumps(s)}
-        r = requests.post(u, data=payload)
+        r = requests.post(u, data=payload, verify=self._verify)
         if r.status_code != requests.codes.ok:
             err = 'Search error: response {}, "{}"'.format(r.status_code, r.text.strip())
             raise SearchException(err)
@@ -50,7 +52,7 @@ class Search(object):
 
         payload = {'id': resp['id']}
         u = self._url + '/search/results/id'
-        r = requests.get(u, params=payload)
+        r = requests.get(u, params=payload, verify=self._verify)
         if r.status_code != requests.codes.ok:
             err = 'Search results error: response {}, "{}"'.format(r.status_code, r.text.strip())
             raise SearchException(err)

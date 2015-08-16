@@ -54,6 +54,8 @@ func (o *opContext) rollback() error {
 type Config struct {
 	General struct {
 		Listen string
+		Key    string
+		Cert   string
 	}
 	Database struct {
 		Hostname string
@@ -359,7 +361,11 @@ func main() {
 	s.HandleFunc("/search/results/id", serviceGetSearchID).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
 	listenAddr := cfg.General.Listen
-	err = http.ListenAndServe(listenAddr, nil)
+	err = http.ListenAndServeTLS(listenAddr, cfg.General.Cert, cfg.General.Key, nil)
+	if err != nil {
+		logf("http.ListenAndServeTLS: %v", err)
+		doExit(1)
+	}
 
 	doExit(0)
 }
