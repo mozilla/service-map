@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block scripts %}
+{{ super() }}
+<script>
+  $(document).ready(function() {
+    $('#hosttab').DataTable();
+    $('#hostdyntab').DataTable();
+  });
+</script>
+{% endblock %}
+{% block content %}
+<div class="container">
+  <h3>System group information</h3>
+  <table id="sr" class="suTable" cellspacing="0" width="100%">
+    <tr><td class="suHeader">System group</td>
+      <td class="suTableCell">
+        <table class="innerTable">
+          <tr><td class="suHeader">Name</td><td>{{ results.name }}</td></tr>
+          <tr><td class="suHeader">ID</td><td>{{ results.id }}</td></tr>
+          <tr><td class="suHeader">Environment</td><td style="text-transform:capitalize">{{ results.environment }}</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>
+<div class="container">
+  <h3>Linked hosts: static</h3>
+  <p>The following hosts are statically linked to this system group.</p>
+  <table id="hosttab" class="display" cellspacing="0" width="100%">
+    <thead>
+      <tr>
+        <td>Hostname</td>
+      </tr>
+    </thead>
+    <tbody>
+  {% for r in results.hosts %}
+  <tr><td>{{ r.hostname }} [<a href="{{ url_for('vulnlist', target=r.hostname) }}">show_vulns</a>]</td></tr>
+  {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="container">
+  <h3>Linked host expressions: dynamic</h3>
+  <p>Dynamic host expressions are applied to service map requests for unknown
+  hostnames, if the expression matches the result will specify this group.</p>
+  <table id="hostdyntab" class="display" cellspacing="0" width="100%">
+    <thead>
+      <tr>
+        <td>Hostname</td>
+      </tr>
+    </thead>
+    <tbody>
+  {% for r in results.hostmatch %}
+  <tr><td>{{ r.expression }}</td></tr>
+  {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -9,7 +9,7 @@ import requests
 import uuid
 import json
 
-class SearchException(Exception):
+class SLIBException(Exception):
     def __init__(self, m):
         self._message = m
 
@@ -37,6 +37,8 @@ class Search(object):
 
     def execute(self):
         searchlist = []
+        if len(self._searches) == 0:
+            return
         for x in self._searches:
             n = self._searches[x]
             n['identifier'] = x
@@ -47,7 +49,7 @@ class Search(object):
         r = requests.post(u, data=payload, verify=self._verify)
         if r.status_code != requests.codes.ok:
             err = 'Search error: response {}, "{}"'.format(r.status_code, r.text.strip())
-            raise SearchException(err)
+            raise SLIBException(err)
         resp = json.loads(r.text)
 
         payload = {'id': resp['id']}
@@ -55,7 +57,7 @@ class Search(object):
         r = requests.get(u, params=payload, verify=self._verify)
         if r.status_code != requests.codes.ok:
             err = 'Search results error: response {}, "{}"'.format(r.status_code, r.text.strip())
-            raise SearchException(err)
+            raise SLIBException(err)
         resp = json.loads(r.text)
 
         for x in resp['results']:

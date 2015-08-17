@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block scripts %}
+{{ super() }}
+<script>
+  $(document).ready(function() {
+    $('#sr').DataTable( {
+      "createdRow": function (row, data, index) {
+        trColor();
+    }});
+    trColor();
+  });
+</script>
+{% endblock %}
+{% block content %}
+<div class="container">
+  <table id="sr" class="display" cellspacing="0" width="100%">
+    <thead>
+      <tr>
+        <td>ID</td>
+        <td>Name</td>
+        <td>Data Classification</td>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in results.results %}
+    <tr>
+      <td><a href="{{ url_for('getrra', rraid=r.id) }}">{{ r.id }}</a></td>
+      <td>{{ r.name }}</td><td><span name="rlabel">{{ r.defdata }}</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

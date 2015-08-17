@@ -7,10 +7,6 @@
 
 package servicelib
 
-import (
-	"encoding/json"
-)
-
 // Parameters used for a search request.
 type SearchParams struct {
 	Searches []Search `json:"search"` // Slice of searches to conduct for this request
@@ -24,7 +20,7 @@ type Search struct {
 
 // Describes a response to a search request.
 type SearchResponse struct {
-	SearchID string `json:"id"` // The ID of the search that can be used to fetch results
+	SearchID string `json:"id"` // The ID of the search to fetch results
 }
 
 // The response to a search results request.
@@ -37,26 +33,26 @@ type SearchResult struct {
 	Service    Service `json:"service"`    // The service result information
 }
 
-// The response to a service query.
+// The response to a general service query.
 type Service struct {
 	Services    []RRAService `json:"services,omitempty"`    // Services linked from RRA table
 	SystemGroup SystemGroup  `json:"systemgroup,omitempty"` // Database system group
 	Found       bool         `json:"found"`                 // Results of search
 }
 
-func (s *Service) Json() (string, error) {
-	buf, err := json.Marshal(s)
-	if err != nil {
-		return "", err
-	}
-	return string(buf), nil
+// The response to a system group list request.
+type SystemGroupsResponse struct {
+	Results []SystemGroup `json:"results"`
 }
 
-type RRAService struct {
-	Name string `json:"name,omitempty"`
+// The response to a system group request.
+type GetSystemGroupResponse struct {
+	SystemGroup SystemGroup `json:"systemgroup"`
+	Hosts       []string    `json:"hosts"`     // Hostnames statically linked to this group
+	HostMatch   []string    `json:"hostmatch"` // Dynamic expression maps for hostnames
 }
 
-type SystemGroup struct {
-	Name string `json:"name,omitempty"`
-	ID   int    `json:"id,omitempty"`
+// The response to an RRA list request.
+type RRAsResponse struct {
+	Results []RRAService `json:"results"`
 }

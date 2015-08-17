@@ -31,10 +31,32 @@ func (r *rra) sanitize() error {
 
 type rraDetails struct {
 	Metadata rraMetadata `json:"metadata"`
+	Risk     rraRisk     `json:"risk"`
+	Data     rraData     `json:"data"`
 }
 
 type rraMetadata struct {
 	Service string `json:"service"`
+}
+
+type rraData struct {
+	Default string `json:"default"`
+}
+
+type rraRisk struct {
+	Confidentiality rraRiskAttr `json:"confidentiality"`
+	Integrity       rraRiskAttr `json:"integrity"`
+	Availability    rraRiskAttr `json:"availability"`
+}
+
+type rraRiskAttr struct {
+	Reputation   rraMeasure `json:"reputation"`
+	Finances     rraMeasure `json:"finances"`
+	Productivity rraMeasure `json:"productivity"`
+}
+
+type rraMeasure struct {
+	Impact string `json:"impact"`
 }
 
 var rraIndex = "rra"
@@ -90,12 +112,51 @@ func dbInit() error {
 	return nil
 }
 
+func sanitizeImpact(s string) string {
+	return strings.ToLower(s)
+}
+
 func dbUpdateRRAs() error {
 	for _, x := range rraList {
-		_, err := dbconn.Exec(`INSERT INTO rra (service)
-			SELECT $1 WHERE NOT EXISTS (
-				SELECT rraid FROM rra WHERE service = $2
-			)`, x.Details.Metadata.Service, x.Details.Metadata.Service)
+		// Extract impact information.
+		var (
+			riskARI string
+			riskAPI string
+			riskAFI string
+
+			riskCRI string
+			riskCPI string
+			riskCFI string
+
+			riskIRI string
+			riskIPI string
+			riskIFI string
+
+			datadef string
+		)
+		riskARI = sanitizeImpact(x.Details.Risk.Availability.Reputation.Impact)
+		riskAPI = sanitizeImpact(x.Details.Risk.Availability.Productivity.Impact)
+		riskAFI = sanitizeImpact(x.Details.Risk.Availability.Finances.Impact)
+
+		riskCRI = sanitizeImpact(x.Details.Risk.Confidentiality.Reputation.Impact)
+		riskCPI = sanitizeImpact(x.Details.Risk.Confidentiality.Productivity.Impact)
+		riskCFI = sanitizeImpact(x.Details.Risk.Confidentiality.Finances.Impact)
+
+		riskIRI = sanitizeImpact(x.Details.Risk.Integrity.Reputation.Impact)
+		riskIPI = sanitizeImpact(x.Details.Risk.Integrity.Productivity.Impact)
+		riskIFI = sanitizeImpact(x.Details.Risk.Integrity.Finances.Impact)
+
+		datadef = sanitizeImpact(x.Details.Data.Default)
+
+		_, err := dbconn.Exec(`INSERT INTO rra
+			(service, ari, api, afi, cri, cpi, cfi, iri, ipi, ifi, datadefault)
+			SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+			WHERE NOT EXISTS (
+				SELECT 1 FROM rra WHERE service = $12
+			)`,
+			x.Details.Metadata.Service, riskARI, riskAPI, riskAFI,
+			riskCRI, riskCPI, riskCFI, riskIRI, riskIPI, riskIFI,
+			datadef, x.Details.Metadata.Service)
 		if err != nil {
 			return err
 		}

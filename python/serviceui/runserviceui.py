@@ -5,7 +5,7 @@
 # Copyright (c) 2015 Mozilla Corporation
 # Author: ameihm@mozilla.com
 
-from search import *
-from sysgroup import *
-from rra import *
-from vulns import *
+import serviceui
+
+if __name__ == '__main__':
+    serviceui.domain()

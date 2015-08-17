@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block scripts %}
+{{ super() }}
+<script>
+  $(document).ready(function() {
+    trColor();
+  });
+</script>
+{% endblock %}
+{% block content %}
+<div class="container">
+  <h3>RRA information</h3>
+  <table id="sr" class="suTable" cellspacing="0" width="100%">
+    <tr><td class="suHeader">Details</td>
+      <td class="suTableCell">
+        <table class="innerTable">
+          <tr><td class="suHeader">Name</td><td>{{ results.name }}</td></tr>
+          <tr><td class="suHeader">ID</td><td>{{ results.id }}</td></tr>
+          <tr><td class="suHeader">Data classification</td>
+            <td><span name="rlabel">{{ results.defdata }}</span></td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>
+<div class="container">
+  <h3>Risk details</h3>
+  <table id="risk" class="suTable" cellspacing="0" width="100%">
+    <tr><td class="suHeader">Impact</td>
+      <td class="suHeader">Availability</td>
+      <td class="suHeader">Confidentiality</td>
+      <td class="suHeader">Integrity</td>
+    </tr>
+    <tr>
+      <td class="suHeader">Reputation</td>
+      <td><span name="rlabel">{{ results.availrep }}</span></td>
+      <td><span name="rlabel">{{ results.confirep }}</span></td>
+      <td><span name="rlabel">{{ results.integrep }}</span></td>
+    </tr>
+    <tr>
+      <td class="suHeader">Productivity</td>
+      <td><span name="rlabel">{{ results.availprd }}</span></td>
+      <td><span name="rlabel">{{ results.confiprd }}</span></td>
+      <td><span name="rlabel">{{ results.integprd }}</span></td>
+    </tr>
+    <tr>
+      <td class="suHeader">Financial</td>
+      <td><span name="rlabel">{{ results.availfin }}</span></td>
+      <td><span name="rlabel">{{ results.confifin }}</span></td>
+      <td><span name="rlabel">{{ results.integfin }}</span></td>
+    </tr>
+  </table>
+</div>
+<div class="container">
+  <h3>Associated system groups</h3>
+  <p>A list of system groups that directly support the service this RRA covers.</p>
+  <table class="suTable" cellspacing="0" width="100%">
+    <tr><td class="suHeader">ID</td>
+      <td class="suHeader">Name</td>
+      <td class="suHeader">Environment</td>
+      {% if results.supportgrps|length > 0 %}
+      {% for r in results.supportgrps %}
+      <tr>
+        <td><a href="{{ url_for('getsysgroup', sysgroupid=r.id) }}">{{ r.id }}</a></td>
+        <td>{{ r.name }}</td>
+        <td style="text-transform:capitalize">{{ r.environment }}</td>
+      </tr>
+      {% endfor %}
+      {% else %}
+      <tr>
+        <td>NA</td>
+        <td>No information available</td>
+        <td>No information available</td>
+      </tr>
+      {% endif %}
+    </tr>
+  </table>
+</div>
+{% endblock %}

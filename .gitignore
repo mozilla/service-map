@@ -5,3 +5,5 @@ pkg/
 python/pyservicelib/build
 etc/*.key
 etc/*.crt
+*.swp
+*.pyc

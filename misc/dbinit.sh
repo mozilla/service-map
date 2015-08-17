@@ -12,7 +12,17 @@ DROP TABLE IF EXISTS sysgroup;
 DROP TABLE IF EXISTS searchresults;
 CREATE TABLE rra (
 	rraid SERIAL PRIMARY KEY,
-	service TEXT NOT NULL UNIQUE
+	service TEXT NOT NULL UNIQUE,
+	ari TEXT,
+	api TEXT,
+	afi TEXT,
+	cri TEXT,
+	cpi TEXT,
+	cfi TEXT,
+	iri TEXT,
+	ipi TEXT,
+	ifi TEXT,
+	datadefault TEXT
 );
 CREATE TABLE sysgroup (
 	sysgroupid SERIAL PRIMARY KEY,

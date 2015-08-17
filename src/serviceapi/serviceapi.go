@@ -31,6 +31,7 @@ type opContext struct {
 
 func (o *opContext) newContext(db *sql.DB, useTransaction bool) (err error) {
 	o.opid = slib.NewUUID()
+	o.db = db
 	if useTransaction {
 		o.tx, err = db.Begin()
 		if err != nil {
@@ -38,6 +39,20 @@ func (o *opContext) newContext(db *sql.DB, useTransaction bool) (err error) {
 		}
 	}
 	return nil
+}
+
+func (o *opContext) Query(qs string, args ...interface{}) (*sql.Rows, error) {
+	if o.tx != nil {
+		return o.tx.Query(qs, args...)
+	}
+	return o.db.Query(qs, args...)
+}
+
+func (o *opContext) Exec(qs string, args ...interface{}) (sql.Result, error) {
+	if o.tx != nil {
+		return o.tx.Exec(qs, args...)
+	}
+	return o.db.Exec(qs, args...)
 }
 
 func (o *opContext) commit() error {
@@ -61,6 +76,10 @@ type Config struct {
 		Hostname string
 		Database string
 	}
+	Vulnerabilities struct {
+		ESHost string
+		Index  string
+	}
 }
 
 func (c *Config) validate() error {
@@ -82,9 +101,12 @@ var dbconn *sql.DB
 var wg sync.WaitGroup
 var logChan chan string
 
-func serviceLookup(s *slib.Service) error {
+func serviceLookup(op opContext, s *slib.Service) error {
 	useid := s.SystemGroup.ID
-	rows, err := dbconn.Query(`SELECT service FROM rra
+	rows, err := op.Query(`SELECT service, rraid,
+		ari, api, afi, cri, cpi, cfi,
+		iri, ipi, ifi, datadefault
+		FROM rra
 		WHERE rraid IN (
 		SELECT rraid FROM rra_sysgroup
 		WHERE sysgroupid = $1 )`, useid)
@@ -93,28 +115,31 @@ func serviceLookup(s *slib.Service) error {
 	}
 	for rows.Next() {
 		var ns slib.RRAService
-		rows.Scan(&ns.Name)
+		rows.Scan(&ns.Name, &ns.ID, &ns.AvailRep, &ns.AvailPrd,
+			&ns.AvailFin, &ns.ConfiRep, &ns.ConfiPrd,
+			&ns.ConfiFin, &ns.IntegRep, &ns.IntegPrd,
+			&ns.IntegFin, &ns.DefData)
 		s.Services = append(s.Services, ns)
 	}
 	return nil
 }
 
-func mergeSystemGroups(s *slib.Service, groups []slib.SystemGroup) error {
+func mergeSystemGroups(op opContext, s *slib.Service, groups []slib.SystemGroup) error {
 	if len(groups) == 0 {
 		return nil
 	}
 	s.Found = true
 	s.SystemGroup = groups[0]
-	err := serviceLookup(s)
+	err := serviceLookup(op, s)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func searchUsingHost(hn string) (slib.Service, error) {
+func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	var ret slib.Service
-	rows, err := dbconn.Query(`SELECT sysgroupid, name
+	rows, err := op.Query(`SELECT sysgroupid, name, environment
 		FROM sysgroup WHERE sysgroupid IN (
 		SELECT DISTINCT sysgroupid
 		FROM host WHERE hostname = $1 )`, hn)
@@ -124,21 +149,21 @@ func searchUsingHost(hn string) (slib.Service, error) {
 	groups := make([]slib.SystemGroup, 0)
 	for rows.Next() {
 		var n slib.SystemGroup
-		err = rows.Scan(&n.ID, &n.Name)
+		err = rows.Scan(&n.ID, &n.Name, &n.Environment)
 		groups = append(groups, n)
 	}
-	err = mergeSystemGroups(&ret, groups)
+	err = mergeSystemGroups(op, &ret, groups)
 	if err != nil {
 		return ret, err
 	}
 	return ret, nil
 }
 
-func searchUsingHostMatch(hn string) (slib.Service, error) {
+func searchUsingHostMatch(op opContext, hn string) (slib.Service, error) {
 	var ret slib.Service
 
 	// Use hostmatch to see if we can identify the system group.
-	rows, err := dbconn.Query(`SELECT sysgroupid, name
+	rows, err := op.Query(`SELECT sysgroupid, name, environment
 		FROM sysgroup WHERE sysgroupid IN (
 		SELECT DISTINCT sysgroupid
 		FROM hostmatch WHERE
@@ -149,10 +174,10 @@ func searchUsingHostMatch(hn string) (slib.Service, error) {
 	groups := make([]slib.SystemGroup, 0)
 	for rows.Next() {
 		var n slib.SystemGroup
-		err = rows.Scan(&n.ID, &n.Name)
+		err = rows.Scan(&n.ID, &n.Name, &n.Environment)
 		groups = append(groups, n)
 	}
-	err = mergeSystemGroups(&ret, groups)
+	err = mergeSystemGroups(op, &ret, groups)
 	if err != nil {
 		return ret, err
 	}
@@ -160,12 +185,12 @@ func searchUsingHostMatch(hn string) (slib.Service, error) {
 	return ret, nil
 }
 
-func searchHost(hn string) (slib.Service, error) {
-	sr, err := searchUsingHost(hn)
+func searchHost(op opContext, hn string) (slib.Service, error) {
+	sr, err := searchUsingHost(op, hn)
 	if err != nil || sr.Found {
 		return sr, err
 	}
-	sr, err = searchUsingHostMatch(hn)
+	sr, err = searchUsingHostMatch(op, hn)
 	if err != nil || sr.Found {
 		return sr, err
 	}
@@ -176,7 +201,7 @@ func runSearch(o opContext, s slib.Search) error {
 	var sres slib.Service
 	var err error
 	if s.Host != "" {
-		sres, err = searchHost(s.Host)
+		sres, err = searchHost(o, s.Host)
 		if err != nil {
 			return err
 		}
@@ -187,7 +212,7 @@ func runSearch(o opContext, s slib.Search) error {
 	if err != nil {
 		return err
 	}
-	_, err = o.tx.Exec(`INSERT INTO searchresults
+	_, err = o.Exec(`INSERT INTO searchresults
 	VALUES ( $1, $2, $3, now())`, o.opid, s.Identifier, string(sresstr))
 	if err != nil {
 		return err
@@ -234,8 +259,8 @@ func serviceNewSearch(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(rw, string(buf))
 }
 
-func purgeSearchResult(sid string) error {
-	_, err := dbconn.Exec(`DELETE FROM searchresults
+func purgeSearchResult(op opContext, sid string) error {
+	_, err := op.Exec(`DELETE FROM searchresults
 		WHERE opid = $1`, sid)
 	if err != nil {
 		return err
@@ -246,13 +271,16 @@ func purgeSearchResult(sid string) error {
 func serviceGetSearchID(rw http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 
+	op := opContext{}
+	op.newContext(dbconn, false)
+
 	sid := req.FormValue("id")
 	if sid == "" {
 		http.Error(rw, "must specify a valid search id", 500)
 		return
 	}
 
-	rows, err := dbconn.Query(`SELECT identifier, result
+	rows, err := op.Query(`SELECT identifier, result
 		FROM searchresults WHERE opid = $1`, sid)
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
@@ -284,7 +312,7 @@ func serviceGetSearchID(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = purgeSearchResult(sid)
+	err = purgeSearchResult(op, sid)
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
 		return
@@ -359,6 +387,11 @@ func main() {
 	s := r.PathPrefix("/api/v1").Subrouter()
 	s.HandleFunc("/search", serviceNewSearch).Methods("POST")
 	s.HandleFunc("/search/results/id", serviceGetSearchID).Methods("GET")
+	s.HandleFunc("/sysgroups", serviceSysGroups).Methods("GET")
+	s.HandleFunc("/sysgroup/id", serviceGetSysGroup).Methods("GET")
+	s.HandleFunc("/rras", serviceRRAs).Methods("GET")
+	s.HandleFunc("/rra/id", serviceGetRRA).Methods("GET")
+	s.HandleFunc("/vulns/target", serviceGetVulnsTarget).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
 	listenAddr := cfg.General.Listen
 	err = http.ListenAndServeTLS(listenAddr, cfg.General.Cert, cfg.General.Key, nil)
