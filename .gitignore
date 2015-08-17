@@ -2,6 +2,6 @@ src/code.google.com
 src/github.com
 bin/
 pkg/
-python/build
+python/pyservicelib/build
 etc/*.key
 etc/*.crt
