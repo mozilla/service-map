@@ -28,12 +28,14 @@ CREATE TABLE rra_sysgroup (
 CREATE TABLE hostmatch (
 	hostmatchid SERIAL PRIMARY KEY,
 	expression TEXT NOT NULL UNIQUE,
-	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid)
+	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
+	comment TEXT
 );
 CREATE TABLE host (
 	hostid SERIAL PRIMARY KEY,
 	hostname TEXT NOT NULL UNIQUE,
-	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid)
+	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
+	comment TEXT
 );
 CREATE TABLE searchresults (
 	opid TEXT NOT NULL,
