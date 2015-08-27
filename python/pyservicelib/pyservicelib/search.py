@@ -62,3 +62,12 @@ class Search(object):
 
         for x in resp['results']:
             self._searches[x['identifier']]['result'] = x
+
+def searchmatch(api, hostname, verify=True):
+    u = api + '/search/match'
+    payload = { 'hostname': hostname }
+    r = requests.get(u, params=payload, verify=verify)
+    if r.status_code != requests.codes.ok:
+        err = 'Request error: response {}'.format(r.status_code)
+        raise search.SLIBException(err)
+    return json.loads(r.text)

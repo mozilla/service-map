@@ -321,6 +321,45 @@ func serviceGetSearchID(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(rw, string(buf))
 }
 
+func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
+	op := opContext{}
+	op.newContext(dbconn, false)
+
+	hm := req.FormValue("hostname")
+	if hm == "" {
+		http.Error(rw, "no search criteria specified", 500)
+		return
+	}
+	hm = "%" + hm + "%"
+	rows, err := op.Query(`SELECT hostid, hostname, sysgroupid
+		FROM host WHERE hostname LIKE $1`, hm)
+	if err != nil {
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	resp := slib.SearchMatchResponse{}
+	for rows.Next() {
+		hn := slib.Host{}
+		var sgid sql.NullInt64
+		err = rows.Scan(&hn.ID, &hn.Hostname, &sgid)
+		if err != nil {
+			http.Error(rw, err.Error(), 500)
+			return
+		}
+		if sgid.Valid {
+			hn.SysGroupID = int(sgid.Int64)
+		}
+		resp.Hosts = append(resp.Hosts, hn)
+	}
+
+	buf, err := json.Marshal(&resp)
+	if err != nil {
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	fmt.Fprintf(rw, string(buf))
+}
+
 func dbInit() error {
 	var err error
 	connstr := fmt.Sprintf("dbname=%v host=%v", cfg.Database.Database, cfg.Database.Hostname)
@@ -387,6 +426,7 @@ func main() {
 	s := r.PathPrefix("/api/v1").Subrouter()
 	s.HandleFunc("/search", serviceNewSearch).Methods("POST")
 	s.HandleFunc("/search/results/id", serviceGetSearchID).Methods("GET")
+	s.HandleFunc("/search/match", serviceSearchMatch).Methods("GET")
 	s.HandleFunc("/sysgroups", serviceSysGroups).Methods("GET")
 	s.HandleFunc("/sysgroup/id", serviceGetSysGroup).Methods("GET")
 	s.HandleFunc("/rras", serviceRRAs).Methods("GET")

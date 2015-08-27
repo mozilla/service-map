@@ -56,3 +56,8 @@ type GetSystemGroupResponse struct {
 type RRAsResponse struct {
 	Results []RRAService `json:"results"`
 }
+
+// The response to a match search request.
+type SearchMatchResponse struct {
+	Hosts []Host `json:"hosts"`
+}

@@ -52,6 +52,26 @@ def search():
         params = ns.result_host(form.hostname.data)
     return render_template('search.html', form=form, results=params)
 
+@app.route('/searchmatch', methods=['GET', 'POST'])
+def searchmatch():
+    url, vs = apiopt()
+    form = SearchForm()
+    params = None
+    if form.validate_on_submit():
+        if len(form.hostname.data) == 0:
+            abort(500)
+        params = pyservicelib.searchmatch(url, form.hostname.data, verify=vs)
+        sysgrps = pyservicelib.get_sysgroups(url, verify=vs)
+        if params['hosts'] != None:
+            for x in params['hosts']:
+                for y in sysgrps['results']:
+                    if y['id'] == x['sysgroupid']:
+                        x['sysgroupname'] = y['name']
+                        break
+        else:
+            params['hosts'] = []
+    return render_template('searchmatch.html', form=form, results=params)
+
 @app.route('/vulnlist', methods=['GET'])
 def vulnlist():
     url, vs = apiopt()

@@ -27,7 +27,13 @@
 
     <div class="collapse navbar-collapse" id="ui-navbar">
       <ul class="nav navbar-nav">
-        <li><a href="{{ url_for('search') }}">System search</a></li>
+        <li class="dropdown">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Search<spam class="caret"></span></a>
+          <ul class="dropdown-menu">
+            <li><a href="{{ url_for('search') }}">System lookup</a></li>
+            <li><a href="{{ url_for('searchmatch') }}">Host search</a></li>
+          </ul>
+        </li>
         <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">RRA<span class="caret"></span></a>
           <ul class="dropdown-menu">
