@@ -26,6 +26,12 @@
 <div class="container">
   <h3>Linked hosts: static</h3>
   <p>The following hosts are statically linked to this system group.</p>
+  {% set hl = [] %}
+  {% for r in results.hosts %}
+  {% do hl.append(r.hostname) %}
+  {% endfor %}
+  <p><a href="{{ url_for('vulnlist', target=hl) }}">Show all</a>
+  known vulnerabilities for system group.</p>
   <table id="hosttab" class="display" cellspacing="0" width="100%">
     <thead>
       <tr>
