@@ -2,8 +2,30 @@
 {% block scripts %}
 {{ super() }}
 <script>
+  $.fn.dataTable.ext.type.detect.unshift(
+    function (d) {
+      var b = $("<div>" + d + "</div>").text()
+      if (b === "maximum" || b === "high" || b === "mediumlow") {
+        return "impact";
+      }
+      return null;
+    }
+  );
+  $.fn.dataTable.ext.type.order['impact-pre'] = function(d) {
+    var lbl = $(d).html()
+    switch (lbl) {
+      case 'maximum': return 3;
+      case 'high': return 2;
+      case 'mediumlow': return 1;
+    }
+    return 0;
+  }
   $(document).ready(function() {
-    $('#sr').DataTable();
+    $('#sr').DataTable( {
+      "createdRow": function (row, data, index) {
+        trColor();
+    }});
+    trColor();
   });
 </script>
 {% endblock %}
@@ -13,6 +35,7 @@
     <thead>
       <tr>
         <td>Target</td>
+        <td>ID</td>
         <td>Title</td>
         <td>Impact</td>
       </tr>
@@ -21,8 +44,9 @@
     {% for v in vulns.vulns %}
     <tr>
       <td>{{ v.asset.hostname }}</td>
+      <td>{{ v.vuln.vulnid }}</td>
       <td>{{ v.vuln.title }}</td>
-      <td>{{ v.vuln.impact_label }}</td>
+      <td><span name="rlabel">{{ v.vuln.impact_label }}</span></td>
     </tr>
     {% endfor %}
     </tbody>

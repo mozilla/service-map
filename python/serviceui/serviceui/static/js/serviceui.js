@@ -12,7 +12,7 @@ function trColor() {
         node.className = "riskLabel riskLabelMax"
       } else if (ct === "high" || ct === "restricted") {
         node.className = "riskLabel riskLabelHigh"
-      } else if (ct === "medium" || ct === "internal") {
+      } else if (ct === "medium" || ct === "internal" || ct === "mediumlow") {
         node.className = "riskLabel riskLabelMedium"
       } else if (ct === "low" || ct === "public") {
         node.className = "riskLabel riskLabelLow"
