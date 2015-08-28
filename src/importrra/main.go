@@ -16,6 +16,7 @@ import (
 	elastigo "github.com/mattbaird/elastigo/lib"
 	"os"
 	"strings"
+	"time"
 )
 
 var dbconn *sql.DB
@@ -68,6 +69,13 @@ func requestRRAs(eshost string) error {
 	conn := elastigo.NewConn()
 	conn.Domain = eshost
 
+	// Look at most 24 hours into the past, since the RRA index is updated
+	// on a continuous basis and we don't delete. We will match documents
+	// that have been recently updated (are still relevant), but will
+	// ignore older documents.
+	now := time.Now().UTC()
+	begin := now.Add(-1 * (time.Hour * 24))
+
 	template := `{
 		"from": %v,
 		"size": 10,
@@ -75,10 +83,18 @@ func requestRRAs(eshost string) error {
 			"term": {
 				"category": "rra_data"
 			}
+		},
+		"filter": {
+			"range": {
+				"utctimestamp": {
+					"from": "%v",
+					"to": "%v"
+				}
+			}
 		}
 	}`
 	for i := 0; ; i += 10 {
-		tempbuf := fmt.Sprintf(template, i)
+		tempbuf := fmt.Sprintf(template, i, begin.Format(time.RFC3339), now.Format(time.RFC3339))
 		res, err := conn.Search(rraIndex, "rra_state", nil, tempbuf)
 		if err != nil {
 			return err
