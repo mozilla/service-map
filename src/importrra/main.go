@@ -71,6 +71,9 @@ func requestRRAs(eshost string) error {
 	template := `{
 		"from": %v,
 		"size": 10,
+		"sort": [
+		{ "details.metadata.service": "asc" }
+		],
 		"query": {
 			"bool": {
 				"must": [
@@ -110,6 +113,7 @@ func requestRRAs(eshost string) error {
 			rraList = append(rraList, nrra)
 		}
 	}
+	fmt.Fprintf(os.Stdout, "Fetched %v RRAs\n", len(rraList))
 
 	return nil
 }
@@ -159,6 +163,7 @@ func dbUpdateRRAs() error {
 
 		datadef = sanitizeImpact(x.Details.Data.Default)
 
+		fmt.Fprintf(os.Stdout, "RRA: %v\n", x.Details.Metadata.Service)
 		_, err := dbconn.Exec(`INSERT INTO rra
 			(service, ari, api, afi, cri, cpi, cfi, iri, ipi, ifi, datadefault)
 			SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
