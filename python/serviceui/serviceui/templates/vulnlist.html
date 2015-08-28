@@ -2,6 +2,12 @@
 {% block scripts %}
 {{ super() }}
 <script>
+  var vdetails = [
+    {% for v in vulns.vulns %}
+    { "cvss": "{{ v.vuln.cvss|safe }}", "proof": "{{ v.vuln.proof|safe }}",
+    "timestamp": "{{ v.utctimestamp|safe }}" },
+    {% endfor %}
+  ]
   $.fn.dataTable.ext.type.detect.unshift(
     function (d) {
       var b = $("<div>" + d + "</div>").text()
@@ -21,12 +27,32 @@
     return 0;
   }
   $(document).ready(function() {
-    $('#sr').DataTable( {
+    var table = $('#sr').DataTable( {
       "createdRow": function (row, data, index) {
         trColor();
     }});
     trColor();
+
+    $('#sr tbody').on('click', 'td.details-control', function() {
+      var tr = $(this).closest('tr');
+      var row = table.row(tr);
+      if (row.child.isShown()) {
+        row.child.hide();
+        tr.removeClass('shown');
+      }
+      else {
+        row.child(rowformat(vdetails[tr.data('rowid')])).show();
+        tr.addClass('shown');
+      }
+    });
   });
+  function rowformat(d) {
+    return '<table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;">' +
+      '<tr><td class="suHeader">CVSS base score:</td><td>' + d['cvss'] + '</td></tr>' + 
+      '<tr><td class="suHeader">Proof:</td><td>' + d['proof'] + '</td></tr>' +
+      '<tr><td class="suHeader">Last updated:</td><td>' + d['timestamp'] + '</td></tr>' +
+      '</table>';
+  }
 </script>
 {% endblock %}
 {% block content %}
@@ -34,6 +60,7 @@
   <table id="sr" class="display" cellspacing="0" width="100%">
     <thead>
       <tr>
+        <td></td>
         <td>Target</td>
         <td>ID</td>
         <td>Title</td>
@@ -42,7 +69,8 @@
     </thead>
     <tbody>
     {% for v in vulns.vulns %}
-    <tr>
+    <tr data-rowid="{{ loop.index - 1 }}">
+      <td class="details-control">+</td>
       <td>{{ v.asset.hostname }}</td>
       <td>{{ v.vuln.vulnid }}</td>
       <td>{{ v.vuln.title }}</td>
