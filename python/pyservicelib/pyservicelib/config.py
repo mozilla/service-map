@@ -5,8 +5,12 @@
 # Copyright (c) 2015 Mozilla Corporation
 # Author: ameihm@mozilla.com
 
-from config import *
-from search import *
-from sysgroup import *
-from rra import *
-from vulns import *
+class Config(object):
+    def __init__(self):
+        self.sslverify = './ca.crt'
+        self.apihost = 'https://127.0.0.1:4444'
+
+    def apiurl(self):
+        return self.apihost + '/api/v1'
+
+config = Config()

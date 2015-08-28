@@ -8,19 +8,20 @@
 import requests
 import json
 import search
+import config as cfg
 
-def get_sysgroup(api, groupid, verify=True):
-    u = api + '/sysgroup/id'
+def get_sysgroup(groupid):
+    u = cfg.config.apiurl() + '/sysgroup/id'
     payload = { 'id': groupid }
-    r = requests.get(u, params=payload, verify=verify)
+    r = requests.get(u, params=payload, verify=cfg.config.sslverify)
     if r.status_code != requests.codes.ok:
         err = 'Request error: response {}'.format(r.status_code)
         raise search.SLIBException(err)
     return json.loads(r.text)
 
-def get_sysgroups(api, verify=True):
-    u = api + '/sysgroups'
-    r = requests.get(u, verify=verify)
+def get_sysgroups():
+    u = cfg.config.apiurl() + '/sysgroups'
+    r = requests.get(u, verify=cfg.config.sslverify)
     if r.status_code != requests.codes.ok:
         err = 'Request error: response {}'.format(r.status_code)
         raise search.SLIBException(err)

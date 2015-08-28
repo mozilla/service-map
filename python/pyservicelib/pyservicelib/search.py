@@ -8,6 +8,7 @@
 import requests
 import uuid
 import json
+import config as cfg
 
 class SLIBException(Exception):
     def __init__(self, m):
@@ -17,12 +18,14 @@ class SLIBException(Exception):
         return self._message
 
 class Search(object):
-    def __init__(self, url, verify=True):
-        self._url = url
+    def __init__(self):
+        self._url = cfg.config.apiurl()
+        self._verify = cfg.config.sslverify
         self._searches = {}
-        self._verify = verify
 
     def add_host(self, hostname):
+        if hostname == None or len(hostname) == 0:
+            raise SLIBException('invalid hostname')
         self._searches[str(uuid.uuid4())] = {'host': hostname}
 
     def result_host(self, hostname):
@@ -63,10 +66,12 @@ class Search(object):
         for x in resp['results']:
             self._searches[x['identifier']]['result'] = x
 
-def searchmatch(api, hostname, verify=True):
-    u = api + '/search/match'
+def searchmatch(hostname):
+    if hostname == None or len(hostname) == 0:
+        raise SLIBException('invalid hostname')
+    u = cfg.config.apiurl() + '/search/match'
     payload = { 'hostname': hostname }
-    r = requests.get(u, params=payload, verify=verify)
+    r = requests.get(u, params=payload, verify=cfg.config.sslverify)
     if r.status_code != requests.codes.ok:
         err = 'Request error: response {}'.format(r.status_code)
         raise search.SLIBException(err)

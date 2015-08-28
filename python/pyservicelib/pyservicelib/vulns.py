@@ -8,13 +8,14 @@
 import requests
 import json
 import search
+import config as cfg
 
-def get_vulns(api, targets, verify=True):
-    u = api + '/vulns/target'
+def get_vulns(targets):
+    u = cfg.config.apiurl() + '/vulns/target'
     ret = { 'vulns': [] }
     for x in targets:
         payload = { 'target': x }
-        r = requests.get(u, params=payload, verify=verify)
+        r = requests.get(u, params=payload, verify=cfg.config.sslverify)
         if r.status_code != requests.codes.ok:
             err = 'Request error: response {}'.format(r.status_code)
             raise search.SLIBException(err)

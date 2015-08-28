@@ -8,19 +8,20 @@
 import requests
 import json
 import search
+import config as cfg
 
-def get_rra(api, rraid, verify=True):
-    u = api + '/rra/id'
+def get_rra(rraid):
+    u = cfg.config.apiurl() + '/rra/id'
     payload = { 'id': rraid }
-    r = requests.get(u, params=payload, verify=verify)
+    r = requests.get(u, params=payload, verify=cfg.config.sslverify)
     if r.status_code != requests.codes.ok:
         err = 'Request error: response {}'.format(r.status_code)
         raise search.SLIBException(err)
     return json.loads(r.text)
 
-def get_rras(api, verify=True):
-    u = api + '/rras'
-    r = requests.get(u, verify=verify)
+def get_rras():
+    u = cfg.config.apiurl() + '/rras'
+    r = requests.get(u, verify=cfg.config.sslverify)
     if r.status_code != requests.codes.ok:
         err = 'Request error: response {}'.format(r.status_code)
         raise search.SLIBException(err)
