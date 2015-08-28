@@ -176,6 +176,12 @@ func dbUpdateRRAs() error {
 		if err != nil {
 			return err
 		}
+		_, err = dbconn.Exec(`UPDATE rra
+			SET lastupdated = now() AT TIME ZONE 'utc'
+			WHERE service = $1`, x.Details.Metadata.Service)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

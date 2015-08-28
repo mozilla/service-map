@@ -22,7 +22,8 @@ CREATE TABLE rra (
 	iri TEXT,
 	ipi TEXT,
 	ifi TEXT,
-	datadefault TEXT
+	datadefault TEXT,
+	lastupdated TIMESTAMP
 );
 CREATE TABLE sysgroup (
 	sysgroupid SERIAL PRIMARY KEY,
