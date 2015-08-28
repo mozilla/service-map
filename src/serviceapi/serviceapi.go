@@ -18,75 +18,67 @@ import (
 	_ "github.com/lib/pq"
 	"net/http"
 	"os"
+	slib "servicelib"
 	"sync"
 	"time"
 )
 
-type serviceResponse struct {
-	Services    []rraService `json:"services,omitempty"`
-	SystemGroup sysGroup     `json:"systemgroup,omitempty"`
-	Found       bool         `json:"found"`
-	Stats       stats        `json:"stats,omitempty"`
+type opContext struct {
+	tx   *sql.Tx
+	db   *sql.DB
+	opid string
 }
 
-func (s *serviceResponse) jsonString() string {
-	buf, err := json.Marshal(s)
-	if err != nil {
-		panic(err)
-	}
-	return string(buf)
-}
-
-func (s *serviceResponse) serviceLookup() error {
-	useid := s.SystemGroup.ID
-	rows, err := dbconn.Query(`SELECT service FROM rra
-		WHERE rraid IN (
-		SELECT rraid FROM rra_sysgroup
-		WHERE sysgroupid = $1 )`, useid)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var ns rraService
-		rows.Scan(&ns.Name)
-		s.Services = append(s.Services, ns)
+func (o *opContext) newContext(db *sql.DB, useTransaction bool) (err error) {
+	o.opid = slib.NewUUID()
+	o.db = db
+	if useTransaction {
+		o.tx, err = db.Begin()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (s *serviceResponse) mergeSystemGroups(groups []sysGroup) error {
-	if len(groups) == 0 {
+func (o *opContext) Query(qs string, args ...interface{}) (*sql.Rows, error) {
+	if o.tx != nil {
+		return o.tx.Query(qs, args...)
+	}
+	return o.db.Query(qs, args...)
+}
+
+func (o *opContext) Exec(qs string, args ...interface{}) (sql.Result, error) {
+	if o.tx != nil {
+		return o.tx.Exec(qs, args...)
+	}
+	return o.db.Exec(qs, args...)
+}
+
+func (o *opContext) commit() error {
+	if o.tx == nil {
 		return nil
 	}
-	s.Found = true
-	s.SystemGroup = groups[0]
-	err := s.serviceLookup()
-	if err != nil {
-		return err
-	}
-	return nil
+	return o.tx.Commit()
 }
 
-type stats struct {
-	Source string `json:"source,omitempty"`
-}
-
-type sysGroup struct {
-	Name string `json:"name,omitempty"`
-	ID   int    `json:"id,omitempty"`
-}
-
-type rraService struct {
-	Name string `json:"name"`
+func (o *opContext) rollback() error {
+	return o.tx.Rollback()
 }
 
 type Config struct {
 	General struct {
 		Listen string
+		Key    string
+		Cert   string
 	}
 	Database struct {
 		Hostname string
 		Database string
+	}
+	Vulnerabilities struct {
+		ESHost string
+		Index  string
 	}
 }
 
@@ -109,87 +101,263 @@ var dbconn *sql.DB
 var wg sync.WaitGroup
 var logChan chan string
 
-func searchUsingHost(hn string) (serviceResponse, error) {
-	var sr serviceResponse
-	rows, err := dbconn.Query(`SELECT sysgroupid, name
+func serviceLookup(op opContext, s *slib.Service) error {
+	useid := s.SystemGroup.ID
+	rows, err := op.Query(`SELECT service, rraid,
+		ari, api, afi, cri, cpi, cfi,
+		iri, ipi, ifi, datadefault
+		FROM rra
+		WHERE rraid IN (
+		SELECT rraid FROM rra_sysgroup
+		WHERE sysgroupid = $1 )`, useid)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var ns slib.RRAService
+		rows.Scan(&ns.Name, &ns.ID, &ns.AvailRep, &ns.AvailPrd,
+			&ns.AvailFin, &ns.ConfiRep, &ns.ConfiPrd,
+			&ns.ConfiFin, &ns.IntegRep, &ns.IntegPrd,
+			&ns.IntegFin, &ns.DefData)
+		s.Services = append(s.Services, ns)
+	}
+	return nil
+}
+
+func mergeSystemGroups(op opContext, s *slib.Service, groups []slib.SystemGroup) error {
+	if len(groups) == 0 {
+		return nil
+	}
+	s.Found = true
+	s.SystemGroup = groups[0]
+	err := serviceLookup(op, s)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func searchUsingHost(op opContext, hn string) (slib.Service, error) {
+	var ret slib.Service
+	rows, err := op.Query(`SELECT sysgroupid, name, environment
 		FROM sysgroup WHERE sysgroupid IN (
 		SELECT DISTINCT sysgroupid
 		FROM host WHERE hostname = $1 )`, hn)
 	if err != nil {
-		return sr, err
+		return ret, err
 	}
-	groups := make([]sysGroup, 0)
+	groups := make([]slib.SystemGroup, 0)
 	for rows.Next() {
-		var n sysGroup
-		err = rows.Scan(&n.ID, &n.Name)
+		var n slib.SystemGroup
+		err = rows.Scan(&n.ID, &n.Name, &n.Environment)
 		groups = append(groups, n)
 	}
-	err = sr.mergeSystemGroups(groups)
+	err = mergeSystemGroups(op, &ret, groups)
 	if err != nil {
-		return sr, err
+		return ret, err
 	}
-	return sr, nil
+	return ret, nil
 }
 
-func searchUsingHostMatch(hn string) (serviceResponse, error) {
-	var sr serviceResponse
+func searchUsingHostMatch(op opContext, hn string) (slib.Service, error) {
+	var ret slib.Service
 
 	// Use hostmatch to see if we can identify the system group.
-	rows, err := dbconn.Query(`SELECT sysgroupid, name
+	rows, err := op.Query(`SELECT sysgroupid, name, environment
 		FROM sysgroup WHERE sysgroupid IN (
 		SELECT DISTINCT sysgroupid
 		FROM hostmatch WHERE
 		$1 ~* expression )`, hn)
 	if err != nil {
-		return sr, err
+		return ret, err
 	}
-	groups := make([]sysGroup, 0)
+	groups := make([]slib.SystemGroup, 0)
 	for rows.Next() {
-		var n sysGroup
-		err = rows.Scan(&n.ID, &n.Name)
+		var n slib.SystemGroup
+		err = rows.Scan(&n.ID, &n.Name, &n.Environment)
 		groups = append(groups, n)
 	}
-	err = sr.mergeSystemGroups(groups)
+	err = mergeSystemGroups(op, &ret, groups)
 	if err != nil {
-		return sr, err
+		return ret, err
 	}
 
-	return sr, nil
+	return ret, nil
 }
 
-func searchHost(hn string) (serviceResponse, error) {
-	sr, err := searchUsingHost(hn)
+func searchHost(op opContext, hn string) (slib.Service, error) {
+	sr, err := searchUsingHost(op, hn)
 	if err != nil || sr.Found {
-		if sr.Found {
-			sr.Stats.Source = "host"
-		}
 		return sr, err
 	}
-	sr, err = searchUsingHostMatch(hn)
+	sr, err = searchUsingHostMatch(op, hn)
 	if err != nil || sr.Found {
-		if sr.Found {
-			sr.Stats.Source = "hostmatch"
-		}
 		return sr, err
 	}
 	return sr, nil
 }
 
-func serviceSearch(rw http.ResponseWriter, req *http.Request) {
-	req.ParseForm()
-	hostreq := req.FormValue("hostname")
+func runSearch(o opContext, s slib.Search) error {
+	var sres slib.Service
+	var err error
+	if s.Host != "" {
+		sres, err = searchHost(o, s.Host)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("a search did not specify any criteria")
+	}
+	sresstr, err := json.Marshal(&sres)
+	if err != nil {
+		return err
+	}
+	_, err = o.Exec(`INSERT INTO searchresults
+	VALUES ( $1, $2, $3, now())`, o.opid, s.Identifier, string(sresstr))
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-	if hostreq == "" {
+func serviceNewSearch(rw http.ResponseWriter, req *http.Request) {
+	req.ParseMultipartForm(10000000)
+
+	val := req.FormValue("params")
+	if val == "" {
 		http.Error(rw, "no search criteria specified", 500)
 		return
 	}
-
-	ret, err := searchHost(hostreq)
+	var params slib.SearchParams
+	err := json.Unmarshal([]byte(val), &params)
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
 		return
 	}
-	fmt.Fprint(rw, ret.jsonString())
+
+	op := opContext{}
+	op.newContext(dbconn, true)
+
+	for _, x := range params.Searches {
+		err = runSearch(op, x)
+		if err != nil {
+			http.Error(rw, err.Error(), 500)
+			err = op.rollback()
+			if err != nil {
+				panic(err)
+			}
+			return
+		}
+	}
+	op.commit()
+
+	sr := slib.SearchResponse{SearchID: op.opid}
+	buf, err := json.Marshal(&sr)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Fprint(rw, string(buf))
+}
+
+func purgeSearchResult(op opContext, sid string) error {
+	_, err := op.Exec(`DELETE FROM searchresults
+		WHERE opid = $1`, sid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func serviceGetSearchID(rw http.ResponseWriter, req *http.Request) {
+	req.ParseForm()
+
+	op := opContext{}
+	op.newContext(dbconn, false)
+
+	sid := req.FormValue("id")
+	if sid == "" {
+		http.Error(rw, "must specify a valid search id", 500)
+		return
+	}
+
+	rows, err := op.Query(`SELECT identifier, result
+		FROM searchresults WHERE opid = $1`, sid)
+	if err != nil {
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	sidr := slib.SearchIDResponse{}
+	sidr.Results = make([]slib.SearchResult, 0)
+	for rows.Next() {
+		var resstr string
+		var s slib.Service
+		nr := slib.SearchResult{}
+		err = rows.Scan(&nr.Identifier, &resstr)
+		if err != nil {
+			http.Error(rw, err.Error(), 500)
+			return
+		}
+		err = json.Unmarshal([]byte(resstr), &s)
+		if err != nil {
+			http.Error(rw, err.Error(), 500)
+			return
+		}
+		nr.Service = s
+		sidr.Results = append(sidr.Results, nr)
+	}
+
+	buf, err := json.Marshal(&sidr)
+	if err != nil {
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+
+	err = purgeSearchResult(op, sid)
+	if err != nil {
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+
+	fmt.Fprint(rw, string(buf))
+}
+
+func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
+	op := opContext{}
+	op.newContext(dbconn, false)
+
+	hm := req.FormValue("hostname")
+	if hm == "" {
+		http.Error(rw, "no search criteria specified", 500)
+		return
+	}
+	hm = "%" + hm + "%"
+	rows, err := op.Query(`SELECT hostid, hostname, sysgroupid
+		FROM host WHERE hostname LIKE $1`, hm)
+	if err != nil {
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	resp := slib.SearchMatchResponse{}
+	for rows.Next() {
+		hn := slib.Host{}
+		var sgid sql.NullInt64
+		err = rows.Scan(&hn.ID, &hn.Hostname, &sgid)
+		if err != nil {
+			http.Error(rw, err.Error(), 500)
+			return
+		}
+		if sgid.Valid {
+			hn.SysGroupID = int(sgid.Int64)
+		}
+		resp.Hosts = append(resp.Hosts, hn)
+	}
+
+	buf, err := json.Marshal(&resp)
+	if err != nil {
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	fmt.Fprintf(rw, string(buf))
 }
 
 func dbInit() error {
@@ -256,10 +424,21 @@ func main() {
 
 	r := mux.NewRouter()
 	s := r.PathPrefix("/api/v1").Subrouter()
-	s.HandleFunc("/search", serviceSearch).Methods("GET")
+	s.HandleFunc("/search", serviceNewSearch).Methods("POST")
+	s.HandleFunc("/search/results/id", serviceGetSearchID).Methods("GET")
+	s.HandleFunc("/search/match", serviceSearchMatch).Methods("GET")
+	s.HandleFunc("/sysgroups", serviceSysGroups).Methods("GET")
+	s.HandleFunc("/sysgroup/id", serviceGetSysGroup).Methods("GET")
+	s.HandleFunc("/rras", serviceRRAs).Methods("GET")
+	s.HandleFunc("/rra/id", serviceGetRRA).Methods("GET")
+	s.HandleFunc("/vulns/target", serviceGetVulnsTarget).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
 	listenAddr := cfg.General.Listen
-	err = http.ListenAndServe(listenAddr, nil)
+	err = http.ListenAndServeTLS(listenAddr, cfg.General.Cert, cfg.General.Key, nil)
+	if err != nil {
+		logf("http.ListenAndServeTLS: %v", err)
+		doExit(1)
+	}
 
 	doExit(0)
 }

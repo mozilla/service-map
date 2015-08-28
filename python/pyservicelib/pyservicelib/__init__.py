@@ -5,4 +5,8 @@
 # Copyright (c) 2015 Mozilla Corporation
 # Author: ameihm@mozilla.com
 
-from pyservicemap import *
+from config import *
+from search import *
+from sysgroup import *
+from rra import *
+from vulns import *
