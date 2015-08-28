@@ -10,17 +10,17 @@ package servicelib
 // Describes an RRA.
 type RRAService struct {
 	Name     string `json:"name,omitempty"`
-	ID       int    `json:"id"`
-	AvailRep string `json:"availrep"`
-	AvailPrd string `json:"availprd"`
-	AvailFin string `json:"availfin"`
-	IntegRep string `json:"integrep"`
-	IntegPrd string `json:"integprd`
-	IntegFin string `json:"integfin"`
-	ConfiRep string `json:"confirep"`
-	ConfiPrd string `json:"confiprd"`
-	ConfiFin string `json:"confifin"`
-	DefData  string `json:"defdata"`
+	ID       int    `json:"id,omitempty"`
+	AvailRep string `json:"availrep,omitempty"`
+	AvailPrd string `json:"availprd,omitempty"`
+	AvailFin string `json:"availfin,omitempty"`
+	IntegRep string `json:"integrep,omitempty"`
+	IntegPrd string `json:"integprd,omitempty"`
+	IntegFin string `json:"integfin,omitempty"`
+	ConfiRep string `json:"confirep,omitempty"`
+	ConfiPrd string `json:"confiprd,omitempty"`
+	ConfiFin string `json:"confifin,omitempty"`
+	DefData  string `json:"defdata,omitempty"`
 
-	SupportGrps []SystemGroup `json:"supportgrps"` // Supporting system groups
+	SupportGrps []SystemGroup `json:"supportgrps,omitempty"` // Supporting system groups
 }
