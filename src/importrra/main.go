@@ -26,6 +26,7 @@ type rra struct {
 
 func (r *rra) sanitize() error {
 	r.Details.Metadata.Service = strings.Replace(r.Details.Metadata.Service, "\n", " ", -1)
+	r.Details.Metadata.Service = strings.TrimSpace(r.Details.Metadata.Service)
 	return nil
 }
 
