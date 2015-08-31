@@ -18,10 +18,15 @@ import (
 	_ "github.com/lib/pq"
 	"net/http"
 	"os"
+	"os/signal"
 	slib "servicelib"
 	"sync"
+	"syscall"
 	"time"
 )
+
+var pidFile string
+var pidFD *os.File
 
 type opContext struct {
 	tx   *sql.Tx
@@ -380,13 +385,26 @@ func logf(s string, args ...interface{}) {
 func doExit(r int) {
 	close(logChan)
 	wg.Wait()
+	os.Remove(pidFile)
 	os.Exit(r)
+}
+
+func createPid() error {
+	var err error
+	pidFD, err = os.OpenFile(pidFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(pidFD, "%v", os.Getpid())
+	pidFD.Close()
+	return nil
 }
 
 func main() {
 	var cfgpath string
 
 	flag.StringVar(&cfgpath, "f", "", "path to configuration file")
+	flag.StringVar(&pidFile, "p", "/var/run/serviceapi.pid", "path to pid file")
 	flag.Parse()
 
 	if cfgpath == "" {
@@ -411,6 +429,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	sigch := make(chan os.Signal, 1)
+	signal.Notify(sigch, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigch
+		doExit(0)
+	}()
+
 	logChan = make(chan string, 64)
 	wg.Add(1)
 	go func() {
@@ -419,6 +444,12 @@ func main() {
 		}
 		wg.Done()
 	}()
+
+	err = createPid()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
 
 	logf("Starting processing")
 
