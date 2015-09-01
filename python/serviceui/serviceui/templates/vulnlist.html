@@ -18,7 +18,7 @@
     }
   );
   $.fn.dataTable.ext.type.order['impact-pre'] = function(d) {
-    var lbl = $(d).html()
+    var lbl = $(d).html();
     switch (lbl) {
       case 'maximum': return 3;
       case 'high': return 2;

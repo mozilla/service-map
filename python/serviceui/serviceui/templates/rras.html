@@ -2,6 +2,25 @@
 {% block scripts %}
 {{ super() }}
 <script>
+  $.fn.dataTable.ext.type.detect.unshift(
+    function (d) {
+      var b = $("<div>" + d + "</div>").text()
+      if (b === "secret" || b === "restricted" || b === "internal" || b === "public" || b === "unknown") {
+        return "dc";
+      }
+      return null;
+    }
+  );
+  $.fn.dataTable.ext.type.order['dc-pre'] = function(d) {
+    var lbl = $(d).html();
+    switch (lbl) {
+      case "secret": return 4;
+      case "restricted": return 3;
+      case "internal": return 2;
+      case "public": return 1;
+    }
+    return 0;
+  }
   $(document).ready(function() {
     $('#sr').DataTable( {
       "createdRow": function (row, data, index) {
