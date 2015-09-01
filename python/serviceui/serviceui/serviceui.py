@@ -12,11 +12,14 @@ from flask_bootstrap import StaticCDN
 from flask_wtf import Form
 from wtforms import StringField
 from wtforms import validators
+import json
+import errno
 import uuid
-import pyservicelib
+import pyservicelib as slib
 import pyes
-
 import time
+
+app = None
 
 class SearchForm(Form):
     hostname = StringField('Hostname', validators=[validators.Optional()])
@@ -25,26 +28,39 @@ def get_config():
     config = {'SECRET_KEY': str(uuid.uuid4()),
             'PROPAGATE_EXCEPTIONS': True,
             'CUSTOM': {
-                'apiurl': 'https://127.0.0.1:4444/api/v1',
+                'apiurl': 'https://127.0.0.1:4444',
                 'verifyssl': False
                 }
             }
+    try:
+        fd = open('/etc/serviceui.conf', 'r')
+    except IOError as e:
+        if e.errno == errno.ENOENT:
+            return config
+        else:
+            raise
+    config.update(json.loads(fd.read()))
+    fd.close()
     return config
+
+def confinit():
+    app.extensions['bootstrap']['cdns']['bootstrap'] = StaticCDN()
+    app.extensions['bootstrap']['cdns']['jquery'] = StaticCDN()
+    app.jinja_env.add_extension('jinja2.ext.do')
+    slib.config.sslverify = app.config['CUSTOM']['verifyssl']
+    slib.config.apihost = app.config['CUSTOM']['apiurl']
 
 app = Flask(__name__)
 app.config.update(get_config())
 Bootstrap(app)
-
-def apiopt():
-    return app.config['CUSTOM']['apiurl'], app.config['CUSTOM']['verifyssl']
+confinit()
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
-    url, vs = apiopt()
     form = SearchForm()
     params = None
     if form.validate_on_submit():
-        ns = pyservicelib.Search(url, verify=vs)
+        ns = slib.Search()
         if len(form.hostname.data) == 0:
             abort(500)
         ns.add_host(form.hostname.data)
@@ -54,14 +70,13 @@ def search():
 
 @app.route('/searchmatch', methods=['GET', 'POST'])
 def searchmatch():
-    url, vs = apiopt()
     form = SearchForm()
     params = None
     if form.validate_on_submit():
         if len(form.hostname.data) == 0:
             abort(500)
-        params = pyservicelib.searchmatch(url, form.hostname.data, verify=vs)
-        sysgrps = pyservicelib.get_sysgroups(url, verify=vs)
+        params = slib.searchmatch(form.hostname.data)
+        sysgrps = slib.get_sysgroups()
         if params['hosts'] != None:
             for x in params['hosts']:
                 for y in sysgrps['results']:
@@ -74,42 +89,37 @@ def searchmatch():
 
 @app.route('/vulnlist', methods=['GET'])
 def vulnlist():
-    url, vs = apiopt()
     target = request.args.getlist('target')
 
     if len(target) == 0:
         abort(500)
-    res = pyservicelib.get_vulns(url, target, verify=vs)
+    res = slib.get_vulns(target)
     return render_template('vulnlist.html', vulns=res)
 
 @app.route('/getsysgroup', methods=['GET'])
 def getsysgroup():
-    url, vs = apiopt()
     sgid = request.args.get('sysgroupid')
     if sgid == None:
         abort(500)
-    res = pyservicelib.get_sysgroup(url, sgid, verify=vs)
+    res = slib.get_sysgroup(sgid)
     return render_template('sysgroup.html', results=res)
 
 @app.route('/sysgroups', methods=['GET'])
 def sysgroups():
-    url, vs = apiopt()
-    res = pyservicelib.get_sysgroups(url, verify=vs)
+    res = slib.get_sysgroups()
     return render_template('sysgroups.html', results=res)
 
 @app.route('/getrra', methods=['GET'])
 def getrra():
-    url, vs = apiopt()
     rraid = request.args.get('rraid')
     if rraid == None:
         abort(500)
-    res = pyservicelib.get_rra(url, rraid, verify=vs)
+    res = slib.get_rra(rraid)
     return render_template('rra.html', results=res)
 
 @app.route('/rras', methods=['GET'])
 def rras():
-    url, vs = apiopt()
-    res = pyservicelib.get_rras(url, verify=vs)
+    res = slib.get_rras()
     return render_template('rras.html', results=res)
 
 @app.route('/')
@@ -117,7 +127,4 @@ def rootpage():
     return render_template('rootpage.html')
 
 def domain():
-    app.extensions['bootstrap']['cdns']['bootstrap'] = StaticCDN()
-    app.extensions['bootstrap']['cdns']['jquery'] = StaticCDN()
-    app.jinja_env.add_extension('jinja2.ext.do')
     app.run(host='0.0.0.0', port=4445)
