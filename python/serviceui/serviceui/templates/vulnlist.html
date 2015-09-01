@@ -4,8 +4,8 @@
 <script>
   var vdetails = [
     {% for v in vulns.vulns %}
-    { "cvss": "{{ v.vuln.cvss|safe }}", "proof": "{{ v.vuln.proof|safe }}",
-    "timestamp": "{{ v.utctimestamp|safe }}" },
+    { "cvss": {{ v.vuln.cvss|tojson|safe }}, "proof": {{ v.vuln.proof|tojson|safe }},
+    "timestamp": {{ v.utctimestamp|tojson|safe }} },
     {% endfor %}
   ]
   $.fn.dataTable.ext.type.detect.unshift(
