@@ -337,7 +337,7 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 	}
 	hm = "%" + hm + "%"
 	rows, err := op.Query(`SELECT hostid, hostname, sysgroupid
-		FROM host WHERE hostname LIKE $1`, hm)
+		FROM host WHERE hostname ILIKE $1`, hm)
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
 		return
