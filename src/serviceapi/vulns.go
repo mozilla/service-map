@@ -25,6 +25,9 @@ func getTargetVulns(target string) ([]gozdef.VulnEvent, error) {
 	template := `{
 		"from": %v,
 		"size": 10,
+		"sort": [
+		{ "_id": "asc" }
+		],
 		"query": {
 			"bool": {
 				"must": [
