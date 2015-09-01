@@ -90,7 +90,6 @@ def searchmatch():
 @app.route('/vulnlist', methods=['GET'])
 def vulnlist():
     target = request.args.getlist('target')
-
     if len(target) == 0:
         abort(500)
     res = slib.get_vulns(target)
