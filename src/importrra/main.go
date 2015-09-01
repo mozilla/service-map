@@ -85,7 +85,7 @@ func requestRRAs(eshost string) error {
 					{
 					"range": {
 						"utctimestamp": {
-							"gt": "now-24h"
+							"gt": "now-7d"
 						}
 					}}
 				]
