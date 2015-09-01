@@ -45,6 +45,13 @@ func getTargetVulns(target string) ([]gozdef.VulnEvent, error) {
 					"term": {
 						"sourcename": "production"
 					}
+				},
+				{
+					"range": {
+						"utctimestamp": {
+							"gt": "now-2d"
+						}
+					}
 				}
 				]
 			}
