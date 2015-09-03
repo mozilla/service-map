@@ -171,6 +171,9 @@ func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 			LEFT OUTER JOIN techowners
 			ON host.techownerid = techowners.techownerid
 			WHERE hostname = $1`, hn)
+		if err != nil {
+			return ret, err
+		}
 		if rows.Next() {
 			err = rows.Scan(&tcw, &techowner)
 			if tcw.Valid {
