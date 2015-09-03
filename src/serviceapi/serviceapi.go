@@ -161,6 +161,27 @@ func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	if err != nil {
 		return ret, err
 	}
+	// If we successfully matched on hostname, also add any extended
+	// information about this particular host to the result.
+	if ret.Found {
+		var tcw sql.NullBool
+		var techowner sql.NullString
+		rows, err = op.Query(`SELECT requiretcw, techowner
+			FROM host
+			LEFT OUTER JOIN techowners
+			ON host.techownerid = techowners.techownerid
+			WHERE hostname = $1`, hn)
+		if rows.Next() {
+			err = rows.Scan(&tcw, &techowner)
+			if tcw.Valid {
+				ret.TCW = tcw.Bool
+			}
+			if techowner.Valid {
+				ret.TechOwner = techowner.String
+			}
+			rows.Close()
+		}
+	}
 	return ret, nil
 }
 

@@ -25,6 +25,10 @@ CREATE TABLE rra (
 	datadefault TEXT,
 	lastupdated TIMESTAMP
 );
+CREATE TABLE techowners (
+	techownerid SERIAL PRIMARY KEY,
+	techowner TEXT
+);
 CREATE TABLE sysgroup (
 	sysgroupid SERIAL PRIMARY KEY,
 	name TEXT NOT NULL,
@@ -46,7 +50,10 @@ CREATE TABLE host (
 	hostid SERIAL PRIMARY KEY,
 	hostname TEXT NOT NULL UNIQUE,
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
-	comment TEXT
+	comment TEXT,
+	requiretcw BOOLEAN,
+	requirecab BOOLEAN,
+	techownerid INTEGER REFERENCES techowners (techownerid)
 );
 CREATE TABLE searchresults (
 	opid TEXT NOT NULL,
