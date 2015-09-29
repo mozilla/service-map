@@ -36,11 +36,21 @@
     <thead>
       <tr>
         <td>Hostname</td>
+        <td>Dynamic</td>
+        <td>Dynamic: Last update</td>
       </tr>
     </thead>
     <tbody>
   {% for r in results.hosts %}
-  <tr><td>{{ r.hostname }} [<a href="{{ url_for('vulnlist', target=r.hostname) }}">show_vulns</a>]</td></tr>
+  <tr>
+    <td>{{ r.hostname }} [<a href="{{ url_for('vulnlist', target=r.hostname) }}">show_vulns</a>]</td>
+    <td>{{ r.dynamic }}</td>
+    <td>
+      {% if r.dynamic == true %}
+      {{ r.dynamic_lastupdated }}
+      {% endif %}
+    </td>
+  </tr>
   {% endfor %}
     </tbody>
   </table>

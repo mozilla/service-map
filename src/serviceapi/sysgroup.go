@@ -53,6 +53,26 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 		s.Host = append(s.Host, h)
 	}
 
+	// Include dynamic entries here based on matching with expressions
+	// in the hostmatch table. Note we don't do this for normal static
+	// hosts as it is assumed these would be linked manually when they
+	// are added.
+	rows, err = op.Query(`SELECT h.hostid, h.hostname,
+		h.comment, h.dynamic_lastupdated FROM
+		host as h, hostmatch as m WHERE
+		h.hostname ~* m.expression AND
+		h.dynamic = true AND
+		m.sysgroupid = $1`, s.ID)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var h slib.Host
+		err = rows.Scan(&h.ID, &h.Hostname, &h.Comment, &h.DynamicLastUpdated)
+		h.Dynamic = true
+		s.Host = append(s.Host, h)
+	}
+
 	// Grab any expressions for dynamic host mapping.
 	rows, err = op.Query(`SELECT hostmatchid, expression, comment FROM
 		hostmatch WHERE sysgroupid = $1`, s.ID)

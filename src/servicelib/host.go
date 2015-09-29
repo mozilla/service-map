@@ -7,11 +7,17 @@
 
 package servicelib
 
+import (
+	"time"
+)
+
 type Host struct {
-	ID         int    `json:"id"`
-	SysGroupID int    `json:"sysgroupid"`
-	Hostname   string `json:"hostname"`
-	Comment    string `json:"comment"`
+	ID                 int       `json:"id"`
+	SysGroupID         int       `json:"sysgroupid"`
+	Hostname           string    `json:"hostname"`
+	Comment            string    `json:"comment"`
+	Dynamic            bool      `json:"dynamic"`
+	DynamicLastUpdated time.Time `json:"dynamic_lastupdated"`
 }
 
 type HostMatch struct {

@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/signal"
 	slib "servicelib"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -142,6 +143,41 @@ func mergeSystemGroups(op opContext, s *slib.Service, groups []slib.SystemGroup)
 	return nil
 }
 
+func noteDynamicHost(op opContext, hn string, confidence int) error {
+	// Don't add the host if it already exists in the static table.
+	rows, err := op.Query(`SELECT hostid, dynamic FROM host
+		WHERE hostname = $1`, hn)
+	if err != nil {
+		return err
+	}
+	if rows.Next() {
+		var hostid int
+		var isDynamic bool
+		err = rows.Scan(&hostid, isDynamic)
+		rows.Close()
+		if !isDynamic {
+			return nil
+		}
+		_, err = op.Exec(`UPDATE host SET
+			dynamic_lastupdated = now() AT TIME ZONE 'utc'
+			WHERE hostid = $1`, hostid)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	comment := fmt.Sprintf("dynamic entry for %v", hn)
+	_, err = op.Exec(`INSERT INTO host
+		(hostname, comment, dynamic,
+		dynamic_confidence, dynamic_lastupdated)
+		VALUES ($1, $2, true, $3, now() AT TIME ZONE 'utc')`,
+		hn, comment, confidence)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	var ret slib.Service
 	rows, err := op.Query(`SELECT sysgroupid, name, environment
@@ -215,10 +251,12 @@ func searchUsingHostMatch(op opContext, hn string) (slib.Service, error) {
 }
 
 func searchHost(op opContext, hn string) (slib.Service, error) {
+	hn = strings.ToLower(hn)
 	sr, err := searchUsingHost(op, hn)
 	if err != nil || sr.Found {
 		return sr, err
 	}
+	err = noteDynamicHost(op, hn, 50)
 	sr, err = searchUsingHostMatch(op, hn)
 	if err != nil || sr.Found {
 		return sr, err
@@ -389,6 +427,20 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
+func dynHostManager() {
+	for {
+		time.Sleep(1 * time.Minute)
+		op := opContext{}
+		op.newContext(dbconn, false)
+		cutoff := time.Now().UTC().Add(-(168 * time.Hour))
+		_, err := op.Exec(`DELETE FROM host
+			WHERE dynamic = true AND dynamic_lastupdated < $1`, cutoff)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
 func dbInit() error {
 	var err error
 	connstr := fmt.Sprintf("dbname=%v host=%v", cfg.Database.Database, cfg.Database.Hostname)
@@ -476,6 +528,8 @@ func main() {
 	}
 
 	logf("Starting processing")
+
+	go dynHostManager()
 
 	r := mux.NewRouter()
 	s := r.PathPrefix("/api/v1").Subrouter()

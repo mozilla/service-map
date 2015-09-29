@@ -53,7 +53,10 @@ CREATE TABLE host (
 	comment TEXT,
 	requiretcw BOOLEAN,
 	requirecab BOOLEAN,
-	techownerid INTEGER REFERENCES techowners (techownerid)
+	techownerid INTEGER REFERENCES techowners (techownerid),
+	dynamic BOOLEAN,
+	dynamic_lastupdated TIMESTAMP,
+	dynamic_confidence INTEGER
 );
 CREATE TABLE searchresults (
 	opid TEXT NOT NULL,
