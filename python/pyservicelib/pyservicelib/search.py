@@ -74,5 +74,5 @@ def searchmatch(hostname):
     r = requests.get(u, params=payload, verify=cfg.config.sslverify)
     if r.status_code != requests.codes.ok:
         err = 'Request error: response {}'.format(r.status_code)
-        raise search.SLIBException(err)
+        raise SLIBException(err)
     return json.loads(r.text)
