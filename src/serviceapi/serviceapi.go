@@ -146,7 +146,7 @@ func mergeSystemGroups(op opContext, s *slib.Service, groups []slib.SystemGroup)
 func noteDynamicHost(op opContext, hn string, confidence int) error {
 	// Don't add the host if it already exists in the static table.
 	rows, err := op.Query(`SELECT hostid, dynamic FROM host
-		WHERE hostname = $1`, hn)
+		WHERE lower(hostname) = lower($1)`, hn)
 	if err != nil {
 		return err
 	}
@@ -398,8 +398,8 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	hm = "%" + hm + "%"
-	rows, err := op.Query(`SELECT hostid, hostname, sysgroupid
-		FROM host WHERE hostname ILIKE $1`, hm)
+	rows, err := op.Query(`SELECT hostid, hostname, sysgroupid,
+		dynamic FROM host WHERE hostname ILIKE $1`, hm)
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
 		return
@@ -408,13 +408,27 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 	for rows.Next() {
 		hn := slib.Host{}
 		var sgid sql.NullInt64
-		err = rows.Scan(&hn.ID, &hn.Hostname, &sgid)
+		var dynamicSql sql.NullBool
+		var dynamic bool
+		err = rows.Scan(&hn.ID, &hn.Hostname, &sgid, &dynamicSql)
 		if err != nil {
+			panic(err)
 			http.Error(rw, err.Error(), 500)
 			return
 		}
+		dynamic = false
+		if dynamicSql.Valid {
+			dynamic = dynamicSql.Bool
+		}
 		if sgid.Valid {
 			hn.SysGroupID = int(sgid.Int64)
+		} else if !sgid.Valid && dynamic {
+			tmpid, err := hostDynSysgroup(op, hn.Hostname)
+			if err != nil {
+				http.Error(rw, err.Error(), 500)
+				return
+			}
+			hn.SysGroupID = tmpid
 		}
 		resp.Hosts = append(resp.Hosts, hn)
 	}

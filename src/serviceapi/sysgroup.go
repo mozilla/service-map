@@ -8,6 +8,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -35,6 +36,24 @@ func getSysGroup(op opContext, sgid string) (slib.SystemGroup, error) {
 	}
 
 	return sg, nil
+}
+
+func hostDynSysgroup(op opContext, hn string) (int, error) {
+	rows, err := op.Query(`SELECT m.sysgroupid FROM
+		hostmatch as m WHERE
+		$1 ~* m.expression`, hn)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	if rows.Next() {
+		var sgid sql.NullInt64
+		err = rows.Scan(&sgid)
+		if sgid.Valid {
+			return int(sgid.Int64), nil
+		}
+	}
+	return 0, nil
 }
 
 func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
