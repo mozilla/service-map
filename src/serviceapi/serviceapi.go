@@ -250,13 +250,15 @@ func searchUsingHostMatch(op opContext, hn string) (slib.Service, error) {
 	return ret, nil
 }
 
-func searchHost(op opContext, hn string) (slib.Service, error) {
+func searchHost(op opContext, hn string, conf int) (slib.Service, error) {
 	hn = strings.ToLower(hn)
 	sr, err := searchUsingHost(op, hn)
 	if err != nil || sr.Found {
 		return sr, err
 	}
-	err = noteDynamicHost(op, hn, 50)
+	if conf > 50 {
+		err = noteDynamicHost(op, hn, conf)
+	}
 	sr, err = searchUsingHostMatch(op, hn)
 	if err != nil || sr.Found {
 		return sr, err
@@ -268,7 +270,7 @@ func runSearch(o opContext, s slib.Search) error {
 	var sres slib.Service
 	var err error
 	if s.Host != "" {
-		sres, err = searchHost(o, s.Host)
+		sres, err = searchHost(o, s.Host, s.Confidence)
 		if err != nil {
 			return err
 		}

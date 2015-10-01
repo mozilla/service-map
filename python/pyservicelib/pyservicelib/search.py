@@ -23,10 +23,10 @@ class Search(object):
         self._verify = cfg.config.sslverify
         self._searches = {}
 
-    def add_host(self, hostname):
+    def add_host(self, hostname, confidence=0):
         if hostname == None or len(hostname) == 0:
             raise SLIBException('invalid hostname')
-        self._searches[str(uuid.uuid4())] = {'host': hostname}
+        self._searches[str(uuid.uuid4())] = {'host': hostname, 'confidence': confidence}
 
     def result_host(self, hostname):
         for x in self._searches:

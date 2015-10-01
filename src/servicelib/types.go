@@ -16,6 +16,7 @@ type SearchParams struct {
 type Search struct {
 	Identifier string `json:"identifier,omitempty"` // A unique element identifier
 	Host       string `json:"host,omitempty"`       // Host search criteria
+	Confidence int    `json:"confidence,omitempty"` // Reporter confidence
 }
 
 // Describes a response to a search request.
