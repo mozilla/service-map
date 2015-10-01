@@ -56,7 +56,8 @@ CREATE TABLE host (
 	techownerid INTEGER REFERENCES techowners (techownerid),
 	dynamic BOOLEAN,
 	dynamic_lastupdated TIMESTAMP,
-	dynamic_confidence INTEGER
+	dynamic_confidence INTEGER,
+	lastsearch TIMESTAMP
 );
 CREATE TABLE searchresults (
 	opid TEXT NOT NULL,

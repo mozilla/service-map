@@ -178,8 +178,22 @@ func noteDynamicHost(op opContext, hn string, confidence int) error {
 	return nil
 }
 
+func updateLastSearch(op opContext, hn string) error {
+	_, err := op.Exec(`UPDATE host
+		SET lastsearch = now() AT TIME ZONE 'utc'
+		WHERE lower(hostname) = lower($1)`, hn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	var ret slib.Service
+	err := updateLastSearch(op, hn)
+	if err != nil {
+		return ret, err
+	}
 	rows, err := op.Query(`SELECT sysgroupid, name, environment
 		FROM sysgroup WHERE sysgroupid IN (
 		SELECT DISTINCT sysgroupid
