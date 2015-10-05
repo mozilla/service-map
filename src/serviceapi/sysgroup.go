@@ -49,6 +49,9 @@ func hostDynSysgroup(op opContext, hn string) (int, error) {
 	if rows.Next() {
 		var sgid sql.NullInt64
 		err = rows.Scan(&sgid)
+		if err != nil {
+			return 0, err
+		}
 		if sgid.Valid {
 			return int(sgid.Int64), nil
 		}
@@ -69,6 +72,13 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 	for rows.Next() {
 		var h slib.Host
 		err = rows.Scan(&h.ID, &h.Hostname, &h.Comment)
+		if err != nil {
+			return err
+		}
+		err = hostAddComp(op, &h)
+		if err != nil {
+			return err
+		}
 		s.Host = append(s.Host, h)
 	}
 
@@ -77,7 +87,7 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 	// hosts as it is assumed these would be linked manually when they
 	// are added.
 	rows, err = op.Query(`SELECT h.hostid, h.hostname,
-		h.comment, h.dynamic_lastupdated FROM
+		h.comment, h.lastused FROM
 		host as h, hostmatch as m WHERE
 		h.hostname ~* m.expression AND
 		h.dynamic = true AND
@@ -87,8 +97,17 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 	}
 	for rows.Next() {
 		var h slib.Host
-		err = rows.Scan(&h.ID, &h.Hostname, &h.Comment, &h.DynamicLastUpdated)
+		err = rows.Scan(&h.ID, &h.Hostname, &h.Comment, &h.LastUsed)
+		if err != nil {
+			rows.Close()
+			return err
+		}
 		h.Dynamic = true
+		err = hostAddComp(op, &h)
+		if err != nil {
+			rows.Close()
+			return err
+		}
 		s.Host = append(s.Host, h)
 	}
 
@@ -101,6 +120,10 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 	for rows.Next() {
 		var h slib.HostMatch
 		err = rows.Scan(&h.ID, &h.Expression, &h.Comment)
+		if err != nil {
+			rows.Close()
+			return err
+		}
 		s.HostMatch = append(s.HostMatch, h)
 	}
 
@@ -117,10 +140,11 @@ func serviceGetSysGroup(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	op := opContext{}
-	op.newContext(dbconn, false)
+	op.newContext(dbconn, false, req.RemoteAddr)
 
 	sg, err := getSysGroup(op, sgid)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
@@ -130,12 +154,14 @@ func serviceGetSysGroup(rw http.ResponseWriter, req *http.Request) {
 	}
 	err = sysGroupAddMeta(op, &sg)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
 
 	buf, err := json.Marshal(&sg)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
@@ -144,10 +170,11 @@ func serviceGetSysGroup(rw http.ResponseWriter, req *http.Request) {
 
 func serviceSysGroups(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
-	op.newContext(dbconn, false)
+	op.newContext(dbconn, false, req.RemoteAddr)
 
 	rows, err := op.db.Query(`SELECT sysgroupid FROM sysgroup`)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
@@ -157,11 +184,13 @@ func serviceSysGroups(rw http.ResponseWriter, req *http.Request) {
 		var sgid string
 		err = rows.Scan(&sgid)
 		if err != nil {
+			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
 		}
 		sg, err := getSysGroup(op, sgid)
 		if err != nil {
+			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
 		}
@@ -173,6 +202,7 @@ func serviceSysGroups(rw http.ResponseWriter, req *http.Request) {
 
 	buf, err := json.Marshal(&sgr)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}

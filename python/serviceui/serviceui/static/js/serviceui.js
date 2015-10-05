@@ -19,3 +19,27 @@ function trColor() {
     }
   }
 }
+
+function compTableFormat(r) {
+	$(r).find('td span').each(function() {
+		var v = parseInt($(this).html());
+		if (($(this).hasClass("compfailv")) && (v > 0)) {
+			$(this).addClass("riskLabel");
+			if (v > 0) {
+				$(this).addClass("riskLabelHigh");
+				$(this).text(v + " fail");
+			}
+		} else if (($(this).hasClass("comppassv")) && (v > 0)) {
+			var v = parseInt($(this).html());
+			$(this).addClass("riskLabel");
+			if (v > 0) {
+				$(this).addClass("riskLabelNone");
+				$(this).text(v + " pass");
+			}
+		} else {
+			$(this).addClass("riskLabel");
+			$(this).addClass("riskLabelUnknown");
+			$(this).text("None");
+		}
+	});
+}

@@ -78,16 +78,18 @@ func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 	rraid := req.FormValue("id")
 
 	op := opContext{}
-	op.newContext(dbconn, false)
+	op.newContext(dbconn, false, req.RemoteAddr)
 
 	r, err := getRRA(op, rraid)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
 
 	buf, err := json.Marshal(&r)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
@@ -96,11 +98,12 @@ func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 
 func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
-	op.newContext(dbconn, false)
+	op.newContext(dbconn, false, req.RemoteAddr)
 
 	rows, err := op.Query(`SELECT rraid, service, datadefault
 		FROM rra`)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
@@ -110,6 +113,7 @@ func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 		var s slib.RRAService
 		err = rows.Scan(&s.ID, &s.Name, &s.DefData)
 		if err != nil {
+			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
 		}
@@ -118,6 +122,7 @@ func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 
 	buf, err := json.Marshal(&srr)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}

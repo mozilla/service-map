@@ -49,13 +49,6 @@ type SystemGroupsResponse struct {
 	Results []SystemGroup `json:"results"`
 }
 
-// The response to a system group request.
-type GetSystemGroupResponse struct {
-	SystemGroup SystemGroup `json:"systemgroup"`
-	Hosts       []string    `json:"hosts"`     // Hostnames statically linked to this group
-	HostMatch   []string    `json:"hostmatch"` // Dynamic expression maps for hostnames
-}
-
 // The response to an RRA list request.
 type RRAsResponse struct {
 	Results []RRAService `json:"results"`

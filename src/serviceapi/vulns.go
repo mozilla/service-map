@@ -85,12 +85,14 @@ func serviceGetVulnsTarget(rw http.ResponseWriter, req *http.Request) {
 
 	target := req.FormValue("target")
 	if target == "" {
+		logf("must specify target for query")
 		http.Error(rw, "must specify target for query", 500)
 		return
 	}
 
 	vl, err := getTargetVulns(target)
 	if err != nil {
+		logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
@@ -99,6 +101,7 @@ func serviceGetVulnsTarget(rw http.ResponseWriter, req *http.Request) {
 
 	buf, err := json.Marshal(&resp)
 	if err != nil {
+		logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}

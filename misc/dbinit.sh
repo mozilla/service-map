@@ -4,6 +4,7 @@ dbname=servicemap
 psql="psql -f - ${dbname}"
 
 $psql << EOF
+DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS rra_sysgroup;
 DROP TABLE IF EXISTS hostmatch;
 DROP TABLE IF EXISTS host;
@@ -46,6 +47,7 @@ CREATE TABLE hostmatch (
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	comment TEXT
 );
+CREATE INDEX ON hostmatch (expression text_pattern_ops);
 CREATE TABLE host (
 	hostid SERIAL PRIMARY KEY,
 	hostname TEXT NOT NULL UNIQUE,
@@ -54,17 +56,26 @@ CREATE TABLE host (
 	requiretcw BOOLEAN,
 	requirecab BOOLEAN,
 	techownerid INTEGER REFERENCES techowners (techownerid),
-	dynamic BOOLEAN,
-	dynamic_lastupdated TIMESTAMP,
+	dynamic BOOLEAN NOT NULL,
+	dynamic_added TIMESTAMP,
 	dynamic_confidence INTEGER,
-	lastsearch TIMESTAMP
+	lastused TIMESTAMP NOT NULL
 );
+CREATE INDEX ON host (hostname);
+CREATE INDEX ON host (sysgroupid);
 CREATE TABLE searchresults (
 	opid TEXT NOT NULL,
 	identifier TEXT NOT NULL,
 	result TEXT NOT NULL,
 	timestamp TIMESTAMP NOT NULL,
 	UNIQUE(opid, identifier)
+);
+CREATE TABLE compscore (
+	scoreid SERIAL PRIMARY KEY,
+	timestamp TIMESTAMP NOT NULL,
+	hostid INTEGER REFERENCES host (hostid),
+	checkref TEXT NOT NULL,
+	status BOOLEAN
 );
 EOF
 

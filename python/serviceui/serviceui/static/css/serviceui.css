@@ -78,3 +78,9 @@ table.innerTable td:last-child {
 	background-color: #FFF;
 	border-color: #CCC;
 }
+
+.riskLabelNone {
+	color: #FFF;
+	background-color: #14892C;
+	border-color: #14892C;
+}

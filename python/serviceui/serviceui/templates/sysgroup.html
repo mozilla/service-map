@@ -5,6 +5,10 @@
   $(document).ready(function() {
     $('#hosttab').DataTable();
     $('#hostdyntab').DataTable();
+    $('#hostcomptable').DataTable( {
+      "createdRow": function (row, data, index) {
+        compTableFormat(row);
+    }});
   });
 </script>
 {% endblock %}
@@ -37,7 +41,7 @@
       <tr>
         <td>Hostname</td>
         <td>Dynamic</td>
-        <td>Dynamic: Last update</td>
+        <td>Last used</td>
       </tr>
     </thead>
     <tbody>
@@ -45,11 +49,7 @@
   <tr>
     <td>{{ r.hostname }} [<a href="{{ url_for('vulnlist', target=r.hostname) }}">show_vulns</a>]</td>
     <td>{{ r.dynamic }}</td>
-    <td>
-      {% if r.dynamic == true %}
-      {{ r.dynamic_lastupdated }}
-      {% endif %}
-    </td>
+    <td>{{ r.lastused }}</td>
   </tr>
   {% endfor %}
     </tbody>
@@ -69,6 +69,36 @@
   {% for r in results.hostmatch %}
   <tr><td>{{ r.expression }}</td></tr>
   {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="container">
+  <h3>Compliance information</h3>
+  <p>Latest compliance information for system group.</p>
+  <table id="hostcomptable" class="display" cellspacing="0" width="100%">
+    <thead>
+      <tr>
+        <td>Hostname</td>
+        <td>H/Pass</td>
+        <td>H/Fail</td>
+        <td>M/Pass</td>
+        <td>M/Fail</td>
+        <td>L/Pass</td>
+        <td>L/Fail</td>
+      </tr>
+    </thead>
+    <tbody>
+      {% for h in results.hosts %}
+      <tr>
+        <td>{{ h.hostname }}</td>
+        <td><span class="comppassv">{{ h.compliance.highpass }}</span></td>
+        <td><span class="compfailv">{{ h.compliance.highfail }}</span></td>
+        <td><span class="comppassv">{{ h.compliance.mediumpass }}</span></td>
+        <td><span class="compfailv">{{ h.compliance.mediumfail }}</span></td>
+        <td><span class="comppassv">{{ h.compliance.lowpass }}</span></td>
+        <td><span class="compfailv">{{ h.compliance.lowfail }}</span></td>
+      </tr>
+      {% endfor %}
     </tbody>
   </table>
 </div>

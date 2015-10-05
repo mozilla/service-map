@@ -30,14 +30,16 @@ var pidFile string
 var pidFD *os.File
 
 type opContext struct {
-	tx   *sql.Tx
-	db   *sql.DB
-	opid string
+	tx    *sql.Tx
+	db    *sql.DB
+	opid  string
+	rhost string
 }
 
-func (o *opContext) newContext(db *sql.DB, useTransaction bool) (err error) {
+func (o *opContext) newContext(db *sql.DB, useTransaction bool, rhost string) (err error) {
 	o.opid = slib.NewUUID()
 	o.db = db
+	o.rhost = rhost
 	if useTransaction {
 		o.tx, err = db.Begin()
 		if err != nil {
@@ -70,6 +72,15 @@ func (o *opContext) commit() error {
 
 func (o *opContext) rollback() error {
 	return o.tx.Rollback()
+}
+
+func (o *opContext) logf(s string, args ...interface{}) {
+	buf := fmt.Sprintf(s, args...)
+	clnt := "none"
+	if o.rhost != "" {
+		clnt = o.rhost
+	}
+	logf("[%v:%v] %v", o.opid, clnt, buf)
 }
 
 type Config struct {
@@ -151,26 +162,15 @@ func noteDynamicHost(op opContext, hn string, confidence int) error {
 		return err
 	}
 	if rows.Next() {
-		var hostid int
-		var isDynamic bool
-		err = rows.Scan(&hostid, isDynamic)
 		rows.Close()
-		if !isDynamic {
-			return nil
-		}
-		_, err = op.Exec(`UPDATE host SET
-			dynamic_lastupdated = now() AT TIME ZONE 'utc'
-			WHERE hostid = $1`, hostid)
-		if err != nil {
-			return err
-		}
 		return nil
 	}
 	comment := fmt.Sprintf("dynamic entry for %v", hn)
 	_, err = op.Exec(`INSERT INTO host
 		(hostname, comment, dynamic,
-		dynamic_confidence, dynamic_lastupdated)
-		VALUES ($1, $2, true, $3, now() AT TIME ZONE 'utc')`,
+		dynamic_confidence, dynamic_added, lastused)
+		VALUES ($1, $2, true, $3, now() AT TIME ZONE 'utc',
+		now() AT TIME ZONE 'utc')`,
 		hn, comment, confidence)
 	if err != nil {
 		return err
@@ -178,9 +178,9 @@ func noteDynamicHost(op opContext, hn string, confidence int) error {
 	return nil
 }
 
-func updateLastSearch(op opContext, hn string) error {
+func updateLastUsedHost(op opContext, hn string) error {
 	_, err := op.Exec(`UPDATE host
-		SET lastsearch = now() AT TIME ZONE 'utc'
+		SET lastused = now() AT TIME ZONE 'utc'
 		WHERE lower(hostname) = lower($1)`, hn)
 	if err != nil {
 		return err
@@ -190,7 +190,7 @@ func updateLastSearch(op opContext, hn string) error {
 
 func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	var ret slib.Service
-	err := updateLastSearch(op, hn)
+	err := updateLastUsedHost(op, hn)
 	if err != nil {
 		return ret, err
 	}
@@ -296,34 +296,38 @@ func runSearch(o opContext, s slib.Search) error {
 		return err
 	}
 	_, err = o.Exec(`INSERT INTO searchresults
-	VALUES ( $1, $2, $3, now())`, o.opid, s.Identifier, string(sresstr))
+		VALUES ( $1, $2, $3, now() AT TIME ZONE 'utc')`, o.opid, s.Identifier, string(sresstr))
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+// Process a new service lookup request.
 func serviceNewSearch(rw http.ResponseWriter, req *http.Request) {
 	req.ParseMultipartForm(10000000)
 
 	val := req.FormValue("params")
 	if val == "" {
+		logf("no search criteria specified")
 		http.Error(rw, "no search criteria specified", 500)
 		return
 	}
 	var params slib.SearchParams
 	err := json.Unmarshal([]byte(val), &params)
 	if err != nil {
+		logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
 
 	op := opContext{}
-	op.newContext(dbconn, true)
+	op.newContext(dbconn, true, req.RemoteAddr)
 
 	for _, x := range params.Searches {
 		err = runSearch(op, x)
 		if err != nil {
+			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			err = op.rollback()
 			if err != nil {
@@ -342,6 +346,7 @@ func serviceNewSearch(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(rw, string(buf))
 }
 
+// Purge used search results from the database.
 func purgeSearchResult(op opContext, sid string) error {
 	_, err := op.Exec(`DELETE FROM searchresults
 		WHERE opid = $1`, sid)
@@ -351,14 +356,16 @@ func purgeSearchResult(op opContext, sid string) error {
 	return nil
 }
 
+// Given a search ID, respond with any results.
 func serviceGetSearchID(rw http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 
 	op := opContext{}
-	op.newContext(dbconn, false)
+	op.newContext(dbconn, false, req.RemoteAddr)
 
 	sid := req.FormValue("id")
 	if sid == "" {
+		op.logf("must specify a valid search id")
 		http.Error(rw, "must specify a valid search id", 500)
 		return
 	}
@@ -366,6 +373,7 @@ func serviceGetSearchID(rw http.ResponseWriter, req *http.Request) {
 	rows, err := op.Query(`SELECT identifier, result
 		FROM searchresults WHERE opid = $1`, sid)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
@@ -377,11 +385,13 @@ func serviceGetSearchID(rw http.ResponseWriter, req *http.Request) {
 		nr := slib.SearchResult{}
 		err = rows.Scan(&nr.Identifier, &resstr)
 		if err != nil {
+			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
 		}
 		err = json.Unmarshal([]byte(resstr), &s)
 		if err != nil {
+			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
 		}
@@ -391,12 +401,14 @@ func serviceGetSearchID(rw http.ResponseWriter, req *http.Request) {
 
 	buf, err := json.Marshal(&sidr)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
 
 	err = purgeSearchResult(op, sid)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
@@ -404,9 +416,10 @@ func serviceGetSearchID(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(rw, string(buf))
 }
 
+// Search for any hosts that contain a given substring.
 func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
-	op.newContext(dbconn, false)
+	op.newContext(dbconn, false, req.RemoteAddr)
 
 	hm := req.FormValue("hostname")
 	if hm == "" {
@@ -417,6 +430,7 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 	rows, err := op.Query(`SELECT hostid, hostname, sysgroupid,
 		dynamic FROM host WHERE hostname ILIKE $1`, hm)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
@@ -424,23 +438,19 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 	for rows.Next() {
 		hn := slib.Host{}
 		var sgid sql.NullInt64
-		var dynamicSql sql.NullBool
 		var dynamic bool
-		err = rows.Scan(&hn.ID, &hn.Hostname, &sgid, &dynamicSql)
+		err = rows.Scan(&hn.ID, &hn.Hostname, &sgid, &dynamic)
 		if err != nil {
-			panic(err)
+			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
-		}
-		dynamic = false
-		if dynamicSql.Valid {
-			dynamic = dynamicSql.Bool
 		}
 		if sgid.Valid {
 			hn.SysGroupID = int(sgid.Int64)
 		} else if !sgid.Valid && dynamic {
 			tmpid, err := hostDynSysgroup(op, hn.Hostname)
 			if err != nil {
+				op.logf(err.Error())
 				http.Error(rw, err.Error(), 500)
 				return
 			}
@@ -451,22 +461,46 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 
 	buf, err := json.Marshal(&resp)
 	if err != nil {
+		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
 	fmt.Fprintf(rw, string(buf))
 }
 
+// Periodically prune dynamic hosts from the database that have not been seen
+// within a given period.
 func dynHostManager() {
 	for {
 		time.Sleep(1 * time.Minute)
 		op := opContext{}
-		op.newContext(dbconn, false)
+		op.newContext(dbconn, false, "")
 		cutoff := time.Now().UTC().Add(-(168 * time.Hour))
-		_, err := op.Exec(`DELETE FROM host
-			WHERE dynamic = true AND dynamic_lastupdated < $1`, cutoff)
+		rows, err := op.Query(`SELECT hostid FROM host
+			WHERE dynamic = true AND lastused < $1`, cutoff)
 		if err != nil {
-			panic(err)
+			op.logf("dynHostManager: %v", err.Error())
+			continue
+		}
+		for rows.Next() {
+			var hostid int
+			err = rows.Scan(&hostid)
+			if err != nil {
+				op.logf("dynHostManager: %v", err.Error())
+				continue
+			}
+			_, err = op.Exec(`DELETE FROM compscore
+				WHERE hostid = $1`, hostid)
+			if err != nil {
+				op.logf("dynHostManager: %v", err.Error())
+				continue
+			}
+			_, err = op.Exec(`DELETE FROM host
+				WHERE hostid = $1`, hostid)
+			if err != nil {
+				op.logf("dynHostManager: %v", err.Error())
+				continue
+			}
 		}
 	}
 }
