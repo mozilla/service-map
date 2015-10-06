@@ -64,14 +64,14 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 	s.HostMatch = make([]slib.HostMatch, 0)
 
 	// Grab any hosts that have been statically mapped to this group.
-	rows, err := op.Query(`SELECT hostid, hostname, comment FROM
-		host WHERE sysgroupid = $1`, s.ID)
+	rows, err := op.Query(`SELECT hostid, hostname, comment, lastused
+		FROM host WHERE sysgroupid = $1`, s.ID)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
 		var h slib.Host
-		err = rows.Scan(&h.ID, &h.Hostname, &h.Comment)
+		err = rows.Scan(&h.ID, &h.Hostname, &h.Comment, &h.LastUsed)
 		if err != nil {
 			return err
 		}
