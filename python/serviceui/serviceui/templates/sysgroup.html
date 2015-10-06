@@ -2,14 +2,50 @@
 {% block scripts %}
 {{ super() }}
 <script>
+  var compfails = [
+  {% for h in results.hosts %}
+  [
+  {% for c in h.compliance.details %}
+  {% if not c.status %}
+  {{ c.checkref|tojson|safe }},
+  {% endif %}
+  {% endfor %}
+  ],
+  {% endfor %}
+  ];
+
   $(document).ready(function() {
     $('#hosttab').DataTable();
     $('#hostdyntab').DataTable();
-    $('#hostcomptable').DataTable( {
-      "createdRow": function (row, data, index) {
+    var comptab = $('#hostcomptable').DataTable( {
+      'createdRow': function (row, data, index) {
         compTableFormat(row);
     }});
+
+    $('#hostcomptable tbody').on('click', 'td.details-control', function() {
+      var tr = $(this).closest('tr');
+      var row = comptab.row(tr);
+      if (row.child.isShown()) {
+        row.child.hide();
+        tr.removeClass('shown');
+      }
+      else {
+        row.child(comprowfmt(compfails[tr.data('rowid')])).show();
+        tr.addClass('shown');
+      }
+    });
   });
+
+  function comprowfmt(d) {
+    var trt = '<tr><td class="suHeader">Failing checks</td></tr>';
+    for (var i = 0; i < d.length; i++) {
+      var ntr = '<tr><td>' + d[i] + '</td></tr>';
+      trt += ntr;
+    }
+    return '<table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px">' +
+      trt +
+      '</table>';
+  }
 </script>
 {% endblock %}
 {% block content %}
@@ -78,6 +114,7 @@
   <table id="hostcomptable" class="display" cellspacing="0" width="100%">
     <thead>
       <tr>
+        <td></td>
         <td>Hostname</td>
         <td>H/Pass</td>
         <td>H/Fail</td>
@@ -89,7 +126,8 @@
     </thead>
     <tbody>
       {% for h in results.hosts %}
-      <tr>
+      <tr data-rowid="{{ loop.index - 1 }}">
+        <td class="details-control">+</td>
         <td>{{ h.hostname }}</td>
         <td><span class="comppassv">{{ h.compliance.highpass }}</span></td>
         <td><span class="compfailv">{{ h.compliance.highfail }}</span></td>

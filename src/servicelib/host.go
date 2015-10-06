@@ -36,6 +36,14 @@ type ComplianceStatus struct {
 	MediumPass int `json:"mediumpass"`
 	LowFail    int `json:"lowfail"`
 	LowPass    int `json:"lowpass"`
+
+	Details []ComplianceDetails `json:"details"`
+}
+
+type ComplianceDetails struct {
+	CheckRef  string    `json:"checkref"`
+	Status    bool      `json:"status"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 func (c *ComplianceStatus) Reset() {
@@ -45,4 +53,5 @@ func (c *ComplianceStatus) Reset() {
 	c.MediumPass = 0
 	c.LowFail = 0
 	c.LowPass = 0
+	c.Details = make([]ComplianceDetails, 0)
 }

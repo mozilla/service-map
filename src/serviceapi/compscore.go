@@ -56,6 +56,13 @@ func hostAddComp(op opContext, h *slib.Host) error {
 				h.CompStatus.HighFail++
 			}
 		}
+
+		// Add a details entry for the item
+		ncd := slib.ComplianceDetails{}
+		ncd.CheckRef = refname
+		ncd.Status = sts
+		ncd.Timestamp = tstamp
+		h.CompStatus.Details = append(h.CompStatus.Details, ncd)
 	}
 	return nil
 }
