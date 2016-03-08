@@ -122,7 +122,11 @@ func serviceLookup(op opContext, s *slib.Service) error {
 	useid := s.SystemGroup.ID
 	rows, err := op.Query(`SELECT service, rraid,
 		ari, api, afi, cri, cpi, cfi,
-		iri, ipi, ifi, datadefault
+		iri, ipi, ifi,
+		arp, app, afp,
+		crp, cpp, cfp,
+		irp, ipp, ifp,
+		datadefault
 		FROM rra
 		WHERE rraid IN (
 		SELECT rraid FROM rra_sysgroup
@@ -132,10 +136,14 @@ func serviceLookup(op opContext, s *slib.Service) error {
 	}
 	for rows.Next() {
 		var ns slib.RRAService
-		rows.Scan(&ns.Name, &ns.ID, &ns.AvailRep, &ns.AvailPrd,
-			&ns.AvailFin, &ns.ConfiRep, &ns.ConfiPrd,
-			&ns.ConfiFin, &ns.IntegRep, &ns.IntegPrd,
-			&ns.IntegFin, &ns.DefData)
+		rows.Scan(&ns.Name, &ns.ID, &ns.AvailRepImpact, &ns.AvailPrdImpact,
+			&ns.AvailFinImpact, &ns.ConfiRepImpact, &ns.ConfiPrdImpact,
+			&ns.ConfiFinImpact, &ns.IntegRepImpact, &ns.IntegPrdImpact,
+			&ns.IntegFinImpact,
+			&ns.AvailRepProb, &ns.AvailPrdProb, &ns.AvailFinProb,
+			&ns.ConfiRepProb, &ns.ConfiPrdProb, &ns.ConfiFinProb,
+			&ns.IntegRepProb, &ns.IntegPrdProb, &ns.IntegFinProb,
+			&ns.DefData)
 		s.Services = append(s.Services, ns)
 	}
 	return nil
@@ -603,7 +611,9 @@ func main() {
 	s.HandleFunc("/sysgroups", serviceSysGroups).Methods("GET")
 	s.HandleFunc("/sysgroup/id", serviceGetSysGroup).Methods("GET")
 	s.HandleFunc("/rras", serviceRRAs).Methods("GET")
+	s.HandleFunc("/risks", serviceRisks).Methods("GET")
 	s.HandleFunc("/rra/id", serviceGetRRA).Methods("GET")
+	s.HandleFunc("/rra/risk", serviceGetRRARisk).Methods("GET")
 	s.HandleFunc("/vulns/target", serviceGetVulnsTarget).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
 	listenAddr := cfg.General.Listen
