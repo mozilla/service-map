@@ -8,11 +8,11 @@ function trColor() {
       continue;
     }
     var ct = node.childNodes[0].nodeValue;
-    if (ct === "maximum" || ct === "secret") {
+    if (ct === "maximum" || ct === "secret" || ct === "confidential secret") {
         node.className = "riskLabel riskLabelMax"
-      } else if (ct === "high" || ct === "restricted") {
+      } else if (ct === "high" || ct === "restricted" || ct === "confidential restricted") {
         node.className = "riskLabel riskLabelHigh"
-      } else if (ct === "medium" || ct === "internal" || ct === "mediumlow") {
+      } else if (ct === "medium" || ct === "internal" || ct === "mediumlow" || ct === "confidential internal") {
         node.className = "riskLabel riskLabelMedium"
       } else if (ct === "low" || ct === "public") {
         node.className = "riskLabel riskLabelLow"

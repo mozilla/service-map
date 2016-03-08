@@ -5,6 +5,9 @@
 // Contributor:
 // - Aaron Meihm ameihm@mozilla.com
 
+// Imports RRA information from the RRA index and stores it in the database,
+// can also be used to update existing RRAs in the database if they have
+// changed in the index
 package main
 
 import (
@@ -24,10 +27,8 @@ type rra struct {
 	Details rraDetails `json:"details"`
 }
 
-func (r *rra) sanitize() error {
-	r.Details.Metadata.Service = strings.Replace(r.Details.Metadata.Service, "\n", " ", -1)
-	r.Details.Metadata.Service = strings.TrimSpace(r.Details.Metadata.Service)
-	return nil
+func (r *rra) validate() error {
+	return r.Details.validate()
 }
 
 type rraDetails struct {
@@ -36,12 +37,58 @@ type rraDetails struct {
 	Data     rraData     `json:"data"`
 }
 
+func (r *rraDetails) validate() error {
+	err := r.Metadata.validate()
+	if err != nil {
+		return err
+	}
+	err = r.Risk.validate(r.Metadata.Service)
+	if err != nil {
+		return err
+	}
+	err = r.Data.validate(r.Metadata.Service)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type rraMetadata struct {
 	Service string `json:"service"`
 }
 
+func (r *rraMetadata) validate() error {
+	if r.Service == "" {
+		return fmt.Errorf("rra has no service name")
+	}
+	// Do some sanitization of the service name if neccessary
+	r.Service = strings.Replace(r.Service, "\n", " ", -1)
+	r.Service = strings.TrimSpace(r.Service)
+	return nil
+}
+
 type rraData struct {
 	Default string `json:"default"`
+}
+
+func (r *rraData) validate(s string) error {
+	if r.Default == "" {
+		return fmt.Errorf("rra has no default data classification")
+	}
+	// Sanitize the data classification
+	// XXX This should likely be checked against a list of known valid
+	// strings
+	r.Default = strings.ToLower(r.Default)
+	// Convert from some older classification values
+	switch r.Default {
+	case "internal":
+		r.Default = "confidential internal"
+	case "restricted":
+		r.Default = "confidential restricted"
+	case "secret":
+		r.Default = "confidential secret"
+	}
+	return nil
 }
 
 type rraRisk struct {
@@ -50,18 +97,86 @@ type rraRisk struct {
 	Availability    rraRiskAttr `json:"availability"`
 }
 
+func (r *rraRisk) validate(s string) error {
+	err := r.Confidentiality.validate(s)
+	if err != nil {
+		return err
+	}
+	err = r.Integrity.validate(s)
+	if err != nil {
+		return err
+	}
+	err = r.Availability.validate(s)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type rraRiskAttr struct {
 	Reputation   rraMeasure `json:"reputation"`
 	Finances     rraMeasure `json:"finances"`
 	Productivity rraMeasure `json:"productivity"`
 }
 
+func (r *rraRiskAttr) validate(s string) error {
+	err := r.Reputation.validate(s)
+	if err != nil {
+		return err
+	}
+	err = r.Finances.validate(s)
+	if err != nil {
+		return err
+	}
+	err = r.Productivity.validate(s)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type rraMeasure struct {
-	Impact string `json:"impact"`
+	Impact      string `json:"impact"`
+	Probability string `json:"probability"`
+}
+
+func (r *rraMeasure) validate(s string) (err error) {
+	r.Impact, err = verifyLabel(r.Impact)
+	if err != nil {
+		return err
+	}
+	// XXX If the probability value is unset, just default it to unknown
+	// here and continue. We can proceed without this value, if we at least
+	// have the impact. Without this though certain calculation datapoints
+	// may not be possible.
+	if r.Probability == "" {
+		r.Probability = "unknown"
+		fmt.Fprintf(os.Stderr, "warning: default probability to unknown for \"%v\"\n", s)
+	}
+	r.Probability, err = verifyLabel(r.Probability)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 var rraIndex = "rra"
 var rraList []rra
+
+// Verify and sanitize a risk impact label
+func verifyLabel(l string) (ret string, err error) {
+	if l == "" {
+		err = fmt.Errorf("invalid zero length label")
+		return
+	}
+	ret = strings.ToLower(l)
+	if ret != "maximum" && ret != "high" && ret != "medium" &&
+		ret != "low" && ret != "unknown" {
+		err = fmt.Errorf("invalid label \"%v\"", ret)
+		return
+	}
+	return
+}
 
 func requestRRAs(eshost string) error {
 	fmt.Fprintf(os.Stdout, "Requesting RRA list...\n")
@@ -107,9 +222,18 @@ func requestRRAs(eshost string) error {
 			if err != nil {
 				return err
 			}
-			err = nrra.sanitize()
+			err = nrra.validate()
 			if err != nil {
-				return err
+				// If the RRA failed validation, it has some
+				// sort of formatting issue, just log it and
+				// continue; try to include the service name
+				// if we can
+				sname := "unknown service"
+				if nrra.Details.Metadata.Service != "" {
+					sname = nrra.Details.Metadata.Service
+				}
+				fmt.Fprintf(os.Stderr, "warning: skipping \"%v\", %v\n", sname, err)
+				continue
 			}
 			rraList = append(rraList, nrra)
 		}
@@ -128,58 +252,101 @@ func dbInit() error {
 	return nil
 }
 
-func sanitizeImpact(s string) string {
-	return strings.ToLower(s)
-}
-
 func dbUpdateRRAs() error {
 	for _, x := range rraList {
 		// Extract impact information.
 		var (
 			riskARI string
+			riskARP string
 			riskAPI string
+			riskAPP string
 			riskAFI string
+			riskAFP string
 
 			riskCRI string
+			riskCRP string
 			riskCPI string
+			riskCPP string
 			riskCFI string
+			riskCFP string
 
 			riskIRI string
+			riskIRP string
 			riskIPI string
+			riskIPP string
 			riskIFI string
+			riskIFP string
 
 			datadef string
 		)
-		riskARI = sanitizeImpact(x.Details.Risk.Availability.Reputation.Impact)
-		riskAPI = sanitizeImpact(x.Details.Risk.Availability.Productivity.Impact)
-		riskAFI = sanitizeImpact(x.Details.Risk.Availability.Finances.Impact)
+		riskARI = x.Details.Risk.Availability.Reputation.Impact
+		riskARP = x.Details.Risk.Availability.Reputation.Probability
+		riskAPI = x.Details.Risk.Availability.Productivity.Impact
+		riskAPP = x.Details.Risk.Availability.Productivity.Probability
+		riskAFI = x.Details.Risk.Availability.Finances.Impact
+		riskAFP = x.Details.Risk.Availability.Finances.Probability
 
-		riskCRI = sanitizeImpact(x.Details.Risk.Confidentiality.Reputation.Impact)
-		riskCPI = sanitizeImpact(x.Details.Risk.Confidentiality.Productivity.Impact)
-		riskCFI = sanitizeImpact(x.Details.Risk.Confidentiality.Finances.Impact)
+		riskCRI = x.Details.Risk.Confidentiality.Reputation.Impact
+		riskCRP = x.Details.Risk.Confidentiality.Reputation.Probability
+		riskCPI = x.Details.Risk.Confidentiality.Productivity.Impact
+		riskCPP = x.Details.Risk.Confidentiality.Productivity.Probability
+		riskCFI = x.Details.Risk.Confidentiality.Finances.Impact
+		riskCFP = x.Details.Risk.Confidentiality.Finances.Probability
 
-		riskIRI = sanitizeImpact(x.Details.Risk.Integrity.Reputation.Impact)
-		riskIPI = sanitizeImpact(x.Details.Risk.Integrity.Productivity.Impact)
-		riskIFI = sanitizeImpact(x.Details.Risk.Integrity.Finances.Impact)
+		riskIRI = x.Details.Risk.Integrity.Reputation.Impact
+		riskIRP = x.Details.Risk.Integrity.Reputation.Probability
+		riskIPI = x.Details.Risk.Integrity.Productivity.Impact
+		riskIPP = x.Details.Risk.Integrity.Productivity.Probability
+		riskIFI = x.Details.Risk.Integrity.Finances.Impact
+		riskIFP = x.Details.Risk.Integrity.Finances.Probability
 
-		datadef = sanitizeImpact(x.Details.Data.Default)
+		datadef = x.Details.Data.Default
 
 		fmt.Fprintf(os.Stdout, "RRA: %v\n", x.Details.Metadata.Service)
 		_, err := dbconn.Exec(`INSERT INTO rra
-			(service, ari, api, afi, cri, cpi, cfi, iri, ipi, ifi, datadefault)
-			SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+			(service, ari, api, afi, cri, cpi, cfi, iri, ipi, ifi,
+			arp, app, afp, crp, cpp, cfp, irp, ipp, ifp, datadefault,
+			lastupdated)
+			SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+			now() AT TIME ZONE 'utc'
 			WHERE NOT EXISTS (
-				SELECT 1 FROM rra WHERE service = $12
+				SELECT 1 FROM rra WHERE service = $21
 			)`,
 			x.Details.Metadata.Service, riskARI, riskAPI, riskAFI,
 			riskCRI, riskCPI, riskCFI, riskIRI, riskIPI, riskIFI,
-			datadef, x.Details.Metadata.Service)
+			riskARP, riskAPP, riskAFP, riskCRP, riskCPP, riskCFP,
+			riskIRP, riskIPP, riskIFP, datadef, x.Details.Metadata.Service)
 		if err != nil {
 			return err
 		}
 		_, err = dbconn.Exec(`UPDATE rra
-			SET lastupdated = now() AT TIME ZONE 'utc'
-			WHERE service = $1`, x.Details.Metadata.Service)
+			SET
+			ari = $1,
+			api = $2,
+			afi = $3,
+			cri = $4,
+			cpi = $5,
+			cfi = $6,
+			iri = $7,
+			ipi = $8,
+			ifi = $9,
+			arp = $10,
+			app = $11,
+			afp = $12,
+			crp = $13,
+			cpp = $14,
+			cfp = $15,
+			irp = $16,
+			ipp = $17,
+			ifp = $18,
+			datadefault = $19,
+			lastupdated = now() AT TIME ZONE 'utc'
+			WHERE service = $20`,
+			riskARI, riskAPI, riskAFI,
+			riskCRI, riskCPI, riskCFI, riskIRI, riskIPI, riskIFI,
+			riskARP, riskAPP, riskAFP, riskCRP, riskCPP, riskCFP,
+			riskIRP, riskIPP, riskIFP, datadef, x.Details.Metadata.Service)
 		if err != nil {
 			return err
 		}

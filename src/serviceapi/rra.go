@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	slib "servicelib"
+	"strconv"
 )
 
 func getRRA(op opContext, rraid string) (slib.RRAService, error) {
@@ -19,7 +20,9 @@ func getRRA(op opContext, rraid string) (slib.RRAService, error) {
 
 	rows, err := op.Query(`SELECT rraid, service,
 		ari, api, afi, cri, cpi, cfi,
-		iri, ipi, ifi, datadefault
+		iri, ipi, ifi,
+		arp, app, afp, crp, cpp, cfp,
+		irp, ipp, ifp, datadefault
 		FROM rra WHERE rraid = $1`, rraid)
 	if err != nil {
 		return rr, err
@@ -27,9 +30,13 @@ func getRRA(op opContext, rraid string) (slib.RRAService, error) {
 	if !rows.Next() {
 		return rr, nil
 	}
-	err = rows.Scan(&rr.ID, &rr.Name, &rr.AvailRep, &rr.AvailPrd,
-		&rr.AvailFin, &rr.ConfiRep, &rr.ConfiPrd, &rr.ConfiFin,
-		&rr.IntegRep, &rr.IntegPrd, &rr.IntegFin, &rr.DefData)
+	err = rows.Scan(&rr.ID, &rr.Name, &rr.AvailRepImpact, &rr.AvailPrdImpact,
+		&rr.AvailFinImpact, &rr.ConfiRepImpact, &rr.ConfiPrdImpact, &rr.ConfiFinImpact,
+		&rr.IntegRepImpact, &rr.IntegPrdImpact, &rr.IntegFinImpact,
+		&rr.AvailRepProb, &rr.AvailPrdProb, &rr.AvailFinProb,
+		&rr.ConfiRepProb, &rr.ConfiPrdProb, &rr.ConfiFinProb,
+		&rr.IntegRepProb, &rr.IntegPrdProb, &rr.IntegPrdProb,
+		&rr.DefData)
 	if err != nil {
 		return rr, nil
 	}
@@ -70,6 +77,121 @@ func rraResolveSupportGroups(op opContext, r *slib.RRAService) error {
 		r.SupportGrps = append(r.SupportGrps, sg)
 	}
 	return nil
+}
+
+// Return a risk document that includes all RRAs
+func serviceRisks(rw http.ResponseWriter, req *http.Request) {
+	op := opContext{}
+	op.newContext(dbconn, false, req.RemoteAddr)
+
+	rows, err := op.Query(`SELECT rraid FROM rra`)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	resp := slib.RisksResponse{}
+	for rows.Next() {
+		var rraid int
+		err = rows.Scan(&rraid)
+		if err != nil {
+			op.logf(err.Error())
+			http.Error(rw, err.Error(), 500)
+			return
+		}
+		r, err := getRRA(op, strconv.Itoa(rraid))
+		if err != nil {
+			op.logf(err.Error())
+			http.Error(rw, err.Error(), 500)
+			return
+		}
+		for i := range r.SupportGrps {
+			err = sysGroupAddMeta(op, &r.SupportGrps[i])
+			if err != nil {
+				op.logf(err.Error())
+				http.Error(rw, err.Error(), 500)
+				return
+			}
+		}
+		rs := slib.RRAServiceRisk{}
+		rs.RRA = r
+		err = riskCalculation(op, &rs)
+		if err != nil {
+			op.logf(err.Error())
+			http.Error(rw, err.Error(), 500)
+			return
+		}
+		err = rs.Validate()
+		if err != nil {
+			op.logf(err.Error())
+			http.Error(rw, err.Error(), 500)
+			return
+		}
+		resp.Risks = append(resp.Risks, rs)
+	}
+
+	buf, err := json.Marshal(&resp)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	fmt.Fprintf(rw, string(buf))
+}
+
+// Calculate the risk for the requested RRA
+func serviceGetRRARisk(rw http.ResponseWriter, req *http.Request) {
+	req.ParseForm()
+
+	op := opContext{}
+	op.newContext(dbconn, false, req.RemoteAddr)
+
+	rraid := req.FormValue("id")
+	if rraid == "" {
+		err := fmt.Errorf("no rra id specified")
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 400)
+		return
+	}
+
+	r, err := getRRA(op, rraid)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	// Introduce system group metadata into the RRA which datapoints may
+	// use as part of processing.
+	for i := range r.SupportGrps {
+		err = sysGroupAddMeta(op, &r.SupportGrps[i])
+		if err != nil {
+			op.logf(err.Error())
+			http.Error(rw, err.Error(), 500)
+			return
+		}
+	}
+
+	rs := slib.RRAServiceRisk{}
+	rs.RRA = r
+	err = riskCalculation(op, &rs)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	err = rs.Validate()
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+	}
+
+	buf, err := json.Marshal(&rs)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	fmt.Fprintf(rw, string(buf))
 }
 
 func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {

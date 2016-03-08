@@ -26,28 +26,59 @@
 <div class="container">
   <h3>Risk details</h3>
   <table id="risk" class="suTable" cellspacing="0" width="100%">
-    <tr><td class="suHeader">Impact</td>
-      <td class="suHeader">Availability</td>
-      <td class="suHeader">Confidentiality</td>
-      <td class="suHeader">Integrity</td>
+    <tr>
+      <td class="suHeader">Attribute</td>
+      <td class="suHeader">Impact type</td>
+      <td class="suHeader">Impact</td>
+      <td class="suHeader">Probability</td>
     </tr>
     <tr>
-      <td class="suHeader">Reputation</td>
-      <td><span name="rlabel">{{ results.availrep }}</span></td>
-      <td><span name="rlabel">{{ results.confirep }}</span></td>
-      <td><span name="rlabel">{{ results.integrep }}</span></td>
+      <td rowspan=3>Confidentiality</td>
+      <td>Reputation</td>
+      <td><span name="rlabel">{{ results.confirepimpact }}</span></td>
+      <td><span name="rlabel">{{ results.confirepprob }}</span></td>
     </tr>
     <tr>
-      <td class="suHeader">Productivity</td>
-      <td><span name="rlabel">{{ results.availprd }}</span></td>
-      <td><span name="rlabel">{{ results.confiprd }}</span></td>
-      <td><span name="rlabel">{{ results.integprd }}</span></td>
+      <td>Productivity</td>
+      <td><span name="rlabel">{{ results.confiprdimpact }}</span></td>
+      <td><span name="rlabel">{{ results.confiprdprob }}</span></td>
     </tr>
     <tr>
-      <td class="suHeader">Financial</td>
-      <td><span name="rlabel">{{ results.availfin }}</span></td>
-      <td><span name="rlabel">{{ results.confifin }}</span></td>
-      <td><span name="rlabel">{{ results.integfin }}</span></td>
+      <td>Finances</td>
+      <td><span name="rlabel">{{ results.confifinimpact }}</span></td>
+      <td><span name="rlabel">{{ results.confifinprob }}</span></td>
+    </tr>
+    <tr>
+      <td rowspan=3>Availability</td>
+      <td>Reputation</td>
+      <td><span name="rlabel">{{ results.availrepimpact }}</span></td>
+      <td><span name="rlabel">{{ results.availrepprob }}</span></td>
+    </tr>
+    <tr>
+      <td>Productivity</td>
+      <td><span name="rlabel">{{ results.availprdimpact }}</span></td>
+      <td><span name="rlabel">{{ results.availprdprob }}</span></td>
+    </tr>
+    <tr>
+      <td>Finances</td>
+      <td><span name="rlabel">{{ results.availfinimpact }}</span></td>
+      <td><span name="rlabel">{{ results.availfinprob }}</span></td>
+    </tr>
+    <tr>
+      <td rowspan=3>Integrity</td>
+      <td>Reputation</td>
+      <td><span name="rlabel">{{ results.integrepimpact }}</span></td>
+      <td><span name="rlabel">{{ results.integrepprob }}</span></td>
+    </tr>
+    <tr>
+      <td>Productivity</td>
+      <td><span name="rlabel">{{ results.integprdimpact }}</span></td>
+      <td><span name="rlabel">{{ results.integprdprob }}</span></td>
+    </tr>
+    <tr>
+      <td>Finances</td>
+      <td><span name="rlabel">{{ results.integfinimpact }}</span></td>
+      <td><span name="rlabel">{{ results.integfinprob }}</span></td>
     </tr>
   </table>
 </div>
