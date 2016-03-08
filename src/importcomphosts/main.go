@@ -43,6 +43,13 @@ func requestCompliance(eshost string) ([]string, error) {
 					"term": {
 						"_type": "last_known_state"
 					}
+				},
+				{
+					"range": {
+						"utctimestamp": {
+							"gt": "now-7d"
+						}
+					}
 				}
 				]
 			}
