@@ -94,8 +94,10 @@ type Config struct {
 		Database string
 	}
 	Vulnerabilities struct {
-		ESHost string
-		Index  string
+		ESHost           string
+		Index            string
+		ScoringBatchSize int
+		ScoreEvery       string
 	}
 	Compliance struct {
 		ESHost           string
@@ -608,6 +610,14 @@ func main() {
 		logf("spawning compliance scoring routine")
 		for {
 			scoreCompliance()
+			time.Sleep(5 * time.Second)
+		}
+	}()
+	// Spawn the vulnerability scoring process
+	go func() {
+		logf("spawning vulnerability scoring routine")
+		for {
+			scoreVuln()
 			time.Sleep(5 * time.Second)
 		}
 	}()

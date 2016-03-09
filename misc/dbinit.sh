@@ -4,6 +4,7 @@ dbname=servicemap
 psql="psql -f - ${dbname}"
 
 $psql << EOF
+DROP TABLE IF EXISTS vulnscore;
 DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS rra_sysgroup;
 DROP TABLE IF EXISTS hostmatch;
@@ -87,6 +88,15 @@ CREATE TABLE compscore (
 	hostid INTEGER REFERENCES host (hostid),
 	checkref TEXT NOT NULL,
 	status BOOLEAN NOT NULL
+);
+CREATE TABLE vulnscore (
+	scoreid SERIAL PRIMARY KEY,
+	timestamp TIMESTAMP NOT NULL,
+	hostid INTEGER REFERENCES host (hostid),
+	maxcount INTEGER DEFAULT 0 NOT NULL,
+	highcount INTEGER DEFAULT 0 NOT NULL,
+	mediumcount INTEGER DEFAULT 0 NOT NULL,
+	lowcount INTEGER DEFAULT 0 NOT NULL
 );
 EOF
 
