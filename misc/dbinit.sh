@@ -37,7 +37,7 @@ CREATE TABLE rra (
 );
 CREATE TABLE techowners (
 	techownerid SERIAL PRIMARY KEY,
-	techowner TEXT
+	techowner TEXT NOT NULL
 );
 CREATE TABLE sysgroup (
 	sysgroupid SERIAL PRIMARY KEY,
@@ -68,7 +68,9 @@ CREATE TABLE host (
 	dynamic BOOLEAN NOT NULL,
 	dynamic_added TIMESTAMP,
 	dynamic_confidence INTEGER,
-	lastused TIMESTAMP NOT NULL
+	lastused TIMESTAMP NOT NULL,
+	lastcompscore TIMESTAMP NOT NULL,
+	lastvulnscore TIMESTAMP NOT NULL
 );
 CREATE INDEX ON host (hostname);
 CREATE INDEX ON host (sysgroupid);
@@ -84,7 +86,7 @@ CREATE TABLE compscore (
 	timestamp TIMESTAMP NOT NULL,
 	hostid INTEGER REFERENCES host (hostid),
 	checkref TEXT NOT NULL,
-	status BOOLEAN
+	status BOOLEAN NOT NULL
 );
 EOF
 

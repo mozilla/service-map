@@ -97,6 +97,12 @@ type Config struct {
 		ESHost string
 		Index  string
 	}
+	Compliance struct {
+		ESHost           string
+		Index            string
+		ScoringBatchSize int
+		ScoreEvery       string
+	}
 }
 
 func (c *Config) validate() error {
@@ -598,6 +604,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Spawn the compliance scoring process
+	go func() {
+		logf("spawning compliance scoring routine")
+		for {
+			scoreCompliance()
+			time.Sleep(5 * time.Second)
+		}
+	}()
 
 	logf("Starting processing")
 
