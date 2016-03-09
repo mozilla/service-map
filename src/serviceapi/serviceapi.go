@@ -511,6 +511,11 @@ func dynHostManager() {
 		if err != nil {
 			panic(err)
 		}
+		_, err = op.Exec(`DELETE FROM vulnscore
+				WHERE hostid = $1`, hostid)
+		if err != nil {
+			panic(err)
+		}
 		_, err = op.Exec(`DELETE FROM host
 				WHERE hostid = $1`, hostid)
 		if err != nil {
