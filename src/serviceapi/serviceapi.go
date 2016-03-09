@@ -485,36 +485,34 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 // Periodically prune dynamic hosts from the database that have not been seen
 // within a given period.
 func dynHostManager() {
-	for {
-		time.Sleep(1 * time.Minute)
-		op := opContext{}
-		op.newContext(dbconn, false, "")
-		cutoff := time.Now().UTC().Add(-(168 * time.Hour))
-		rows, err := op.Query(`SELECT hostid FROM host
-			WHERE dynamic = true AND lastused < $1`, cutoff)
-		if err != nil {
-			op.logf("dynHostManager: %v", err.Error())
-			continue
+	defer func() {
+		if e := recover(); e != nil {
+			logf("error in dynamic host manager: %v", e)
 		}
-		for rows.Next() {
-			var hostid int
-			err = rows.Scan(&hostid)
-			if err != nil {
-				op.logf("dynHostManager: %v", err.Error())
-				continue
-			}
-			_, err = op.Exec(`DELETE FROM compscore
+	}()
+	op := opContext{}
+	op.newContext(dbconn, false, "dynhostmanager")
+	cutoff := time.Now().UTC().Add(-(168 * time.Hour))
+	rows, err := op.Query(`SELECT hostid FROM host
+			WHERE dynamic = true AND lastused < $1`, cutoff)
+	if err != nil {
+		panic(err)
+	}
+	for rows.Next() {
+		var hostid int
+		err = rows.Scan(&hostid)
+		if err != nil {
+			panic(err)
+		}
+		_, err = op.Exec(`DELETE FROM compscore
 				WHERE hostid = $1`, hostid)
-			if err != nil {
-				op.logf("dynHostManager: %v", err.Error())
-				continue
-			}
-			_, err = op.Exec(`DELETE FROM host
+		if err != nil {
+			panic(err)
+		}
+		_, err = op.Exec(`DELETE FROM host
 				WHERE hostid = $1`, hostid)
-			if err != nil {
-				op.logf("dynHostManager: %v", err.Error())
-				continue
-			}
+		if err != nil {
+			panic(err)
 		}
 	}
 }
@@ -611,6 +609,14 @@ func main() {
 		for {
 			scoreCompliance()
 			time.Sleep(5 * time.Second)
+		}
+	}()
+	// Spawn dynamic host manager
+	go func() {
+		logf("spawning dynamic host manager")
+		for {
+			time.Sleep(1 * time.Minute)
+			dynHostManager()
 		}
 	}()
 
