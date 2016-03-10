@@ -241,6 +241,9 @@ func requestRRAs() (ret []rraESData, err error) {
 }
 
 func dbUpdateRRAs(rraList []rraESData) error {
+	op := opContext{}
+	op.newContext(dbconn, false, "importrra")
+
 	for _, x := range rraList {
 		// Extract impact information.
 		var (
@@ -295,7 +298,7 @@ func dbUpdateRRAs(rraList []rraESData) error {
 			return err
 		}
 
-		_, err = dbconn.Exec(`INSERT INTO rra
+		_, err = op.Exec(`INSERT INTO rra
 			(service, ari, api, afi, cri, cpi, cfi, iri, ipi, ifi,
 			arp, app, afp, crp, cpp, cfp, irp, ipp, ifp, datadefault,
 			lastupdated, raw)
@@ -312,7 +315,7 @@ func dbUpdateRRAs(rraList []rraESData) error {
 		if err != nil {
 			return err
 		}
-		_, err = dbconn.Exec(`UPDATE rra
+		_, err = op.Exec(`UPDATE rra
 			SET
 			ari = $1,
 			api = $2,
