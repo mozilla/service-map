@@ -22,7 +22,7 @@ func getRRA(op opContext, rraid string) (slib.RRAService, error) {
 		ari, api, afi, cri, cpi, cfi,
 		iri, ipi, ifi,
 		arp, app, afp, crp, cpp, cfp,
-		irp, ipp, ifp, datadefault
+		irp, ipp, ifp, datadefault, raw
 		FROM rra WHERE rraid = $1`, rraid)
 	if err != nil {
 		return rr, err
@@ -36,7 +36,7 @@ func getRRA(op opContext, rraid string) (slib.RRAService, error) {
 		&rr.AvailRepProb, &rr.AvailPrdProb, &rr.AvailFinProb,
 		&rr.ConfiRepProb, &rr.ConfiPrdProb, &rr.ConfiFinProb,
 		&rr.IntegRepProb, &rr.IntegPrdProb, &rr.IntegPrdProb,
-		&rr.DefData)
+		&rr.DefData, &rr.RawRRA)
 	if err != nil {
 		return rr, nil
 	}
