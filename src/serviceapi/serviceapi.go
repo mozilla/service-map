@@ -130,6 +130,31 @@ var dbconn *sql.DB
 var wg sync.WaitGroup
 var logChan chan string
 
+// Used by various dynamic host importers, this adds the host to the database
+// if it does not exist, and updates the lastused timestamp
+func updateDynamicHost(op opContext, hn string, comment string) error {
+	_, err := op.Exec(`INSERT INTO host
+		(hostname, comment, dynamic, dynamic_added, dynamic_confidence, lastused,
+		lastcompscore, lastvulnscore)
+		SELECT $1, $2, TRUE, now() AT TIME ZONE 'utc',
+		80, now() AT TIME ZONE 'utc',
+		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
+		now() AT TIME ZONE 'utc' - INTERVAL '5 days'
+		WHERE NOT EXISTS (
+			SELECT 1 FROM host WHERE lower(hostname) = lower($3)
+		)`, hn, comment, hn)
+	if err != nil {
+		return err
+	}
+	_, err = dbconn.Exec(`UPDATE host
+		SET lastused = now() AT TIME ZONE 'utc'
+		WHERE lower(hostname) = lower($1)`, hn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func serviceLookup(op opContext, s *slib.Service) error {
 	useid := s.SystemGroup.ID
 	rows, err := op.Query(`SELECT service, rraid,
@@ -635,6 +660,14 @@ func main() {
 		logf("spawning rra import routine")
 		for {
 			importRRA()
+			time.Sleep(60 * time.Second)
+		}
+	}()
+	// Spawn compliance host import process
+	go func() {
+		logf("spawning compliance host import routine")
+		for {
+			importCompHosts()
 			time.Sleep(60 * time.Second)
 		}
 	}()
