@@ -34,7 +34,8 @@ CREATE TABLE rra (
 	ipp TEXT NOT NULL,
 	ifp TEXT NOT NULL,
 	datadefault TEXT NOT NULL,
-	lastupdated TIMESTAMP NOT NULL
+	lastupdated TIMESTAMP NOT NULL,
+	raw JSON NOT NULL
 );
 CREATE TABLE techowners (
 	techownerid SERIAL PRIMARY KEY,

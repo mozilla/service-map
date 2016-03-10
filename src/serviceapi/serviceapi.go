@@ -93,6 +93,10 @@ type Config struct {
 		Hostname string
 		Database string
 	}
+	RRA struct {
+		ESHost string
+		Index  string
+	}
 	Vulnerabilities struct {
 		ESHost           string
 		Index            string
@@ -624,6 +628,14 @@ func main() {
 		for {
 			scoreVuln()
 			time.Sleep(5 * time.Second)
+		}
+	}()
+	// Spawn the RRA import process
+	go func() {
+		logf("spawning rra import routine")
+		for {
+			importRRA()
+			time.Sleep(60 * time.Second)
 		}
 	}()
 	// Spawn dynamic host manager

@@ -9,6 +9,7 @@ package servicelib
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Describes an RRA.
@@ -135,6 +136,20 @@ func ImpactValueFromLabel(l string) (float64, error) {
 		return ImpactUnknownValue, nil
 	}
 	return 0, fmt.Errorf("invalid impact label %v", l)
+}
+
+// Sanitize an impact label and verify it's a valid value
+func SanitizeImpactLabel(l string) (ret string, err error) {
+	if l == "" {
+		err = fmt.Errorf("invalid zero length label")
+		return
+	}
+	ret = strings.ToLower(l)
+	if ret != "maximum" && ret != "high" && ret != "medium" &&
+		ret != "low" && ret != "unknown" {
+		err = fmt.Errorf("invalid impact label \"%v\"", ret)
+	}
+	return
 }
 
 // Covert an impact value from 1 - 4 to the string value for that label,
