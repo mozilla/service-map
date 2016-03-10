@@ -4,6 +4,7 @@ dbname=servicemap
 psql="psql -f - ${dbname}"
 
 $psql << EOF
+DROP TABLE IF EXISTS importcomphostcfg;
 DROP TABLE IF EXISTS vulnscore;
 DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS rra_sysgroup;
@@ -12,6 +13,7 @@ DROP TABLE IF EXISTS host;
 DROP TABLE IF EXISTS rra;
 DROP TABLE IF EXISTS sysgroup;
 DROP TABLE IF EXISTS searchresults;
+DROP TABLE IF EXISTS techowners;
 CREATE TABLE rra (
 	rraid SERIAL PRIMARY KEY,
 	service TEXT NOT NULL UNIQUE,
@@ -98,6 +100,10 @@ CREATE TABLE vulnscore (
 	highcount INTEGER DEFAULT 0 NOT NULL,
 	mediumcount INTEGER DEFAULT 0 NOT NULL,
 	lowcount INTEGER DEFAULT 0 NOT NULL
+);
+CREATE TABLE importcomphostcfg (
+	exid SERIAL PRIMARY KEY,
+	hostmatch TEXT NOT NULL UNIQUE
 );
 EOF
 

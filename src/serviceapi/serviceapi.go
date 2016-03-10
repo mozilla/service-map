@@ -132,17 +132,17 @@ var logChan chan string
 
 // Used by various dynamic host importers, this adds the host to the database
 // if it does not exist, and updates the lastused timestamp
-func updateDynamicHost(op opContext, hn string, comment string) error {
+func updateDynamicHost(op opContext, hn string, comment string, confidence int) error {
 	_, err := op.Exec(`INSERT INTO host
 		(hostname, comment, dynamic, dynamic_added, dynamic_confidence, lastused,
 		lastcompscore, lastvulnscore)
 		SELECT $1, $2, TRUE, now() AT TIME ZONE 'utc',
-		80, now() AT TIME ZONE 'utc',
+		$3, now() AT TIME ZONE 'utc',
 		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
 		now() AT TIME ZONE 'utc' - INTERVAL '5 days'
 		WHERE NOT EXISTS (
-			SELECT 1 FROM host WHERE lower(hostname) = lower($3)
-		)`, hn, comment, hn)
+			SELECT 1 FROM host WHERE lower(hostname) = lower($4)
+		)`, hn, comment, confidence, hn)
 	if err != nil {
 		return err
 	}

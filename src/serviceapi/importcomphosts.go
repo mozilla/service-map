@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	elastigo "github.com/mattbaird/elastigo/lib"
+	"regexp"
 )
 
 var esRequestMax = 1000000
@@ -78,10 +79,54 @@ func requestComplianceHosts() ([]string, error) {
 	return ret, nil
 }
 
-func dbUpdateCompHost(hn string) error {
+func dbUpdateCompHosts(hosts []string) error {
+	var excllist []*regexp.Regexp
+
 	op := opContext{}
 	op.newContext(dbconn, false, "importcomphosts")
-	return updateDynamicHost(op, hn, "compliance importer")
+
+	// Fetch importer configuration which is basically our exclusion
+	// list
+	rows, err := op.Query(`SELECT hostmatch FROM importcomphostcfg`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var nh string
+		err = rows.Scan(&nh)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		r, err := regexp.Compile(nh)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		excllist = append(excllist, r)
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	for _, x := range hosts {
+		exclude := false
+		for _, y := range excllist {
+			if y.MatchString(x) {
+				exclude = true
+				break
+			}
+		}
+		if exclude {
+			continue
+		}
+		err := updateDynamicHost(op, x, "compliance importer", 80)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func importCompHosts() {
@@ -94,10 +139,8 @@ func importCompHosts() {
 	if err != nil {
 		panic(err)
 	}
-	for _, x := range hosts {
-		err = dbUpdateCompHost(x)
-		if err != nil {
-			panic(err)
-		}
+	err = dbUpdateCompHosts(hosts)
+	if err != nil {
+		panic(err)
 	}
 }
