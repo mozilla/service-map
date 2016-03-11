@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -34,6 +35,8 @@ type interlinkRule struct {
 	destServiceMatch  string
 	destSysGroupMatch string
 }
+
+var interlinkLastLoad time.Time
 
 // XXX Note regarding these functions; the updates and changes occur in a
 // transaction. With the existing sql/pq implementation this requires a
@@ -167,6 +170,9 @@ func interlinkSysGroupServiceLink(op opContext) error {
 func interlinkRunRules() error {
 	op := opContext{}
 	op.newContext(dbconn, true, "interlink")
+
+	logf("interlink: processing")
+
 	// Run system group adds
 	err := interlinkRunSysGroupAdd(op)
 	if err != nil {
@@ -205,6 +211,19 @@ func interlinkRunRules() error {
 func interlinkLoadRules() error {
 	op := opContext{}
 	op.newContext(dbconn, true, "interlink")
+
+	ss, err := os.Stat(cfg.Interlink.RulePath)
+	if err != nil {
+		return err
+	}
+
+	// See if we need to load the rules
+	if !interlinkLastLoad.IsZero() {
+		if interlinkLastLoad.Equal(ss.ModTime()) {
+			return nil
+		}
+	}
+	interlinkLastLoad = ss.ModTime()
 
 	fd, err := os.Open(cfg.Interlink.RulePath)
 	if err != nil {
