@@ -57,6 +57,7 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 	return nil
 }
 
+// API entry point to retrieve a given system group
 func serviceGetSysGroup(rw http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 
@@ -95,6 +96,7 @@ func serviceGetSysGroup(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
+// API entry point to retrieve all system groups
 func serviceSysGroups(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
@@ -111,12 +113,14 @@ func serviceSysGroups(rw http.ResponseWriter, req *http.Request) {
 		var sgid string
 		err = rows.Scan(&sgid)
 		if err != nil {
+			rows.Close()
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
 		}
 		sg, err := getSysGroup(op, sgid)
 		if err != nil {
+			rows.Close()
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
@@ -125,6 +129,12 @@ func serviceSysGroups(rw http.ResponseWriter, req *http.Request) {
 			continue
 		}
 		sgr.Results = append(sgr.Results, sg)
+	}
+	err = rows.Err()
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
 	}
 
 	buf, err := json.Marshal(&sgr)
