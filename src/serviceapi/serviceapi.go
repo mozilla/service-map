@@ -56,6 +56,13 @@ func (o *opContext) Query(qs string, args ...interface{}) (*sql.Rows, error) {
 	return o.db.Query(qs, args...)
 }
 
+func (o *opContext) QueryRow(qs string, args ...interface{}) *sql.Row {
+	if o.tx != nil {
+		return o.tx.QueryRow(qs, args...)
+	}
+	return o.db.QueryRow(qs, args...)
+}
+
 func (o *opContext) Exec(qs string, args ...interface{}) (sql.Result, error) {
 	if o.tx != nil {
 		return o.tx.Exec(qs, args...)
@@ -149,7 +156,7 @@ func updateDynamicHost(op opContext, hn string, comment string, confidence int) 
 	if err != nil {
 		return err
 	}
-	_, err = dbconn.Exec(`UPDATE host
+	_, err = op.Exec(`UPDATE host
 		SET lastused = now() AT TIME ZONE 'utc'
 		WHERE lower(hostname) = lower($1)`, hn)
 	if err != nil {
@@ -189,12 +196,11 @@ func serviceLookup(op opContext, s *slib.Service) error {
 	return nil
 }
 
-func mergeSystemGroups(op opContext, s *slib.Service, groups []slib.SystemGroup) error {
-	if len(groups) == 0 {
-		return nil
-	}
+// Merge the specified system group into Service s, which populates it with
+// linked services and other information
+func mergeSystemGroup(op opContext, s *slib.Service, group slib.SystemGroup) error {
 	s.Found = true
-	s.SystemGroup = groups[0]
+	s.SystemGroup = group
 	err := serviceLookup(op, s)
 	if err != nil {
 		return err
@@ -202,30 +208,8 @@ func mergeSystemGroups(op opContext, s *slib.Service, groups []slib.SystemGroup)
 	return nil
 }
 
-func noteDynamicHost(op opContext, hn string, confidence int) error {
-	// Don't add the host if it already exists in the static table.
-	rows, err := op.Query(`SELECT hostid, dynamic FROM host
-		WHERE lower(hostname) = lower($1)`, hn)
-	if err != nil {
-		return err
-	}
-	if rows.Next() {
-		rows.Close()
-		return nil
-	}
-	comment := fmt.Sprintf("dynamic entry for %v", hn)
-	_, err = op.Exec(`INSERT INTO host
-		(hostname, comment, dynamic,
-		dynamic_confidence, dynamic_added, lastused)
-		VALUES ($1, $2, true, $3, now() AT TIME ZONE 'utc',
-		now() AT TIME ZONE 'utc')`,
-		hn, comment, confidence)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
+// Update the lastused value for an asset to indicate that we have recieved
+// a search for this asset
 func updateLastUsedHost(op opContext, hn string) error {
 	_, err := op.Exec(`UPDATE host
 		SET lastused = now() AT TIME ZONE 'utc'
@@ -236,26 +220,25 @@ func updateLastUsedHost(op opContext, hn string) error {
 	return nil
 }
 
+// Execute a service search using hostname criteria hn
 func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	var ret slib.Service
 	err := updateLastUsedHost(op, hn)
 	if err != nil {
 		return ret, err
 	}
-	rows, err := op.Query(`SELECT sysgroupid, name, environment
-		FROM sysgroup WHERE sysgroupid IN (
-		SELECT DISTINCT sysgroupid
-		FROM host WHERE hostname = $1 )`, hn)
+	var grp slib.SystemGroup
+	err = op.QueryRow(`SELECT sysgroup.sysgroupid, sysgroup.name FROM sysgroup
+		JOIN host ON (sysgroup.sysgroupid = host.sysgroupid)
+		WHERE hostname = $1`, hn).Scan(&grp.ID, &grp.Name)
 	if err != nil {
-		return ret, err
+		if err == sql.ErrNoRows {
+			return ret, nil
+		} else {
+			return ret, err
+		}
 	}
-	groups := make([]slib.SystemGroup, 0)
-	for rows.Next() {
-		var n slib.SystemGroup
-		err = rows.Scan(&n.ID, &n.Name, &n.Environment)
-		groups = append(groups, n)
-	}
-	err = mergeSystemGroups(op, &ret, groups)
+	err = mergeSystemGroup(op, &ret, grp)
 	if err != nil {
 		return ret, err
 	}
@@ -264,7 +247,7 @@ func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	if ret.Found {
 		var tcw sql.NullBool
 		var techowner sql.NullString
-		rows, err = op.Query(`SELECT requiretcw, techowner
+		rows, err := op.Query(`SELECT requiretcw, techowner
 			FROM host
 			LEFT OUTER JOIN techowners
 			ON host.techownerid = techowners.techownerid
@@ -286,48 +269,23 @@ func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	return ret, nil
 }
 
-func searchUsingHostMatch(op opContext, hn string) (slib.Service, error) {
-	var ret slib.Service
-
-	// Use hostmatch to see if we can identify the system group.
-	rows, err := op.Query(`SELECT sysgroupid, name, environment
-		FROM sysgroup WHERE sysgroupid IN (
-		SELECT DISTINCT sysgroupid
-		FROM hostmatch WHERE
-		$1 ~* expression )`, hn)
-	if err != nil {
-		return ret, err
-	}
-	groups := make([]slib.SystemGroup, 0)
-	for rows.Next() {
-		var n slib.SystemGroup
-		err = rows.Scan(&n.ID, &n.Name, &n.Environment)
-		groups = append(groups, n)
-	}
-	err = mergeSystemGroups(op, &ret, groups)
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func searchHost(op opContext, hn string, conf int) (slib.Service, error) {
+// Execute a service search based on the hostname of an asset
+func searchHost(op opContext, hn string, conf int) (ret slib.Service, err error) {
 	hn = strings.ToLower(hn)
-	sr, err := searchUsingHost(op, hn)
-	if err != nil || sr.Found {
-		return sr, err
-	}
 	if conf > 50 {
-		err = noteDynamicHost(op, hn, conf)
+		// XXX If this is a new host and it matches something in the
+		// interlink rule set, this initial response is likely not to
+		// contain the information until the rule set runs the next
+		// time, once it sees this addition.
+		err = updateDynamicHost(op, hn, "dynamic host search", conf)
+		if err != nil {
+			return
+		}
 	}
-	sr, err = searchUsingHostMatch(op, hn)
-	if err != nil || sr.Found {
-		return sr, err
-	}
-	return sr, nil
+	return searchUsingHost(op, hn)
 }
 
+// Execute a service search using the criteria specified in s
 func runSearch(o opContext, s slib.Search) error {
 	var sres slib.Service
 	var err error
@@ -384,12 +342,17 @@ func serviceNewSearch(rw http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	op.commit()
+	err = op.commit()
+	if err != nil {
+		panic(err)
+	}
 
 	sr := slib.SearchResponse{SearchID: op.opid}
 	buf, err := json.Marshal(&sr)
 	if err != nil {
-		panic(err)
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
 	}
 	fmt.Fprint(rw, string(buf))
 }

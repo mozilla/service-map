@@ -8,7 +8,6 @@ DROP TABLE IF EXISTS importcomphostcfg;
 DROP TABLE IF EXISTS vulnscore;
 DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS rra_sysgroup;
-DROP TABLE IF EXISTS hostmatch;
 DROP TABLE IF EXISTS host;
 DROP TABLE IF EXISTS rra;
 DROP TABLE IF EXISTS sysgroup;
@@ -54,13 +53,6 @@ CREATE TABLE rra_sysgroup (
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	UNIQUE(rraid, sysgroupid)
 );
-CREATE TABLE hostmatch (
-	hostmatchid SERIAL PRIMARY KEY,
-	expression TEXT NOT NULL UNIQUE,
-	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
-	comment TEXT
-);
-CREATE INDEX ON hostmatch (expression text_pattern_ops);
 CREATE TABLE host (
 	hostid SERIAL PRIMARY KEY,
 	hostname TEXT NOT NULL UNIQUE,

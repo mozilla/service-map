@@ -31,7 +31,7 @@ func addSysGroup(op opContext, name string) error {
 func getSysGroup(op opContext, sgid string) (slib.SystemGroup, error) {
 	var sg slib.SystemGroup
 
-	rows, err := op.Query(`SELECT sysgroupid, name, environment
+	rows, err := op.Query(`SELECT sysgroupid, name
 		FROM sysgroup WHERE sysgroupid = $1`, sgid)
 	if err != nil {
 		return sg, err
@@ -39,7 +39,7 @@ func getSysGroup(op opContext, sgid string) (slib.SystemGroup, error) {
 	if !rows.Next() {
 		return sg, nil
 	}
-	err = rows.Scan(&sg.ID, &sg.Name, &sg.Environment)
+	err = rows.Scan(&sg.ID, &sg.Name)
 	if err != nil {
 		return sg, err
 	}
