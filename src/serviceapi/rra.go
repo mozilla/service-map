@@ -8,6 +8,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,19 +19,13 @@ import (
 func getRRA(op opContext, rraid string) (slib.RRAService, error) {
 	var rr slib.RRAService
 
-	rows, err := op.Query(`SELECT rraid, service,
+	err := op.QueryRow(`SELECT rraid, service,
 		ari, api, afi, cri, cpi, cfi,
 		iri, ipi, ifi,
 		arp, app, afp, crp, cpp, cfp,
 		irp, ipp, ifp, datadefault, raw
-		FROM rra WHERE rraid = $1`, rraid)
-	if err != nil {
-		return rr, err
-	}
-	if !rows.Next() {
-		return rr, nil
-	}
-	err = rows.Scan(&rr.ID, &rr.Name, &rr.AvailRepImpact, &rr.AvailPrdImpact,
+		FROM rra WHERE rraid = $1`, rraid).Scan(&rr.ID,
+		&rr.Name, &rr.AvailRepImpact, &rr.AvailPrdImpact,
 		&rr.AvailFinImpact, &rr.ConfiRepImpact, &rr.ConfiPrdImpact, &rr.ConfiFinImpact,
 		&rr.IntegRepImpact, &rr.IntegPrdImpact, &rr.IntegFinImpact,
 		&rr.AvailRepProb, &rr.AvailPrdProb, &rr.AvailFinProb,
@@ -38,13 +33,12 @@ func getRRA(op opContext, rraid string) (slib.RRAService, error) {
 		&rr.IntegRepProb, &rr.IntegPrdProb, &rr.IntegPrdProb,
 		&rr.DefData, &rr.RawRRA)
 	if err != nil {
-		return rr, nil
+		if err == sql.ErrNoRows {
+			return rr, nil
+		} else {
+			return rr, err
+		}
 	}
-	err = rows.Close()
-	if err != nil {
-		return rr, err
-	}
-
 	err = rraResolveSupportGroups(op, &rr)
 	if err != nil {
 		return rr, err
@@ -65,16 +59,22 @@ func rraResolveSupportGroups(op opContext, r *slib.RRAService) error {
 		var sgid string
 		err = rows.Scan(&sgid)
 		if err != nil {
+			rows.Close()
 			return err
 		}
 		sg, err := getSysGroup(op, sgid)
 		if err != nil {
+			rows.Close()
 			return err
 		}
 		if sg.Name == "" {
 			continue
 		}
 		r.SupportGrps = append(r.SupportGrps, sg)
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -95,12 +95,14 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 		var rraid int
 		err = rows.Scan(&rraid)
 		if err != nil {
+			rows.Close()
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
 		}
 		r, err := getRRA(op, strconv.Itoa(rraid))
 		if err != nil {
+			rows.Close()
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
@@ -108,6 +110,7 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 		for i := range r.SupportGrps {
 			err = sysGroupAddMeta(op, &r.SupportGrps[i])
 			if err != nil {
+				rows.Close()
 				op.logf(err.Error())
 				http.Error(rw, err.Error(), 500)
 				return
@@ -117,17 +120,25 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 		rs.RRA = r
 		err = riskCalculation(op, &rs)
 		if err != nil {
+			rows.Close()
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
 		}
 		err = rs.Validate()
 		if err != nil {
+			rows.Close()
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
 		}
 		resp.Risks = append(resp.Risks, rs)
+	}
+	err = rows.Err()
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
 	}
 
 	buf, err := json.Marshal(&resp)
@@ -194,6 +205,7 @@ func serviceGetRRARisk(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
+// API entry point to retrieve specific RRA details
 func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 
@@ -218,6 +230,7 @@ func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
+// API entry point to retrieve all RRAs
 func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
@@ -235,11 +248,18 @@ func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 		var s slib.RRAService
 		err = rows.Scan(&s.ID, &s.Name, &s.DefData)
 		if err != nil {
+			rows.Close()
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
 			return
 		}
 		srr.Results = append(srr.Results, s)
+	}
+	err = rows.Err()
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
 	}
 
 	buf, err := json.Marshal(&srr)
