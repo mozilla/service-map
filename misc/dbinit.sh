@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS rra;
 DROP TABLE IF EXISTS sysgroup;
 DROP TABLE IF EXISTS searchresults;
 DROP TABLE IF EXISTS techowners;
+DROP TABLE IF EXISTS interlinks;
 CREATE TABLE rra (
 	rraid SERIAL PRIMARY KEY,
 	service TEXT NOT NULL UNIQUE,
@@ -46,8 +47,7 @@ CREATE TABLE techowners (
 CREATE TABLE sysgroup (
 	sysgroupid SERIAL PRIMARY KEY,
 	name TEXT NOT NULL,
-	environment TEXT NOT NULL,
-	UNIQUE(name, environment)
+	UNIQUE(name)
 );
 CREATE TABLE rra_sysgroup (
 	rraid INTEGER REFERENCES rra (rraid),
@@ -104,6 +104,14 @@ CREATE TABLE vulnscore (
 CREATE TABLE importcomphostcfg (
 	exid SERIAL PRIMARY KEY,
 	hostmatch TEXT NOT NULL UNIQUE
+);
+CREATE TABLE interlinks (
+	ruleid SERIAL PRIMARY KEY,
+	ruletype INTEGER NOT NULL,
+	srchostmatch TEXT,
+	srcsysgroupmatch TEXT,
+	destsysgroupmatch TEXT,
+	destservicematch TEXT
 );
 EOF
 

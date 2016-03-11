@@ -93,6 +93,9 @@ type Config struct {
 		Hostname string
 		Database string
 	}
+	Interlink struct {
+		RulePath string
+	}
 	RRA struct {
 		ESHost string
 		Index  string
@@ -677,6 +680,13 @@ func main() {
 		for {
 			time.Sleep(1 * time.Minute)
 			dynHostManager()
+		}
+	}()
+	go func() {
+		logf("spawning interlink manager")
+		for {
+			interlinkManager()
+			time.Sleep(5 * time.Second)
 		}
 	}()
 

@@ -15,6 +15,19 @@ import (
 	slib "servicelib"
 )
 
+// Add a system group to the database if it does not exist
+func addSysGroup(op opContext, name string) error {
+	_, err := op.Exec(`INSERT INTO sysgroup
+		(name) SELECT $1
+		WHERE NOT EXISTS (
+			SELECT 1 FROM sysgroup WHERE name = $2
+		)`, name, name)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func getSysGroup(op opContext, sgid string) (slib.SystemGroup, error) {
 	var sg slib.SystemGroup
 
