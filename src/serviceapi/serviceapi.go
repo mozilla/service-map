@@ -165,6 +165,7 @@ func updateDynamicHost(op opContext, hn string, comment string, confidence int) 
 	return nil
 }
 
+// Associate any services linked to a given system group specified in s
 func serviceLookup(op opContext, s *slib.Service) error {
 	useid := s.SystemGroup.ID
 	rows, err := op.Query(`SELECT service, rraid,
@@ -192,6 +193,10 @@ func serviceLookup(op opContext, s *slib.Service) error {
 			&ns.IntegRepProb, &ns.IntegPrdProb, &ns.IntegFinProb,
 			&ns.DefData)
 		s.Services = append(s.Services, ns)
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -241,30 +246,6 @@ func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	err = mergeSystemGroup(op, &ret, grp)
 	if err != nil {
 		return ret, err
-	}
-	// If we successfully matched on hostname, also add any extended
-	// information about this particular host to the result.
-	if ret.Found {
-		var tcw sql.NullBool
-		var techowner sql.NullString
-		rows, err := op.Query(`SELECT requiretcw, techowner
-			FROM host
-			LEFT OUTER JOIN techowners
-			ON host.techownerid = techowners.techownerid
-			WHERE hostname = $1`, hn)
-		if err != nil {
-			return ret, err
-		}
-		if rows.Next() {
-			err = rows.Scan(&tcw, &techowner)
-			if tcw.Valid {
-				ret.TCW = tcw.Bool
-			}
-			if techowner.Valid {
-				ret.TechOwner = techowner.String
-			}
-			rows.Close()
-		}
 	}
 	return ret, nil
 }
@@ -458,14 +439,6 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 		}
 		if sgid.Valid {
 			hn.SysGroupID = int(sgid.Int64)
-		} else if !sgid.Valid && dynamic {
-			tmpid, err := hostDynSysgroup(op, hn.Hostname)
-			if err != nil {
-				op.logf(err.Error())
-				http.Error(rw, err.Error(), 500)
-				return
-			}
-			hn.SysGroupID = tmpid
 		}
 		resp.Hosts = append(resp.Hosts, hn)
 	}

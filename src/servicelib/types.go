@@ -39,9 +39,6 @@ type Service struct {
 	Services    []RRAService `json:"services,omitempty"`    // Services linked from RRA table
 	SystemGroup SystemGroup  `json:"systemgroup,omitempty"` // Database system group
 	Found       bool         `json:"found"`                 // Results of search
-	TCW         bool         `json:"tcw,omitempty"`         // TCW required
-	CAB         bool         `json:"cab,omitempty"`         // CAB required
-	TechOwner   string       `json:"techowner,omitempty"`   // Tech owner
 }
 
 // The response to a system group list request.

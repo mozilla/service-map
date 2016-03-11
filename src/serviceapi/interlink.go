@@ -66,7 +66,11 @@ func interlinkRunSysGroupAdd(op opContext) error {
 	}
 
 	for _, s := range sgnames {
-		err = addSysGroup(op, s)
+		_, err := op.Exec(`INSERT INTO sysgroup
+		(name) SELECT $1
+		WHERE NOT EXISTS (
+			SELECT 1 FROM sysgroup WHERE name = $2
+		)`, s, s)
 		if err != nil {
 			return err
 		}
@@ -209,9 +213,6 @@ func interlinkRunRules() error {
 
 // Load interlink rules from the file system and store them in the database
 func interlinkLoadRules() error {
-	op := opContext{}
-	op.newContext(dbconn, true, "interlink")
-
 	ss, err := os.Stat(cfg.Interlink.RulePath)
 	if err != nil {
 		return err
@@ -268,8 +269,14 @@ func interlinkLoadRules() error {
 		rules = append(rules, nr)
 	}
 
+	op := opContext{}
+	op.newContext(dbconn, true, "interlink")
 	_, err = op.Exec(`DELETE FROM interlinks`)
 	if err != nil {
+		e := op.rollback()
+		if e != nil {
+			panic(e)
+		}
 		return err
 	}
 	for _, x := range rules {
@@ -278,7 +285,10 @@ func interlinkLoadRules() error {
 			_, err = op.Exec(`INSERT INTO interlinks (ruletype, destsysgroupmatch)
 				VALUES ($1, $2)`, x.ruletype, x.destSysGroupMatch)
 			if err != nil {
-				op.rollback()
+				e := op.rollback()
+				if e != nil {
+					panic(e)
+				}
 				return err
 			}
 		case SYSGROUP_LINK_SERVICE:
@@ -286,18 +296,28 @@ func interlinkLoadRules() error {
 				destservicematch) VALUES ($1, $2, $3)`, x.ruletype,
 				x.srcSysGroupMatch, x.destServiceMatch)
 			if err != nil {
-				op.rollback()
+				e := op.rollback()
+				if e != nil {
+					panic(e)
+				}
 				return err
 			}
 		case HOST_LINK_SYSGROUP:
 			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srchostmatch,
 				destsysgroupmatch) VALUES ($1, $2, $3)`, x.ruletype,
 				x.srcHostMatch, x.destSysGroupMatch)
+			if err != nil {
+				e := op.rollback()
+				if e != nil {
+					panic(e)
+				}
+				return err
+			}
 		}
 	}
 	err = op.commit()
 	if err != nil {
-		return err
+		panic(err)
 	}
 	logf("interlink: loaded %v rules", len(rules))
 

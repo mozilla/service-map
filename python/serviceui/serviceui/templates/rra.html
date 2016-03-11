@@ -89,8 +89,8 @@
     <tr><td class="suHeader">ID</td>
       <td class="suHeader">Name</td>
       <td class="suHeader">Environment</td>
-      {% if results.supportgrps|length > 0 %}
-      {% for r in results.supportgrps %}
+      {% if results.supporting_system_groups|length > 0 %}
+      {% for r in results.supporting_system_groups %}
       <tr>
         <td><a href="{{ url_for('getsysgroup', sysgroupid=r.id) }}">{{ r.id }}</a></td>
         <td>{{ r.name }}</td>

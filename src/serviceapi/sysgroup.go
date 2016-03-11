@@ -15,66 +15,25 @@ import (
 	slib "servicelib"
 )
 
-// Add a system group to the database if it does not exist
-func addSysGroup(op opContext, name string) error {
-	_, err := op.Exec(`INSERT INTO sysgroup
-		(name) SELECT $1
-		WHERE NOT EXISTS (
-			SELECT 1 FROM sysgroup WHERE name = $2
-		)`, name, name)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
+// Return SystemGroup for system group specified by sgid
 func getSysGroup(op opContext, sgid string) (slib.SystemGroup, error) {
 	var sg slib.SystemGroup
 
-	rows, err := op.Query(`SELECT sysgroupid, name
-		FROM sysgroup WHERE sysgroupid = $1`, sgid)
+	err := op.QueryRow(`SELECT sysgroupid, name
+		FROM sysgroup WHERE sysgroupid = $1`, sgid).Scan(&sg.ID, &sg.Name)
 	if err != nil {
-		return sg, err
+		if err == sql.ErrNoRows {
+			return sg, nil
+		} else {
+			return sg, err
+		}
 	}
-	if !rows.Next() {
-		return sg, nil
-	}
-	err = rows.Scan(&sg.ID, &sg.Name)
-	if err != nil {
-		return sg, err
-	}
-	err = rows.Close()
-	if err != nil {
-		return sg, err
-	}
-
 	return sg, nil
 }
 
-func hostDynSysgroup(op opContext, hn string) (int, error) {
-	rows, err := op.Query(`SELECT m.sysgroupid FROM
-		hostmatch as m WHERE
-		$1 ~* m.expression`, hn)
-	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-	if rows.Next() {
-		var sgid sql.NullInt64
-		err = rows.Scan(&sgid)
-		if err != nil {
-			return 0, err
-		}
-		if sgid.Valid {
-			return int(sgid.Int64), nil
-		}
-	}
-	return 0, nil
-}
-
+// Add metadata do the system group, including host details
 func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 	s.Host = make([]slib.Host, 0)
-	s.HostMatch = make([]slib.HostMatch, 0)
 
 	// Grab any hosts that have been statically mapped to this group.
 	rows, err := op.Query(`SELECT hostid, hostname, comment, lastused
@@ -93,51 +52,6 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 			return err
 		}
 		s.Host = append(s.Host, h)
-	}
-
-	// Include dynamic entries here based on matching with expressions
-	// in the hostmatch table. Note we don't do this for normal static
-	// hosts as it is assumed these would be linked manually when they
-	// are added.
-	rows, err = op.Query(`SELECT h.hostid, h.hostname,
-		h.comment, h.lastused FROM
-		host as h, hostmatch as m WHERE
-		h.hostname ~* m.expression AND
-		h.dynamic = true AND
-		m.sysgroupid = $1`, s.ID)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var h slib.Host
-		err = rows.Scan(&h.ID, &h.Hostname, &h.Comment, &h.LastUsed)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		h.Dynamic = true
-		err = hostAddComp(op, &h)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		s.Host = append(s.Host, h)
-	}
-
-	// Grab any expressions for dynamic host mapping.
-	rows, err = op.Query(`SELECT hostmatchid, expression, comment FROM
-		hostmatch WHERE sysgroupid = $1`, s.ID)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var h slib.HostMatch
-		err = rows.Scan(&h.ID, &h.Expression, &h.Comment)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		s.HostMatch = append(s.HostMatch, h)
 	}
 
 	return nil

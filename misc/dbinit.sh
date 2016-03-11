@@ -12,7 +12,6 @@ DROP TABLE IF EXISTS host;
 DROP TABLE IF EXISTS rra;
 DROP TABLE IF EXISTS sysgroup;
 DROP TABLE IF EXISTS searchresults;
-DROP TABLE IF EXISTS techowners;
 DROP TABLE IF EXISTS interlinks;
 CREATE TABLE rra (
 	rraid SERIAL PRIMARY KEY,
@@ -39,10 +38,6 @@ CREATE TABLE rra (
 	lastupdated TIMESTAMP NOT NULL,
 	raw JSON NOT NULL
 );
-CREATE TABLE techowners (
-	techownerid SERIAL PRIMARY KEY,
-	techowner TEXT NOT NULL
-);
 CREATE TABLE sysgroup (
 	sysgroupid SERIAL PRIMARY KEY,
 	name TEXT NOT NULL,
@@ -58,9 +53,6 @@ CREATE TABLE host (
 	hostname TEXT NOT NULL UNIQUE,
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	comment TEXT,
-	requiretcw BOOLEAN,
-	requirecab BOOLEAN,
-	techownerid INTEGER REFERENCES techowners (techownerid),
 	dynamic BOOLEAN NOT NULL,
 	dynamic_added TIMESTAMP,
 	dynamic_confidence INTEGER,
