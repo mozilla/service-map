@@ -56,6 +56,7 @@ func scoreComplianceGetHosts() (ret map[int]string, err error) {
 // scoring table with the result
 func scoreComplianceScoreHost(hid int, h string) (err error) {
 	conn := elastigo.NewConn()
+	defer conn.Close()
 	conn.Domain = cfg.Compliance.ESHost
 
 	op := opContext{}
