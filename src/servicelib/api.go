@@ -7,6 +7,12 @@
 
 package servicelib
 
+// Search types and various encapsulation used in certain API responses
+
+import (
+	"github.com/jvehent/gozdef"
+)
+
 // Parameters used for a search request.
 type SearchParams struct {
 	Searches []Search `json:"search"` // Slice of searches to conduct for this request
@@ -29,8 +35,9 @@ type SearchIDResponse struct {
 	Results []SearchResult `json:"results"` // A slice of results for the search
 }
 
+// An individual search result.
 type SearchResult struct {
-	Identifier string  `json:"identifier"` // The unique element identifier used in the search request
+	Identifier string  `json:"identifier"` // Search request element identifier (from Search)
 	Service    Service `json:"service"`    // The service result information
 }
 
@@ -39,9 +46,6 @@ type Service struct {
 	Services    []RRAService `json:"services,omitempty"`    // Services linked from RRA table
 	SystemGroup SystemGroup  `json:"systemgroup,omitempty"` // Database system group
 	Found       bool         `json:"found"`                 // Results of search
-	TCW         bool         `json:"tcw,omitempty"`         // TCW required
-	CAB         bool         `json:"cab,omitempty"`         // CAB required
-	TechOwner   string       `json:"techowner,omitempty"`   // Tech owner
 }
 
 // The response to a system group list request.
@@ -57,4 +61,14 @@ type RRAsResponse struct {
 // The response to a match search request.
 type SearchMatchResponse struct {
 	Hosts []Host `json:"hosts"`
+}
+
+// Response to vulnerabilities request for a target
+type VulnsTargetResponse struct {
+	Vulnerabilities []gozdef.VulnEvent `json:"vulnerabilities"`
+}
+
+// Response to /risks request, includes all known RRAs
+type RisksResponse struct {
+	Risks []RRAServiceRisk `json:"risks"`
 }

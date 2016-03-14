@@ -4,13 +4,15 @@ dbname=servicemap
 psql="psql -f - ${dbname}"
 
 $psql << EOF
+DROP TABLE IF EXISTS importcomphostcfg;
+DROP TABLE IF EXISTS vulnscore;
 DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS rra_sysgroup;
-DROP TABLE IF EXISTS hostmatch;
 DROP TABLE IF EXISTS host;
 DROP TABLE IF EXISTS rra;
 DROP TABLE IF EXISTS sysgroup;
 DROP TABLE IF EXISTS searchresults;
+DROP TABLE IF EXISTS interlinks;
 CREATE TABLE rra (
 	rraid SERIAL PRIMARY KEY,
 	service TEXT NOT NULL UNIQUE,
@@ -33,42 +35,30 @@ CREATE TABLE rra (
 	ipp TEXT NOT NULL,
 	ifp TEXT NOT NULL,
 	datadefault TEXT NOT NULL,
-	lastupdated TIMESTAMP NOT NULL
-);
-CREATE TABLE techowners (
-	techownerid SERIAL PRIMARY KEY,
-	techowner TEXT
+	lastupdated TIMESTAMP NOT NULL,
+	raw JSON NOT NULL
 );
 CREATE TABLE sysgroup (
 	sysgroupid SERIAL PRIMARY KEY,
 	name TEXT NOT NULL,
-	environment TEXT NOT NULL,
-	UNIQUE(name, environment)
+	UNIQUE(name)
 );
 CREATE TABLE rra_sysgroup (
 	rraid INTEGER REFERENCES rra (rraid),
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	UNIQUE(rraid, sysgroupid)
 );
-CREATE TABLE hostmatch (
-	hostmatchid SERIAL PRIMARY KEY,
-	expression TEXT NOT NULL UNIQUE,
-	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
-	comment TEXT
-);
-CREATE INDEX ON hostmatch (expression text_pattern_ops);
 CREATE TABLE host (
 	hostid SERIAL PRIMARY KEY,
 	hostname TEXT NOT NULL UNIQUE,
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	comment TEXT,
-	requiretcw BOOLEAN,
-	requirecab BOOLEAN,
-	techownerid INTEGER REFERENCES techowners (techownerid),
 	dynamic BOOLEAN NOT NULL,
 	dynamic_added TIMESTAMP,
 	dynamic_confidence INTEGER,
-	lastused TIMESTAMP NOT NULL
+	lastused TIMESTAMP NOT NULL,
+	lastcompscore TIMESTAMP NOT NULL,
+	lastvulnscore TIMESTAMP NOT NULL
 );
 CREATE INDEX ON host (hostname);
 CREATE INDEX ON host (sysgroupid);
@@ -84,7 +74,28 @@ CREATE TABLE compscore (
 	timestamp TIMESTAMP NOT NULL,
 	hostid INTEGER REFERENCES host (hostid),
 	checkref TEXT NOT NULL,
-	status BOOLEAN
+	status BOOLEAN NOT NULL
+);
+CREATE TABLE vulnscore (
+	scoreid SERIAL PRIMARY KEY,
+	timestamp TIMESTAMP NOT NULL,
+	hostid INTEGER REFERENCES host (hostid),
+	maxcount INTEGER DEFAULT 0 NOT NULL,
+	highcount INTEGER DEFAULT 0 NOT NULL,
+	mediumcount INTEGER DEFAULT 0 NOT NULL,
+	lowcount INTEGER DEFAULT 0 NOT NULL
+);
+CREATE TABLE importcomphostcfg (
+	exid SERIAL PRIMARY KEY,
+	hostmatch TEXT NOT NULL UNIQUE
+);
+CREATE TABLE interlinks (
+	ruleid SERIAL PRIMARY KEY,
+	ruletype INTEGER NOT NULL,
+	srchostmatch TEXT,
+	srcsysgroupmatch TEXT,
+	destsysgroupmatch TEXT,
+	destservicematch TEXT
 );
 EOF
 

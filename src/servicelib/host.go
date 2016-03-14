@@ -19,14 +19,22 @@ type Host struct {
 	Dynamic    bool      `json:"dynamic"`
 	LastUsed   time.Time `json:"lastused"`
 
-	CompStatus ComplianceStatus `json:"compliance"`
+	CompStatus ComplianceStatus    `json:"compliance"`
+	VulnStatus VulnerabilityStatus `json:"vulnerabilities"`
 }
 
-type HostMatch struct {
-	ID         int    `json:"id"`
-	SysGroupID int    `json:"sysgroupid"`
-	Expression string `json:"expression"`
-	Comment    string `json:"comment"`
+type VulnerabilityStatus struct {
+	Maximum int `json:"maximum"`
+	High    int `json:"high"`
+	Medium  int `json:"medium"`
+	Low     int `json:"low"`
+}
+
+func (v *VulnerabilityStatus) Reset() {
+	v.Maximum = 0
+	v.High = 0
+	v.Medium = 0
+	v.Low = 0
 }
 
 type ComplianceStatus struct {

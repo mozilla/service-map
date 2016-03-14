@@ -8,10 +8,8 @@
 package servicelib
 
 type SystemGroup struct {
-	Name        string `json:"name,omitempty"`
-	ID          int    `json:"id,omitempty"`
-	Environment string `json:"environment,omitempty"`
+	Name string `json:"name,omitempty"`
+	ID   int    `json:"id,omitempty"`
 
-	Host      []Host      `json:"hosts,omitempty"`
-	HostMatch []HostMatch `json:"hostmatch,omitempty"`
+	Host []Host `json:"hosts,omitempty"`
 }

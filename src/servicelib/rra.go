@@ -8,7 +8,9 @@
 package servicelib
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // Describes an RRA.
@@ -16,29 +18,34 @@ type RRAService struct {
 	Name string `json:"name,omitempty"`
 	ID   int    `json:"id,omitempty"`
 
-	AvailRepImpact string `json:"availrepimpact,omitempty"`
-	AvailPrdImpact string `json:"availprdimpact,omitempty"`
-	AvailFinImpact string `json:"availfinimpact,omitempty"`
-	IntegRepImpact string `json:"integrepimpact,omitempty"`
-	IntegPrdImpact string `json:"integprdimpact,omitempty"`
-	IntegFinImpact string `json:"integfinimpact,omitempty"`
-	ConfiRepImpact string `json:"confirepimpact,omitempty"`
-	ConfiPrdImpact string `json:"confiprdimpact,omitempty"`
-	ConfiFinImpact string `json:"confifinimpact,omitempty"`
+	/* Attribute impact scores */
+	AvailRepImpact string `json:"availability_reputation_impact,omitempty"`
+	AvailPrdImpact string `json:"availability_productivity_impact,omitempty"`
+	AvailFinImpact string `json:"availability_financial_impact,omitempty"`
+	IntegRepImpact string `json:"integrity_reputation_impact,omitempty"`
+	IntegPrdImpact string `json:"integrity_productivity_impact,omitempty"`
+	IntegFinImpact string `json:"integrity_financial_impact,omitempty"`
+	ConfiRepImpact string `json:"confidentiality_reputation_impact,omitempty"`
+	ConfiPrdImpact string `json:"confidentiality_productivity_impact,omitempty"`
+	ConfiFinImpact string `json:"confidentiality_financial_impact,omitempty"`
 
-	AvailRepProb string `json:"availrepprob,omitempty"`
-	AvailPrdProb string `json:"availprdprob,omitempty"`
-	AvailFinProb string `json:"availfinprob,omitempty"`
-	IntegRepProb string `json:"integrepprob,omitempty"`
-	IntegPrdProb string `json:"integprdprob,omitempty"`
-	IntegFinProb string `json:"integfinprob,omitempty"`
-	ConfiRepProb string `json:"confirepprob,omitempty"`
-	ConfiPrdProb string `json:"confiprdprob,omitempty"`
-	ConfiFinProb string `json:"confifinprob,omitempty"`
+	/* Attribute probability scores */
+	AvailRepProb string `json:"availability_reputation_probability,omitempty"`
+	AvailPrdProb string `json:"availability_productivity_probability,omitempty"`
+	AvailFinProb string `json:"availability_financial_probability,omitempty"`
+	IntegRepProb string `json:"integrity_reputation_probability,omitempty"`
+	IntegPrdProb string `json:"integrity_productivity_probability,omitempty"`
+	IntegFinProb string `json:"integrity_financial_probability,omitempty"`
+	ConfiRepProb string `json:"confidentiality_reputation_probability,omitempty"`
+	ConfiPrdProb string `json:"confidentiality_productivity_probability,omitempty"`
+	ConfiFinProb string `json:"confidentiality_financial_probability,omitempty"`
 
-	DefData string `json:"defdata,omitempty"`
+	DefData string `json:"default_data_classification,omitempty"`
 
-	SupportGrps []SystemGroup `json:"supportgrps,omitempty"` // Supporting system groups
+	// Supporting system groups
+	SupportGrps []SystemGroup `json:"supporting_system_groups,omitempty"`
+
+	RawRRA json.RawMessage `json:"rra_details,omitempty"` // The raw RRA as described in ES
 }
 
 func (r *RRAService) Validate() error {
@@ -57,11 +64,6 @@ const (
 	ImpactMaxValue     = 4.0
 )
 
-// Response to /risks request, includes all known RRAs
-type RisksResponse struct {
-	Risks []RRAServiceRisk `json:"risks"`
-}
-
 // Describes calculated risk for a service, based on an RRA and known
 // data points
 type RRAServiceRisk struct {
@@ -72,8 +74,8 @@ type RRAServiceRisk struct {
 	// just use the highest noted impact for the asset.
 	//
 	// This is derived from the information stored in the RRA
-	HighestImpact     string `json:"highest_impact"`      // The highest impact score associated with the service
-	HighestImpactProb string `json:"highest_impact_prob"` // Probability of highest impact
+	HighestImpact     string `json:"highest_impact"`             // The highest impact score associated with the service
+	HighestImpactProb string `json:"highest_impact_probability"` // Probability of highest impact
 
 	RiskScore   float64         `json:"score"`            // The final risk score for the service
 	WorstCase   float64         `json:"worst_case"`       // Worst case score given available data points
@@ -135,6 +137,20 @@ func ImpactValueFromLabel(l string) (float64, error) {
 		return ImpactUnknownValue, nil
 	}
 	return 0, fmt.Errorf("invalid impact label %v", l)
+}
+
+// Sanitize an impact label and verify it's a valid value
+func SanitizeImpactLabel(l string) (ret string, err error) {
+	if l == "" {
+		err = fmt.Errorf("invalid zero length label")
+		return
+	}
+	ret = strings.ToLower(l)
+	if ret != "maximum" && ret != "high" && ret != "medium" &&
+		ret != "low" && ret != "unknown" {
+		err = fmt.Errorf("invalid impact label \"%v\"", ret)
+	}
+	return
 }
 
 // Covert an impact value from 1 - 4 to the string value for that label,

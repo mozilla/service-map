@@ -44,7 +44,7 @@
     {% for r in results.results %}
     <tr>
       <td><a href="{{ url_for('getrra', rraid=r.id) }}">{{ r.id }}</a></td>
-      <td>{{ r.name }}</td><td><span name="rlabel">{{ r.defdata }}</span></td>
+      <td>{{ r.name }}</td><td><span name="rlabel">{{ r.default_data_classification }}</span></td>
     </tr>
     {% endfor %}
     </tbody>

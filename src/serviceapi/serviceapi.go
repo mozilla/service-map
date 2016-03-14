@@ -56,6 +56,13 @@ func (o *opContext) Query(qs string, args ...interface{}) (*sql.Rows, error) {
 	return o.db.Query(qs, args...)
 }
 
+func (o *opContext) QueryRow(qs string, args ...interface{}) *sql.Row {
+	if o.tx != nil {
+		return o.tx.QueryRow(qs, args...)
+	}
+	return o.db.QueryRow(qs, args...)
+}
+
 func (o *opContext) Exec(qs string, args ...interface{}) (sql.Result, error) {
 	if o.tx != nil {
 		return o.tx.Exec(qs, args...)
@@ -93,9 +100,24 @@ type Config struct {
 		Hostname string
 		Database string
 	}
-	Vulnerabilities struct {
+	Interlink struct {
+		RulePath string
+	}
+	RRA struct {
 		ESHost string
 		Index  string
+	}
+	Vulnerabilities struct {
+		ESHost           string
+		Index            string
+		ScoringBatchSize int
+		ScoreEvery       string
+	}
+	Compliance struct {
+		ESHost           string
+		Index            string
+		ScoringBatchSize int
+		ScoreEvery       string
 	}
 }
 
@@ -118,6 +140,32 @@ var dbconn *sql.DB
 var wg sync.WaitGroup
 var logChan chan string
 
+// Used by various dynamic host importers, this adds the host to the database
+// if it does not exist, and updates the lastused timestamp
+func updateDynamicHost(op opContext, hn string, comment string, confidence int) error {
+	_, err := op.Exec(`INSERT INTO host
+		(hostname, comment, dynamic, dynamic_added, dynamic_confidence, lastused,
+		lastcompscore, lastvulnscore)
+		SELECT $1, $2, TRUE, now() AT TIME ZONE 'utc',
+		$3, now() AT TIME ZONE 'utc',
+		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
+		now() AT TIME ZONE 'utc' - INTERVAL '5 days'
+		WHERE NOT EXISTS (
+			SELECT 1 FROM host WHERE lower(hostname) = lower($4)
+		)`, hn, comment, confidence, hn)
+	if err != nil {
+		return err
+	}
+	_, err = op.Exec(`UPDATE host
+		SET lastused = now() AT TIME ZONE 'utc'
+		WHERE lower(hostname) = lower($1)`, hn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Associate any services linked to a given system group specified in s
 func serviceLookup(op opContext, s *slib.Service) error {
 	useid := s.SystemGroup.ID
 	rows, err := op.Query(`SELECT service, rraid,
@@ -146,15 +194,18 @@ func serviceLookup(op opContext, s *slib.Service) error {
 			&ns.DefData)
 		s.Services = append(s.Services, ns)
 	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func mergeSystemGroups(op opContext, s *slib.Service, groups []slib.SystemGroup) error {
-	if len(groups) == 0 {
-		return nil
-	}
+// Merge the specified system group into Service s, which populates it with
+// linked services and other information
+func mergeSystemGroup(op opContext, s *slib.Service, group slib.SystemGroup) error {
 	s.Found = true
-	s.SystemGroup = groups[0]
+	s.SystemGroup = group
 	err := serviceLookup(op, s)
 	if err != nil {
 		return err
@@ -162,30 +213,8 @@ func mergeSystemGroups(op opContext, s *slib.Service, groups []slib.SystemGroup)
 	return nil
 }
 
-func noteDynamicHost(op opContext, hn string, confidence int) error {
-	// Don't add the host if it already exists in the static table.
-	rows, err := op.Query(`SELECT hostid, dynamic FROM host
-		WHERE lower(hostname) = lower($1)`, hn)
-	if err != nil {
-		return err
-	}
-	if rows.Next() {
-		rows.Close()
-		return nil
-	}
-	comment := fmt.Sprintf("dynamic entry for %v", hn)
-	_, err = op.Exec(`INSERT INTO host
-		(hostname, comment, dynamic,
-		dynamic_confidence, dynamic_added, lastused)
-		VALUES ($1, $2, true, $3, now() AT TIME ZONE 'utc',
-		now() AT TIME ZONE 'utc')`,
-		hn, comment, confidence)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
+// Update the lastused value for an asset to indicate that we have recieved
+// a search for this asset
 func updateLastUsedHost(op opContext, hn string) error {
 	_, err := op.Exec(`UPDATE host
 		SET lastused = now() AT TIME ZONE 'utc'
@@ -196,98 +225,48 @@ func updateLastUsedHost(op opContext, hn string) error {
 	return nil
 }
 
+// Execute a service search using hostname criteria hn
 func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	var ret slib.Service
 	err := updateLastUsedHost(op, hn)
 	if err != nil {
 		return ret, err
 	}
-	rows, err := op.Query(`SELECT sysgroupid, name, environment
-		FROM sysgroup WHERE sysgroupid IN (
-		SELECT DISTINCT sysgroupid
-		FROM host WHERE hostname = $1 )`, hn)
+	var grp slib.SystemGroup
+	err = op.QueryRow(`SELECT sysgroup.sysgroupid, sysgroup.name FROM sysgroup
+		JOIN host ON (sysgroup.sysgroupid = host.sysgroupid)
+		WHERE hostname = $1`, hn).Scan(&grp.ID, &grp.Name)
 	if err != nil {
-		return ret, err
-	}
-	groups := make([]slib.SystemGroup, 0)
-	for rows.Next() {
-		var n slib.SystemGroup
-		err = rows.Scan(&n.ID, &n.Name, &n.Environment)
-		groups = append(groups, n)
-	}
-	err = mergeSystemGroups(op, &ret, groups)
-	if err != nil {
-		return ret, err
-	}
-	// If we successfully matched on hostname, also add any extended
-	// information about this particular host to the result.
-	if ret.Found {
-		var tcw sql.NullBool
-		var techowner sql.NullString
-		rows, err = op.Query(`SELECT requiretcw, techowner
-			FROM host
-			LEFT OUTER JOIN techowners
-			ON host.techownerid = techowners.techownerid
-			WHERE hostname = $1`, hn)
-		if err != nil {
+		if err == sql.ErrNoRows {
+			return ret, nil
+		} else {
 			return ret, err
 		}
-		if rows.Next() {
-			err = rows.Scan(&tcw, &techowner)
-			if tcw.Valid {
-				ret.TCW = tcw.Bool
-			}
-			if techowner.Valid {
-				ret.TechOwner = techowner.String
-			}
-			rows.Close()
+	}
+	err = mergeSystemGroup(op, &ret, grp)
+	if err != nil {
+		return ret, err
+	}
+	return ret, nil
+}
+
+// Execute a service search based on the hostname of an asset
+func searchHost(op opContext, hn string, conf int) (ret slib.Service, err error) {
+	hn = strings.ToLower(hn)
+	if conf > 50 {
+		// XXX If this is a new host and it matches something in the
+		// interlink rule set, this initial response is likely not to
+		// contain the information until the rule set runs the next
+		// time, once it sees this addition.
+		err = updateDynamicHost(op, hn, "dynamic host search", conf)
+		if err != nil {
+			return
 		}
 	}
-	return ret, nil
+	return searchUsingHost(op, hn)
 }
 
-func searchUsingHostMatch(op opContext, hn string) (slib.Service, error) {
-	var ret slib.Service
-
-	// Use hostmatch to see if we can identify the system group.
-	rows, err := op.Query(`SELECT sysgroupid, name, environment
-		FROM sysgroup WHERE sysgroupid IN (
-		SELECT DISTINCT sysgroupid
-		FROM hostmatch WHERE
-		$1 ~* expression )`, hn)
-	if err != nil {
-		return ret, err
-	}
-	groups := make([]slib.SystemGroup, 0)
-	for rows.Next() {
-		var n slib.SystemGroup
-		err = rows.Scan(&n.ID, &n.Name, &n.Environment)
-		groups = append(groups, n)
-	}
-	err = mergeSystemGroups(op, &ret, groups)
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func searchHost(op opContext, hn string, conf int) (slib.Service, error) {
-	hn = strings.ToLower(hn)
-	sr, err := searchUsingHost(op, hn)
-	if err != nil || sr.Found {
-		return sr, err
-	}
-	if conf > 50 {
-		err = noteDynamicHost(op, hn, conf)
-	}
-	sr, err = searchUsingHostMatch(op, hn)
-	if err != nil || sr.Found {
-		return sr, err
-	}
-	return sr, nil
-}
-
+// Execute a service search using the criteria specified in s
 func runSearch(o opContext, s slib.Search) error {
 	var sres slib.Service
 	var err error
@@ -344,12 +323,17 @@ func serviceNewSearch(rw http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	op.commit()
+	err = op.commit()
+	if err != nil {
+		panic(err)
+	}
 
 	sr := slib.SearchResponse{SearchID: op.opid}
 	buf, err := json.Marshal(&sr)
 	if err != nil {
-		panic(err)
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
 	}
 	fmt.Fprint(rw, string(buf))
 }
@@ -455,14 +439,6 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 		}
 		if sgid.Valid {
 			hn.SysGroupID = int(sgid.Int64)
-		} else if !sgid.Valid && dynamic {
-			tmpid, err := hostDynSysgroup(op, hn.Hostname)
-			if err != nil {
-				op.logf(err.Error())
-				http.Error(rw, err.Error(), 500)
-				return
-			}
-			hn.SysGroupID = tmpid
 		}
 		resp.Hosts = append(resp.Hosts, hn)
 	}
@@ -479,36 +455,39 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 // Periodically prune dynamic hosts from the database that have not been seen
 // within a given period.
 func dynHostManager() {
-	for {
-		time.Sleep(1 * time.Minute)
-		op := opContext{}
-		op.newContext(dbconn, false, "")
-		cutoff := time.Now().UTC().Add(-(168 * time.Hour))
-		rows, err := op.Query(`SELECT hostid FROM host
-			WHERE dynamic = true AND lastused < $1`, cutoff)
-		if err != nil {
-			op.logf("dynHostManager: %v", err.Error())
-			continue
+	defer func() {
+		if e := recover(); e != nil {
+			logf("error in dynamic host manager: %v", e)
 		}
-		for rows.Next() {
-			var hostid int
-			err = rows.Scan(&hostid)
-			if err != nil {
-				op.logf("dynHostManager: %v", err.Error())
-				continue
-			}
-			_, err = op.Exec(`DELETE FROM compscore
+	}()
+	op := opContext{}
+	op.newContext(dbconn, false, "dynhostmanager")
+	cutoff := time.Now().UTC().Add(-(168 * time.Hour))
+	rows, err := op.Query(`SELECT hostid FROM host
+			WHERE dynamic = true AND lastused < $1`, cutoff)
+	if err != nil {
+		panic(err)
+	}
+	for rows.Next() {
+		var hostid int
+		err = rows.Scan(&hostid)
+		if err != nil {
+			panic(err)
+		}
+		_, err = op.Exec(`DELETE FROM compscore
 				WHERE hostid = $1`, hostid)
-			if err != nil {
-				op.logf("dynHostManager: %v", err.Error())
-				continue
-			}
-			_, err = op.Exec(`DELETE FROM host
+		if err != nil {
+			panic(err)
+		}
+		_, err = op.Exec(`DELETE FROM vulnscore
 				WHERE hostid = $1`, hostid)
-			if err != nil {
-				op.logf("dynHostManager: %v", err.Error())
-				continue
-			}
+		if err != nil {
+			panic(err)
+		}
+		_, err = op.Exec(`DELETE FROM host
+				WHERE hostid = $1`, hostid)
+		if err != nil {
+			panic(err)
 		}
 	}
 }
@@ -598,6 +577,54 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Spawn the compliance scoring process
+	go func() {
+		logf("spawning compliance scoring routine")
+		for {
+			scoreCompliance()
+			time.Sleep(5 * time.Second)
+		}
+	}()
+	// Spawn the vulnerability scoring process
+	go func() {
+		logf("spawning vulnerability scoring routine")
+		for {
+			scoreVuln()
+			time.Sleep(5 * time.Second)
+		}
+	}()
+	// Spawn the RRA import process
+	go func() {
+		logf("spawning rra import routine")
+		for {
+			importRRA()
+			time.Sleep(15 * time.Minute)
+		}
+	}()
+	// Spawn compliance host import process
+	go func() {
+		logf("spawning compliance host import routine")
+		for {
+			importCompHosts()
+			time.Sleep(60 * time.Minute)
+		}
+	}()
+	// Spawn dynamic host manager
+	go func() {
+		logf("spawning dynamic host manager")
+		for {
+			time.Sleep(1 * time.Minute)
+			dynHostManager()
+		}
+	}()
+	go func() {
+		logf("spawning interlink manager")
+		for {
+			interlinkManager()
+			time.Sleep(30 * time.Second)
+		}
+	}()
 
 	logf("Starting processing")
 

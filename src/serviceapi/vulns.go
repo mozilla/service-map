@@ -20,6 +20,7 @@ func getTargetVulns(target string) ([]gozdef.VulnEvent, error) {
 	ret := make([]gozdef.VulnEvent, 0)
 
 	conn := elastigo.NewConn()
+	defer conn.Close()
 	conn.Domain = cfg.Vulnerabilities.ESHost
 
 	template := `{
