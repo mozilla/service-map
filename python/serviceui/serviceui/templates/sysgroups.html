@@ -14,14 +14,13 @@
       <tr>
         <td>ID</td>
         <td>Name</td>
-        <td>Environment</td>
       </tr>
     </thead>
     <tbody>
     {% for r in results.results %}
     <tr><td>
         <a href="{{ url_for('getsysgroup', sysgroupid=r.id) }}">{{ r.id }}</a>
-    </td><td>{{ r.name }}</td><td style="text-transform:capitalize">{{ r.environment }}</td></tr>
+    </td><td>{{ r.name }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
