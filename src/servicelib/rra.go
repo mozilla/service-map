@@ -115,7 +115,8 @@ func (r *RiskDatapoint) Validate() error {
 	if r.Cap < 0 || r.Cap > 1.0 {
 		return fmt.Errorf("datapoint \"%v\" cap must be from 0.0 to 1.0, not %v", r.Name, r.Cap)
 	}
-	if r.Coverage != "none" && r.Coverage != "partial" && r.Coverage != "complete" {
+	if r.Coverage != "none" && r.Coverage != "partial" &&
+		r.Coverage != "complete" && r.Coverage != "unknown" {
 		return fmt.Errorf("datapoint \"%v\" coverage invalid \"%v\"", r.Name, r.Coverage)
 	}
 	return nil

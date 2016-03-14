@@ -110,13 +110,15 @@ func riskVulnerabilityDatapoint(op opContext, rs *slib.RRAServiceRisk) error {
 			}
 		}
 	}
-	coverage := "complete"
+	// Set coverage to unknown as currently it is not possible to tell
+	// if all hosts are being assessed; we can't go by there being no
+	// known issues on the asset.
 	ndp := slib.RiskDatapoint{
 		Name:     "Vulnerability checks",
 		Weight:   2.0,
 		Score:    highest,
 		Cap:      dpCap,
-		Coverage: coverage,
+		Coverage: "unknown",
 	}
 	err := ndp.Validate()
 	if err != nil {
