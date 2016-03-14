@@ -8,6 +8,8 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	slib "servicelib"
 	"strings"
 	"time"
@@ -63,6 +65,29 @@ func hostAddComp(op opContext, h *slib.Host) error {
 		ncd.Status = sts
 		ncd.Timestamp = tstamp
 		h.CompStatus.Details = append(h.CompStatus.Details, ncd)
+	}
+	return nil
+}
+
+// Given a host with a valid ID, populate the vulnerability status
+// for the host.
+func hostAddVuln(op opContext, h *slib.Host) error {
+	var tstamp time.Time
+	h.VulnStatus.Reset()
+	err := op.QueryRow(`SELECT maxcount, highcount,
+		mediumcount, lowcount, MAX(timestamp)
+		FROM vulnscore WHERE hostid = $1 AND
+		timestamp > now() AT TIME ZONE 'utc' -
+		interval '168 hours'
+		GROUP BY maxcount, highcount,
+		mediumcount, lowcount`, h.ID).Scan(&h.VulnStatus.Maximum,
+		&h.VulnStatus.High, &h.VulnStatus.Medium, &h.VulnStatus.Low, &tstamp)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		} else {
+			return err
+		}
 	}
 	return nil
 }

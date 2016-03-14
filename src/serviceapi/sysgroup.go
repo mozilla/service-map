@@ -51,6 +51,10 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 		if err != nil {
 			return err
 		}
+		err = hostAddVuln(op, &h)
+		if err != nil {
+			return err
+		}
 		s.Host = append(s.Host, h)
 	}
 
