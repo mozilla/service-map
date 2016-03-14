@@ -224,7 +224,6 @@ func interlinkLoadRules() error {
 			return nil
 		}
 	}
-	interlinkLastLoad = ss.ModTime()
 
 	fd, err := os.Open(cfg.Interlink.RulePath)
 	if err != nil {
@@ -240,6 +239,10 @@ func interlinkLoadRules() error {
 			continue
 		}
 		tokens := strings.Split(buf, " ")
+
+		if len(tokens) > 0 && tokens[0][0] == '#' {
+			continue
+		}
 
 		var nr interlinkRule
 		if len(tokens) < 3 {
@@ -319,6 +322,8 @@ func interlinkLoadRules() error {
 	if err != nil {
 		panic(err)
 	}
+
+	interlinkLastLoad = ss.ModTime()
 	logf("interlink: loaded %v rules", len(rules))
 
 	return nil
