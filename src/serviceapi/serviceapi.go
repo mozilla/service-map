@@ -599,7 +599,7 @@ func main() {
 		logf("spawning rra import routine")
 		for {
 			importRRA()
-			time.Sleep(60 * time.Second)
+			time.Sleep(15 * time.Minute)
 		}
 	}()
 	// Spawn compliance host import process
@@ -607,7 +607,7 @@ func main() {
 		logf("spawning compliance host import routine")
 		for {
 			importCompHosts()
-			time.Sleep(60 * time.Second)
+			time.Sleep(60 * time.Minute)
 		}
 	}()
 	// Spawn dynamic host manager
@@ -622,7 +622,7 @@ func main() {
 		logf("spawning interlink manager")
 		for {
 			interlinkManager()
-			time.Sleep(5 * time.Second)
+			time.Sleep(30 * time.Second)
 		}
 	}()
 
