@@ -22,13 +22,6 @@ type Host struct {
 	CompStatus ComplianceStatus `json:"compliance"`
 }
 
-type HostMatch struct {
-	ID         int    `json:"id"`
-	SysGroupID int    `json:"sysgroupid"`
-	Expression string `json:"expression"`
-	Comment    string `json:"comment"`
-}
-
 type ComplianceStatus struct {
 	HighFail   int `json:"highfail"`
 	HighPass   int `json:"highpass"`

@@ -42,7 +42,8 @@ type RRAService struct {
 
 	DefData string `json:"default_data_classification,omitempty"`
 
-	SupportGrps []SystemGroup `json:"supporting_system_groups,omitempty"` // Supporting system groups
+	// Supporting system groups
+	SupportGrps []SystemGroup `json:"supporting_system_groups,omitempty"`
 
 	RawRRA json.RawMessage `json:"rra_details,omitempty"` // The raw RRA as described in ES
 }
@@ -62,11 +63,6 @@ const (
 	ImpactHighValue    = 3.0
 	ImpactMaxValue     = 4.0
 )
-
-// Response to /risks request, includes all known RRAs
-type RisksResponse struct {
-	Risks []RRAServiceRisk `json:"risks"`
-}
 
 // Describes calculated risk for a service, based on an RRA and known
 // data points
