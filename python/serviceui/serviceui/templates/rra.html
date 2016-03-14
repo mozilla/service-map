@@ -17,7 +17,7 @@
           <tr><td class="suHeader">Name</td><td>{{ results.name }}</td></tr>
           <tr><td class="suHeader">ID</td><td>{{ results.id }}</td></tr>
           <tr><td class="suHeader">Data classification</td>
-            <td><span name="rlabel">{{ results.defdata }}</span></td></tr>
+            <td><span name="rlabel">{{ results.default_data_classification }}</span></td></tr>
         </table>
       </td>
     </tr>
@@ -35,50 +35,50 @@
     <tr>
       <td rowspan=3>Confidentiality</td>
       <td>Reputation</td>
-      <td><span name="rlabel">{{ results.confirepimpact }}</span></td>
-      <td><span name="rlabel">{{ results.confirepprob }}</span></td>
+      <td><span name="rlabel">{{ results.confidentiality_reputation_impact }}</span></td>
+      <td><span name="rlabel">{{ results.confidentiality_reputation_probability }}</span></td>
     </tr>
     <tr>
       <td>Productivity</td>
-      <td><span name="rlabel">{{ results.confiprdimpact }}</span></td>
-      <td><span name="rlabel">{{ results.confiprdprob }}</span></td>
+      <td><span name="rlabel">{{ results.confidentiality_productivity_impact }}</span></td>
+      <td><span name="rlabel">{{ results.confidentiality_productivity_probability }}</span></td>
     </tr>
     <tr>
       <td>Finances</td>
-      <td><span name="rlabel">{{ results.confifinimpact }}</span></td>
-      <td><span name="rlabel">{{ results.confifinprob }}</span></td>
+      <td><span name="rlabel">{{ results.confidentiality_financial_impact }}</span></td>
+      <td><span name="rlabel">{{ results.confidentiality_financial_probability }}</span></td>
     </tr>
     <tr>
       <td rowspan=3>Availability</td>
       <td>Reputation</td>
-      <td><span name="rlabel">{{ results.availrepimpact }}</span></td>
-      <td><span name="rlabel">{{ results.availrepprob }}</span></td>
+      <td><span name="rlabel">{{ results.availability_reputation_impact }}</span></td>
+      <td><span name="rlabel">{{ results.availability_reputation_probability }}</span></td>
     </tr>
     <tr>
       <td>Productivity</td>
-      <td><span name="rlabel">{{ results.availprdimpact }}</span></td>
-      <td><span name="rlabel">{{ results.availprdprob }}</span></td>
+      <td><span name="rlabel">{{ results.availability_productivity_impact }}</span></td>
+      <td><span name="rlabel">{{ results.availability_productivity_probability }}</span></td>
     </tr>
     <tr>
       <td>Finances</td>
-      <td><span name="rlabel">{{ results.availfinimpact }}</span></td>
-      <td><span name="rlabel">{{ results.availfinprob }}</span></td>
+      <td><span name="rlabel">{{ results.availability_financial_impact }}</span></td>
+      <td><span name="rlabel">{{ results.availability_financial_probability }}</span></td>
     </tr>
     <tr>
       <td rowspan=3>Integrity</td>
       <td>Reputation</td>
-      <td><span name="rlabel">{{ results.integrepimpact }}</span></td>
-      <td><span name="rlabel">{{ results.integrepprob }}</span></td>
+      <td><span name="rlabel">{{ results.integrity_reputation_impact }}</span></td>
+      <td><span name="rlabel">{{ results.integrity_reputation_probability }}</span></td>
     </tr>
     <tr>
       <td>Productivity</td>
-      <td><span name="rlabel">{{ results.integprdimpact }}</span></td>
-      <td><span name="rlabel">{{ results.integprdprob }}</span></td>
+      <td><span name="rlabel">{{ results.integrity_productivity_impact }}</span></td>
+      <td><span name="rlabel">{{ results.integrity_productivity_probability }}</span></td>
     </tr>
     <tr>
       <td>Finances</td>
-      <td><span name="rlabel">{{ results.integfinimpact }}</span></td>
-      <td><span name="rlabel">{{ results.integfinprob }}</span></td>
+      <td><span name="rlabel">{{ results.integrity_financial_impact }}</span></td>
+      <td><span name="rlabel">{{ results.integrity_financial_probability }}</span></td>
     </tr>
   </table>
 </div>
@@ -88,19 +88,16 @@
   <table class="suTable" cellspacing="0" width="100%">
     <tr><td class="suHeader">ID</td>
       <td class="suHeader">Name</td>
-      <td class="suHeader">Environment</td>
       {% if results.supporting_system_groups|length > 0 %}
       {% for r in results.supporting_system_groups %}
       <tr>
         <td><a href="{{ url_for('getsysgroup', sysgroupid=r.id) }}">{{ r.id }}</a></td>
         <td>{{ r.name }}</td>
-        <td style="text-transform:capitalize">{{ r.environment }}</td>
       </tr>
       {% endfor %}
       {% else %}
       <tr>
         <td>NA</td>
-        <td>No information available</td>
         <td>No information available</td>
       </tr>
       {% endif %}
