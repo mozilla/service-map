@@ -9,7 +9,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	slib "servicelib"
 	"strings"
 	"time"
