@@ -8,22 +8,20 @@
 package main
 
 import (
+	"github.com/montanaflynn/stats"
 	slib "servicelib"
 )
 
-// Calculate a compliance related datapoint for the RRA. This function
-// requires system group metadata be introduced into the RRA, which will
-// contain compliance statistics for relevant hosts.
-func riskComplianceDatapoint(op opContext, rs *slib.RRAServiceRisk) error {
-	// Just use a default cap value of 1 here (uncapped)
-	var dpCap = 1.0
-
+// Calculate a risk scenario, uses compliance data as probability metric
+func riskComplianceScenario(op opContext, rs *slib.RRAServiceRisk,
+	src slib.RRAAttribute, desc string) error {
 	// Calculate our step value based on the number of compliance checks
 	// that have been executed for supporting hosts
 	//
 	// XXX We should filter compliance checks here that do not make sense
 	// for a the service (e.g., filter out MAXIMUM related checks for low
-	// requirement services
+	// requirement services, but this information isn't really captured
+	// anywhere right now
 	totalcnt := 0
 	coverage := "complete"
 	for _, x := range rs.RRA.SupportGrps {
@@ -46,14 +44,12 @@ func riskComplianceDatapoint(op opContext, rs *slib.RRAServiceRisk) error {
 	}
 	// If totalcnt is zero, we didn't have any data points.
 	if totalcnt == 0 {
-		ndp := slib.RiskDatapoint{
-			Name:     "Compliance checks",
-			Weight:   2.0,
-			Cap:      dpCap,
+		ndp := slib.RiskScenario{
+			Name:     "Compliance scenario for " + desc,
 			NoData:   true,
 			Coverage: "none",
 		}
-		rs.Datapoints = append(rs.Datapoints, ndp)
+		rs.Scenarios = append(rs.Scenarios, ndp)
 		return nil
 	}
 	stepv := 3.0 / float64(totalcnt)
@@ -66,26 +62,25 @@ func riskComplianceDatapoint(op opContext, rs *slib.RRAServiceRisk) error {
 		}
 	}
 
-	ndp := slib.RiskDatapoint{
-		Name:     "Compliance checks",
-		Weight:   2.0,
-		Score:    scr,
-		Cap:      dpCap,
-		Coverage: coverage,
+	newscen := slib.RiskScenario{
+		Name:        "Compliance scenario for " + desc,
+		Impact:      src.Impact,
+		Probability: scr,
+		Score:       src.Impact * scr,
+		Coverage:    coverage,
+		NoData:      false,
 	}
-	err := ndp.Validate()
+	err := newscen.Validate()
 	if err != nil {
 		return err
 	}
-	rs.Datapoints = append(rs.Datapoints, ndp)
+	rs.Scenarios = append(rs.Scenarios, newscen)
 
 	return nil
 }
 
-func riskVulnerabilityDatapoint(op opContext, rs *slib.RRAServiceRisk) error {
-	// Just use a default cap value of 1 here (uncapped)
-	var dpCap = 1.0
-
+func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
+	src slib.RRAAttribute, desc string) error {
 	// The score here will range from 1 to 4, and will be set to the
 	// score associated with the highest vulnerability impact value
 	// identified on the hosts in scope. For example, a single maximum
@@ -113,159 +108,77 @@ func riskVulnerabilityDatapoint(op opContext, rs *slib.RRAServiceRisk) error {
 	// Set coverage to unknown as currently it is not possible to tell
 	// if all hosts are being assessed; we can't go by there being no
 	// known issues on the asset.
-	ndp := slib.RiskDatapoint{
-		Name:     "Vulnerability checks",
-		Weight:   2.0,
-		Score:    highest,
-		Cap:      dpCap,
-		Coverage: "unknown",
+	newscen := slib.RiskScenario{
+		Name:        "Vulnerability scenario for " + desc,
+		Impact:      src.Impact,
+		Probability: highest,
+		Score:       highest * src.Impact,
+		Coverage:    "unknown",
 	}
-	err := ndp.Validate()
+	err := newscen.Validate()
 	if err != nil {
 		return err
 	}
-	rs.Datapoints = append(rs.Datapoints, ndp)
+	rs.Scenarios = append(rs.Scenarios, newscen)
 
 	return nil
 }
 
-// Calculate a risk datapoint using the RRA highest impact and associated
-// probability score
-func riskRRADatapoint(op opContext, rs *slib.RRAServiceRisk) error {
-	var (
-		dpCap = 1.0
-		err   error
-	)
-
-	ndp := slib.RiskDatapoint{
-		Name:   "RRA derived probability",
-		Weight: 1.0,
-		Cap:    dpCap,
+// Calculate a risk scenario, uses information from the RRA
+func riskRRAScenario(op opContext, rs *slib.RRAServiceRisk, src slib.RRAAttribute, desc string) error {
+	newscen := slib.RiskScenario{
+		Name:     "RRA derived risk for " + desc,
+		Coverage: "none",
+		NoData:   true,
 	}
-
-	// If the probability is unknown, we can't create this datapoint
-	if rs.HighestImpactProb == "unknown" {
-		ndp.NoData = true
-		ndp.Coverage = "none"
-		rs.Datapoints = append(rs.Datapoints, ndp)
-		return nil
+	if src.Impact != 0 && src.Probability != 0 {
+		newscen.Probability = src.Probability
+		newscen.Impact = src.Impact
+		newscen.Score = src.Impact * src.Probability
+		newscen.Coverage = "complete"
+		newscen.NoData = false
 	}
-
-	ndp.Coverage = "complete"
-	ndp.Score, err = slib.ImpactValueFromLabel(rs.HighestImpactProb)
+	err := newscen.Validate()
 	if err != nil {
 		return err
 	}
-	rs.Datapoints = append(rs.Datapoints, ndp)
-
+	rs.Scenarios = append(rs.Scenarios, newscen)
 	return nil
 }
 
 // Finalize calculation of the risk using available datapoints
 func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
-	var sval float64
-	// Calculate our final risk score
-	founddata := false
-	for _, x := range rs.Datapoints {
-		if x.NoData {
-			continue
-		}
-		founddata = true
-		sval += x.Cap * (x.Score * x.Weight)
+	var (
+		rvals []float64
+		err   error
+	)
+	for _, x := range rs.Scenarios {
+		rvals = append(rvals, x.Score)
 	}
-	if !founddata {
-		// We had no valid data to support any calculation
-		rs.WorstCase = 0
-		rs.NormalRisk = 0
-		rs.NormalLabel = slib.NormalLabelFromValue(rs.NormalRisk)
-		return nil
-	}
-	tval, err := slib.ImpactValueFromLabel(rs.HighestImpact)
+	rs.Risk.Median, err = stats.Median(rvals)
 	if err != nil {
 		return err
 	}
-	rs.RiskScore = tval * sval
-	// Calculate what the highest possible risk score for the service is,
-	// based on the data we have
-	sval = 0
-	for _, x := range rs.Datapoints {
-		if x.NoData {
-			continue
-		}
-		sval += x.Cap * (4 * x.Weight)
+	rs.Risk.Average, err = stats.Mean(rvals)
+	if err != nil {
+		return err
 	}
-	rs.WorstCase = tval * sval
-	// Calculate the normalized value
-	rs.NormalRisk = (rs.RiskScore * 100) / rs.WorstCase
-	rs.NormalLabel = slib.NormalLabelFromValue(rs.NormalRisk)
+	rs.Risk.WorstCase, err = stats.Max(rvals)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-// Determine that highest known impact value from the RRA, which we will use
-// as the impact input value in risk calculations
+// Determine which attributes (e.g., conf, integ, avail) from the RRA
+// we want to use was impact inputs for the risk scenarios.
 func riskFindHighestImpact(rs *slib.RRAServiceRisk) error {
-	var (
-		tv         float64
-		err        error
-		labelValue = 1.0
-		probLabel  = "unknown"
-	)
-	f := func(x float64, y float64, prob string) (float64, string) {
-		if y > x {
-			return y, prob
-		}
-		return x, probLabel
-	}
-	tv, err = slib.ImpactValueFromLabel(rs.RRA.AvailRepImpact)
-	if err != nil {
-		return err
-	}
-	labelValue, probLabel = f(labelValue, tv, rs.RRA.AvailRepProb)
-	tv, err = slib.ImpactValueFromLabel(rs.RRA.AvailPrdImpact)
-	if err != nil {
-		return err
-	}
-	labelValue, probLabel = f(labelValue, tv, rs.RRA.AvailPrdProb)
-	tv, err = slib.ImpactValueFromLabel(rs.RRA.AvailFinImpact)
-	if err != nil {
-		return err
-	}
-	labelValue, probLabel = f(labelValue, tv, rs.RRA.AvailFinProb)
-	tv, err = slib.ImpactValueFromLabel(rs.RRA.IntegRepImpact)
-	if err != nil {
-		return err
-	}
-	labelValue, probLabel = f(labelValue, tv, rs.RRA.IntegRepProb)
-	tv, err = slib.ImpactValueFromLabel(rs.RRA.IntegPrdImpact)
-	if err != nil {
-		return err
-	}
-	labelValue, probLabel = f(labelValue, tv, rs.RRA.IntegPrdProb)
-	tv, err = slib.ImpactValueFromLabel(rs.RRA.IntegFinImpact)
-	if err != nil {
-		return err
-	}
-	labelValue, probLabel = f(labelValue, tv, rs.RRA.IntegFinProb)
-	tv, err = slib.ImpactValueFromLabel(rs.RRA.ConfiRepImpact)
-	if err != nil {
-		return err
-	}
-	labelValue, probLabel = f(labelValue, tv, rs.RRA.ConfiRepProb)
-	tv, err = slib.ImpactValueFromLabel(rs.RRA.ConfiPrdImpact)
-	if err != nil {
-		return err
-	}
-	labelValue, probLabel = f(labelValue, tv, rs.RRA.ConfiPrdProb)
-	tv, err = slib.ImpactValueFromLabel(rs.RRA.ConfiFinImpact)
-	if err != nil {
-		return err
-	}
-	labelValue, probLabel = f(labelValue, tv, rs.RRA.ConfiFinProb)
-	rs.HighestImpact, err = slib.ImpactLabelFromValue(labelValue)
-	if err != nil {
-		return err
-	}
-	rs.HighestImpactProb = probLabel
+	rs.UsedRRAAttrib.Reputation.Impact,
+		rs.UsedRRAAttrib.Reputation.Probability = rs.RRA.HighestRiskReputation()
+	rs.UsedRRAAttrib.Productivity.Impact,
+		rs.UsedRRAAttrib.Productivity.Probability = rs.RRA.HighestRiskProductivity()
+	rs.UsedRRAAttrib.Financial.Impact,
+		rs.UsedRRAAttrib.Financial.Probability = rs.RRA.HighestRiskFinancial()
 	return nil
 }
 
@@ -277,15 +190,39 @@ func riskCalculation(op opContext, rs *slib.RRAServiceRisk) error {
 	if err != nil {
 		return err
 	}
-	err = riskRRADatapoint(op, rs)
+	err = riskRRAScenario(op, rs, rs.UsedRRAAttrib.Reputation, "reputation")
 	if err != nil {
 		return err
 	}
-	err = riskComplianceDatapoint(op, rs)
+	err = riskRRAScenario(op, rs, rs.UsedRRAAttrib.Productivity, "productivity")
 	if err != nil {
 		return err
 	}
-	err = riskVulnerabilityDatapoint(op, rs)
+	err = riskRRAScenario(op, rs, rs.UsedRRAAttrib.Financial, "financial")
+	if err != nil {
+		return err
+	}
+	err = riskComplianceScenario(op, rs, rs.UsedRRAAttrib.Reputation, "reputation")
+	if err != nil {
+		return err
+	}
+	err = riskComplianceScenario(op, rs, rs.UsedRRAAttrib.Productivity, "productivity")
+	if err != nil {
+		return err
+	}
+	err = riskComplianceScenario(op, rs, rs.UsedRRAAttrib.Financial, "financial")
+	if err != nil {
+		return err
+	}
+	err = riskVulnerabilityScenario(op, rs, rs.UsedRRAAttrib.Reputation, "reputation")
+	if err != nil {
+		return err
+	}
+	err = riskVulnerabilityScenario(op, rs, rs.UsedRRAAttrib.Productivity, "productivity")
+	if err != nil {
+		return err
+	}
+	err = riskVulnerabilityScenario(op, rs, rs.UsedRRAAttrib.Financial, "financial")
 	if err != nil {
 		return err
 	}

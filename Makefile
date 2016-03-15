@@ -5,6 +5,7 @@ all: $(TARGETS)
 
 depends:
 	$(GO) get github.com/mattbaird/elastigo
+	$(GO) get github.com/montanaflynn/stats
 	$(GO) get github.com/lib/pq
 	$(GO) get code.google.com/p/gcfg
 	$(GO) get github.com/gorilla/context

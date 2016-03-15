@@ -55,6 +55,81 @@ func (r *RRAService) Validate() error {
 	return nil
 }
 
+func (r *RRAService) HighestRiskReputation() (float64, float64) {
+	// XXX Assumed values have been normalized here
+	repavi, _ := ImpactValueFromLabel(r.AvailRepImpact)
+	repavp, _ := ImpactValueFromLabel(r.AvailRepProb)
+	repcfi, _ := ImpactValueFromLabel(r.ConfiRepImpact)
+	repcfp, _ := ImpactValueFromLabel(r.ConfiRepProb)
+	repiti, _ := ImpactValueFromLabel(r.IntegRepImpact)
+	repitp, _ := ImpactValueFromLabel(r.IntegRepProb)
+	rskav := repavi * repavp
+	rskcf := repcfi * repcfp
+	rskit := repiti * repitp
+	var candi, candp *float64
+	candi = &repavi
+	candp = &repavp
+	if rskcf > rskav {
+		candi = &repcfi
+		candp = &repcfp
+	}
+	if rskit > rskcf {
+		candi = &repiti
+		candp = &repitp
+	}
+	return *candi, *candp
+}
+
+func (r *RRAService) HighestRiskProductivity() (float64, float64) {
+	// XXX Assumed values have been normalized here
+	prdavi, _ := ImpactValueFromLabel(r.AvailPrdImpact)
+	prdavp, _ := ImpactValueFromLabel(r.AvailPrdProb)
+	prdcfi, _ := ImpactValueFromLabel(r.ConfiPrdImpact)
+	prdcfp, _ := ImpactValueFromLabel(r.ConfiPrdProb)
+	prditi, _ := ImpactValueFromLabel(r.IntegPrdImpact)
+	prditp, _ := ImpactValueFromLabel(r.IntegPrdProb)
+	rskav := prdavi * prdavp
+	rskcf := prdcfi * prdcfp
+	rskit := prditi * prditp
+	var candi, candp *float64
+	candi = &prdavi
+	candp = &prdavp
+	if rskcf > rskav {
+		candi = &prdcfi
+		candp = &prdcfp
+	}
+	if rskit > rskcf {
+		candi = &prditi
+		candp = &prditp
+	}
+	return *candi, *candp
+}
+
+func (r *RRAService) HighestRiskFinancial() (float64, float64) {
+	// XXX Assumed values have been normalized here
+	finavi, _ := ImpactValueFromLabel(r.AvailFinImpact)
+	finavp, _ := ImpactValueFromLabel(r.AvailFinProb)
+	fincfi, _ := ImpactValueFromLabel(r.ConfiFinImpact)
+	fincfp, _ := ImpactValueFromLabel(r.ConfiFinProb)
+	finiti, _ := ImpactValueFromLabel(r.IntegFinImpact)
+	finitp, _ := ImpactValueFromLabel(r.IntegFinProb)
+	rskav := finavi * finavp
+	rskcf := fincfi * fincfp
+	rskit := finiti * finitp
+	var candi, candp *float64
+	candi = &finavi
+	candp = &finavp
+	if rskcf > rskav {
+		candi = &fincfi
+		candp = &fincfp
+	}
+	if rskit > rskcf {
+		candi = &finiti
+		candp = &finitp
+	}
+	return *candi, *candp
+}
+
 // Score values per impact label
 const (
 	ImpactUnknownValue = 0.0
@@ -64,24 +139,29 @@ const (
 	ImpactMaxValue     = 4.0
 )
 
+type RRAAttribute struct {
+	Impact      float64 `json:"impact"`
+	Probability float64 `json:"probability"`
+}
+
 // Describes calculated risk for a service, based on an RRA and known
 // data points
 type RRAServiceRisk struct {
 	RRA RRAService `json:"rra"` // The RRA we are describing
 
-	// Without a way to know which impact properties a given data point
-	// affects (for example, confidentiality but not availability), we
-	// just use the highest noted impact for the asset.
-	//
-	// This is derived from the information stored in the RRA
-	HighestImpact     string `json:"highest_impact"`             // The highest impact score associated with the service
-	HighestImpactProb string `json:"highest_impact_probability"` // Probability of highest impact
+	UsedRRAAttrib struct {
+		Reputation   RRAAttribute `json:"reputation"`
+		Productivity RRAAttribute `json:"productivity"`
+		Financial    RRAAttribute `json:"financial"`
+	} `json:"used_rra_attributes"`
 
-	RiskScore   float64         `json:"score"`            // The final risk score for the service
-	WorstCase   float64         `json:"worst_case"`       // Worst case score given available data points
-	NormalRisk  float64         `json:"normalized_score"` // Normalized risk score
-	NormalLabel string          `json:"normalized_label"` // Normalized risk score label
-	Datapoints  []RiskDatapoint `json:"datapoints"`       // Data points for risk calculation
+	Risk struct {
+		WorstCase float64 `json:"worst_case"`
+		Median    float64 `json:"median"`
+		Average   float64 `json:"average"`
+	} `json:"risk"`
+
+	Scenarios []RiskScenario `json:"scenarios"` // Risk scenarios
 }
 
 func (r *RRAServiceRisk) Validate() error {
@@ -95,29 +175,23 @@ func (r *RRAServiceRisk) Validate() error {
 // Stores information used to support probability for risk calculation; this
 // generally would be created using control information and is combined with the
 // RRA impact scores to produce estimated service risk
-type RiskDatapoint struct {
-	Name     string  `json:"name"`     // Name describing the datapoint
-	Weight   float64 `json:"weight"`   // Weight of the datapoint in calculation
-	Score    float64 `json:"score"`    // The scored value for the datapoint
-	Cap      float64 `json:"cap"`      // Value cap, 0.0 - 1.0, should default to 1.0
-	NoData   bool    `json:"nodata"`   // True if no data exists for this datapoint
-	Coverage string  `json:"coverage"` // The coverage of the calculation, should be none, partial, or complete
+type RiskScenario struct {
+	Name        string  `json:"name"` // Name describing the datapoint
+	Probability float64 `json:"probability"`
+	Impact      float64 `json:"impact"`
+	Score       float64 `json:"score"`
+	NoData      bool    `json:"nodata"`   // No data exists for proper calculation
+	Coverage    string  `json:"coverage"` // Coverage (partial, complete, none, unknown)
 }
 
-// Validates a RiskDatapoint for consistency
-func (r *RiskDatapoint) Validate() error {
+// Validates a RiskScenario for consistency
+func (r *RiskScenario) Validate() error {
 	if r.Name == "" {
-		return fmt.Errorf("datapoint must have a name")
-	}
-	if r.Weight == 0 {
-		return fmt.Errorf("datapoint \"%v\" weight must not be zero", r.Name)
-	}
-	if r.Cap < 0 || r.Cap > 1.0 {
-		return fmt.Errorf("datapoint \"%v\" cap must be from 0.0 to 1.0, not %v", r.Name, r.Cap)
+		return fmt.Errorf("scenario must have a name")
 	}
 	if r.Coverage != "none" && r.Coverage != "partial" &&
 		r.Coverage != "complete" && r.Coverage != "unknown" {
-		return fmt.Errorf("datapoint \"%v\" coverage invalid \"%v\"", r.Name, r.Coverage)
+		return fmt.Errorf("scenario \"%v\" coverage invalid \"%v\"", r.Name, r.Coverage)
 	}
 	return nil
 }
