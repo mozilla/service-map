@@ -309,23 +309,15 @@ func serviceNewSearch(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	op := opContext{}
-	op.newContext(dbconn, true, req.RemoteAddr)
+	op.newContext(dbconn, false, req.RemoteAddr)
 
 	for _, x := range params.Searches {
 		err = runSearch(op, x)
 		if err != nil {
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
-			err = op.rollback()
-			if err != nil {
-				panic(err)
-			}
 			return
 		}
-	}
-	err = op.commit()
-	if err != nil {
-		panic(err)
 	}
 
 	sr := slib.SearchResponse{SearchID: op.opid}
