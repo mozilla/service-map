@@ -30,7 +30,7 @@ func getRRA(op opContext, rraid string) (slib.RRAService, error) {
 		&rr.IntegRepImpact, &rr.IntegPrdImpact, &rr.IntegFinImpact,
 		&rr.AvailRepProb, &rr.AvailPrdProb, &rr.AvailFinProb,
 		&rr.ConfiRepProb, &rr.ConfiPrdProb, &rr.ConfiFinProb,
-		&rr.IntegRepProb, &rr.IntegPrdProb, &rr.IntegPrdProb,
+		&rr.IntegRepProb, &rr.IntegPrdProb, &rr.IntegFinProb,
 		&rr.DefData, &rr.RawRRA)
 	if err != nil {
 		if err == sql.ErrNoRows {
