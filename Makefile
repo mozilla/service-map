@@ -1,4 +1,4 @@
-TARGETS = importrra servicelib serviceapi importcomphosts scorecomp
+TARGETS = servicelib serviceapi
 GO = GOPATH=$(shell pwd):$(shell go env GOROOT)/bin go
 
 all: $(TARGETS)
@@ -13,20 +13,11 @@ depends:
 	$(GO) get code.google.com/p/go-uuid/uuid
 	$(GO) get github.com/jvehent/gozdef
 
-scorecomp:
-	$(GO) install scorecomp
-
-importcomphosts:
-	$(GO) install importcomphosts
-
 servicelib:
 	$(GO) install servicelib
 
 serviceapi:
 	$(GO) install serviceapi
-
-importrra:
-	$(GO) install importrra
 
 clean:
 	rm -f bin/*
