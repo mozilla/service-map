@@ -35,8 +35,9 @@ func getSysGroup(op opContext, sgid string) (slib.SystemGroup, error) {
 func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 	s.Host = make([]slib.Host, 0)
 
-	// Grab any hosts that have been statically mapped to this group.
-	rows, err := op.Query(`SELECT assetid, hostname, comment, lastused
+	// Grab any hosts that have been mapped to this group.
+	rows, err := op.Query(`SELECT assetid, hostname, comment, lastused,
+		sysgroupid, dynamic
 		FROM asset WHERE sysgroupid = $1
 		AND assettype = 'host'`, s.ID)
 	if err != nil {
@@ -44,7 +45,8 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 	}
 	for rows.Next() {
 		var h slib.Host
-		err = rows.Scan(&h.ID, &h.Hostname, &h.Comment, &h.LastUsed)
+		err = rows.Scan(&h.ID, &h.Hostname, &h.Comment, &h.LastUsed,
+			&h.SysGroupID, &h.Dynamic)
 		if err != nil {
 			return err
 		}
@@ -57,6 +59,24 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 			return err
 		}
 		s.Host = append(s.Host, h)
+	}
+
+	// Grab any sites that have been mapped to this group.
+	rows, err = op.Query(`SELECT assetid, website, comment, lastused,
+		sysgroupid, dynamic
+		FROM asset WHERE sysgroupid = $1
+		AND assettype = 'website'`, s.ID)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var h slib.Website
+		err = rows.Scan(&h.ID, &h.Website, &h.Comment, &h.LastUsed,
+			&h.SysGroupID, &h.Dynamic)
+		if err != nil {
+			return err
+		}
+		s.Website = append(s.Website, h)
 	}
 
 	return nil
