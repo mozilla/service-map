@@ -143,22 +143,25 @@ var logChan chan string
 // Used by various dynamic host importers, this adds the host to the database
 // if it does not exist, and updates the lastused timestamp
 func updateDynamicHost(op opContext, hn string, comment string, confidence int) error {
-	_, err := op.Exec(`INSERT INTO host
+	_, err := op.Exec(`INSERT INTO asset
 		(hostname, comment, dynamic, dynamic_added, dynamic_confidence, lastused,
-		lastcompscore, lastvulnscore)
+		lastcompscore, lastvulnscore, assettype)
 		SELECT $1, $2, TRUE, now() AT TIME ZONE 'utc',
 		$3, now() AT TIME ZONE 'utc',
 		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
-		now() AT TIME ZONE 'utc' - INTERVAL '5 days'
+		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
+		'host'
 		WHERE NOT EXISTS (
-			SELECT 1 FROM host WHERE lower(hostname) = lower($4)
+			SELECT 1 FROM asset WHERE lower(hostname) = lower($4) AND
+			assettype = 'host'
 		)`, hn, comment, confidence, hn)
 	if err != nil {
 		return err
 	}
-	_, err = op.Exec(`UPDATE host
+	_, err = op.Exec(`UPDATE asset
 		SET lastused = now() AT TIME ZONE 'utc'
-		WHERE lower(hostname) = lower($1)`, hn)
+		WHERE lower(hostname) = lower($1) AND
+		assettype = 'host'`, hn)
 	if err != nil {
 		return err
 	}
@@ -216,9 +219,10 @@ func mergeSystemGroup(op opContext, s *slib.Service, group slib.SystemGroup) err
 // Update the lastused value for an asset to indicate that we have recieved
 // a search for this asset
 func updateLastUsedHost(op opContext, hn string) error {
-	_, err := op.Exec(`UPDATE host
+	_, err := op.Exec(`UPDATE asset
 		SET lastused = now() AT TIME ZONE 'utc'
-		WHERE lower(hostname) = lower($1)`, hn)
+		WHERE lower(hostname) = lower($1) AND
+		assettype = 'host'`, hn)
 	if err != nil {
 		return err
 	}
@@ -234,8 +238,8 @@ func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	}
 	var grp slib.SystemGroup
 	err = op.QueryRow(`SELECT sysgroup.sysgroupid, sysgroup.name FROM sysgroup
-		JOIN host ON (sysgroup.sysgroupid = host.sysgroupid)
-		WHERE hostname = $1`, hn).Scan(&grp.ID, &grp.Name)
+		JOIN asset ON (sysgroup.sysgroupid = asset.sysgroupid)
+		WHERE hostname = $1 AND assettype = 'host'`, hn).Scan(&grp.ID, &grp.Name)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ret, nil
@@ -412,7 +416,8 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 	}
 	hm = "%" + hm + "%"
 	rows, err := op.Query(`SELECT hostid, hostname, sysgroupid,
-		dynamic FROM host WHERE hostname ILIKE $1`, hm)
+		dynamic FROM asset WHERE hostname ILIKE $1 AND
+		assettype = 'host'`, hm)
 	if err != nil {
 		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
@@ -455,7 +460,7 @@ func dynHostManager() {
 	op := opContext{}
 	op.newContext(dbconn, false, "dynhostmanager")
 	cutoff := time.Now().UTC().Add(-(168 * time.Hour))
-	rows, err := op.Query(`SELECT hostid FROM host
+	rows, err := op.Query(`SELECT assetid FROM asset
 			WHERE dynamic = true AND lastused < $1`, cutoff)
 	if err != nil {
 		panic(err)
@@ -467,17 +472,17 @@ func dynHostManager() {
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM compscore
-				WHERE hostid = $1`, hostid)
+				WHERE assetid = $1`, hostid)
 		if err != nil {
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM vulnscore
-				WHERE hostid = $1`, hostid)
+				WHERE assetid = $1`, hostid)
 		if err != nil {
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM host
-				WHERE hostid = $1`, hostid)
+				WHERE assetid = $1`, hostid)
 		if err != nil {
 			panic(err)
 		}

@@ -36,8 +36,9 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 	s.Host = make([]slib.Host, 0)
 
 	// Grab any hosts that have been statically mapped to this group.
-	rows, err := op.Query(`SELECT hostid, hostname, comment, lastused
-		FROM host WHERE sysgroupid = $1`, s.ID)
+	rows, err := op.Query(`SELECT assetid, hostname, comment, lastused
+		FROM asset WHERE sysgroupid = $1
+		AND assettype = 'host'`, s.ID)
 	if err != nil {
 		return err
 	}

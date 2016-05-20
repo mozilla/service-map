@@ -105,10 +105,10 @@ func interlinkHostSysGroupLink(op opContext) error {
 	}
 
 	for _, r := range resset {
-		_, err = op.Exec(`UPDATE host
+		_, err = op.Exec(`UPDATE asset
 			SET sysgroupid = (SELECT sysgroupid FROM sysgroup
 			WHERE name ~* $1 LIMIT 1) WHERE
-			hostname ~* $2`, r.dstsgm, r.srchm)
+			hostname ~* $2 AND assettype = 'host'`, r.dstsgm, r.srchm)
 		if err != nil {
 			return err
 		}

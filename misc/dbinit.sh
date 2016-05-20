@@ -8,7 +8,7 @@ DROP TABLE IF EXISTS importcomphostcfg;
 DROP TABLE IF EXISTS vulnscore;
 DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS rra_sysgroup;
-DROP TABLE IF EXISTS host;
+DROP TABLE IF EXISTS asset;
 DROP TABLE IF EXISTS rra;
 DROP TABLE IF EXISTS sysgroup;
 DROP TABLE IF EXISTS searchresults;
@@ -48,9 +48,10 @@ CREATE TABLE rra_sysgroup (
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	UNIQUE(rraid, sysgroupid)
 );
-CREATE TABLE host (
-	hostid SERIAL PRIMARY KEY,
-	hostname TEXT NOT NULL UNIQUE,
+CREATE TABLE asset (
+	assetid SERIAL PRIMARY KEY,
+	assettype TEXT NOT NULL,
+	hostname TEXT NOT NULL,
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	comment TEXT,
 	dynamic BOOLEAN NOT NULL,
@@ -58,10 +59,11 @@ CREATE TABLE host (
 	dynamic_confidence INTEGER,
 	lastused TIMESTAMP NOT NULL,
 	lastcompscore TIMESTAMP NOT NULL,
-	lastvulnscore TIMESTAMP NOT NULL
+	lastvulnscore TIMESTAMP NOT NULL,
+	UNIQUE(assettype, hostname)
 );
-CREATE INDEX ON host (hostname);
-CREATE INDEX ON host (sysgroupid);
+CREATE INDEX ON asset (hostname);
+CREATE INDEX ON asset (sysgroupid);
 CREATE TABLE searchresults (
 	opid TEXT NOT NULL,
 	identifier TEXT NOT NULL,
@@ -72,14 +74,14 @@ CREATE TABLE searchresults (
 CREATE TABLE compscore (
 	scoreid SERIAL PRIMARY KEY,
 	timestamp TIMESTAMP NOT NULL,
-	hostid INTEGER REFERENCES host (hostid),
+	assetid INTEGER REFERENCES asset (assetid),
 	checkref TEXT NOT NULL,
 	status BOOLEAN NOT NULL
 );
 CREATE TABLE vulnscore (
 	scoreid SERIAL PRIMARY KEY,
 	timestamp TIMESTAMP NOT NULL,
-	hostid INTEGER REFERENCES host (hostid),
+	assetid INTEGER REFERENCES asset (assetid),
 	maxcount INTEGER DEFAULT 0 NOT NULL,
 	highcount INTEGER DEFAULT 0 NOT NULL,
 	mediumcount INTEGER DEFAULT 0 NOT NULL,

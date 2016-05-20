@@ -32,8 +32,8 @@ func scoreVulnGetHosts() (ret map[int]string, err error) {
 	cutoff := time.Now().UTC().Add(-1 * dur)
 
 	// Grab a list of candidate hosts
-	rows, err := op.Query(`SELECT hostid, hostname FROM host
-		WHERE lastvulnscore < $1
+	rows, err := op.Query(`SELECT assetid, hostname FROM asset
+		WHERE lastvulnscore < $1 AND assettype = 'host'
 		ORDER BY lastvulnscore LIMIT $2`, cutoff, cfg.Vulnerabilities.ScoringBatchSize)
 	if err != nil {
 		return
@@ -64,10 +64,11 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 	op.newContext(dbconn, false, "scorevuln")
 
 	defer func() {
-		_, e := op.Exec(`UPDATE host SET
+		_, e := op.Exec(`UPDATE asset SET
 		lastvulnscore = now() AT TIME ZONE 'utc'
 		WHERE lower(hostname) = lower($1)
-		AND hostid = $2`, h, hid)
+		AND assettype = 'host'
+		AND assetid = $2`, h, hid)
 		if e != nil {
 			// Only change the error message if we haven't already
 			// encountered an error
@@ -156,12 +157,13 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 	}
 
 	_, err = op.Exec(`INSERT INTO vulnscore
-		(timestamp, hostid, maxcount, highcount, mediumcount, lowcount)
+		(timestamp, assetid, maxcount, highcount, mediumcount, lowcount)
 		VALUES
 		(now() AT TIME ZONE 'utc',
-		(SELECT hostid FROM host
+		(SELECT assetid FROM asset
 		WHERE lower(hostname) = lower($1)
-		AND hostid = $2),
+		AND assettype = 'host'
+		AND assetid = $2),
 		$3, $4, $5, $6)`, h, hid, maxcnt, highcnt, medcnt, lowcnt)
 	if err != nil {
 		return err
