@@ -51,7 +51,8 @@ CREATE TABLE rra_sysgroup (
 CREATE TABLE asset (
 	assetid SERIAL PRIMARY KEY,
 	assettype TEXT NOT NULL,
-	hostname TEXT NOT NULL,
+	hostname TEXT,
+	website TEXT,
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	comment TEXT,
 	dynamic BOOLEAN NOT NULL,
@@ -97,7 +98,9 @@ CREATE TABLE interlinks (
 	srchostmatch TEXT,
 	srcsysgroupmatch TEXT,
 	destsysgroupmatch TEXT,
-	destservicematch TEXT
+	destservicematch TEXT,
+	srcwebsitematch TEXT,
+	destwebsitematch TEXT
 );
 EOF
 

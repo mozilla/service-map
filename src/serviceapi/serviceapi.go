@@ -168,6 +168,33 @@ func updateDynamicHost(op opContext, hn string, comment string, confidence int) 
 	return nil
 }
 
+// Update a website in the asset table
+func updateWebsite(op opContext, ws string, comment string, confidence int) error {
+	_, err := op.Exec(`INSERT INTO asset
+		(website, comment, dynamic, dynamic_added, dynamic_confidence, lastused,
+		lastcompscore, lastvulnscore, assettype)
+		SELECT $1, $2, TRUE, now() AT TIME ZONE 'utc',
+		$3, now() AT TIME ZONE 'utc',
+		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
+		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
+		'website'
+		WHERE NOT EXISTS (
+			SELECT 1 FROM asset WHERE lower(website) = lower($4) AND
+			assettype = 'website'
+		)`, ws, comment, confidence, ws)
+	if err != nil {
+		return err
+	}
+	_, err = op.Exec(`UPDATE asset
+		SET lastused = now() AT TIME ZONE 'utc'
+		WHERE lower(website) = lower($1) AND
+		assettype = 'website'`, ws)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Associate any services linked to a given system group specified in s
 func serviceLookup(op opContext, s *slib.Service) error {
 	useid := s.SystemGroup.ID
