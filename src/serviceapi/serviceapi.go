@@ -476,16 +476,16 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
-// Periodically prune dynamic hosts from the database that have not been seen
+// Periodically prune dynamic assets from the database that have not been seen
 // within a given period.
-func dynHostManager() {
+func dynAssetManager() {
 	defer func() {
 		if e := recover(); e != nil {
-			logf("error in dynamic host manager: %v", e)
+			logf("error in dynamic asset manager: %v", e)
 		}
 	}()
 	op := opContext{}
-	op.newContext(dbconn, false, "dynhostmanager")
+	op.newContext(dbconn, false, "dynassetmanager")
 	cutoff := time.Now().UTC().Add(-(168 * time.Hour))
 	rows, err := op.Query(`SELECT assetid FROM asset
 			WHERE dynamic = true AND lastused < $1`, cutoff)
@@ -493,23 +493,23 @@ func dynHostManager() {
 		panic(err)
 	}
 	for rows.Next() {
-		var hostid int
-		err = rows.Scan(&hostid)
+		var assetid int
+		err = rows.Scan(&assetid)
 		if err != nil {
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM compscore
-				WHERE assetid = $1`, hostid)
+				WHERE assetid = $1`, assetid)
 		if err != nil {
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM vulnscore
-				WHERE assetid = $1`, hostid)
+				WHERE assetid = $1`, assetid)
 		if err != nil {
 			panic(err)
 		}
-		_, err = op.Exec(`DELETE FROM host
-				WHERE assetid = $1`, hostid)
+		_, err = op.Exec(`DELETE FROM asset
+				WHERE assetid = $1`, assetid)
 		if err != nil {
 			panic(err)
 		}
@@ -636,10 +636,10 @@ func main() {
 	}()
 	// Spawn dynamic host manager
 	go func() {
-		logf("spawning dynamic host manager")
+		logf("spawning dynamic asset manager")
 		for {
 			time.Sleep(1 * time.Minute)
-			dynHostManager()
+			dynAssetManager()
 		}
 	}()
 	go func() {
@@ -651,8 +651,6 @@ func main() {
 	}()
 
 	logf("Starting processing")
-
-	go dynHostManager()
 
 	r := mux.NewRouter()
 	s := r.PathPrefix("/api/v1").Subrouter()
