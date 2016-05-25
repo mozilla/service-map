@@ -175,6 +175,11 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 		return err
 	}
 	rs.Risk.WorstCaseLabel = slib.NormalLabelFromValue(rs.Risk.WorstCase)
+
+	rs.Risk.DataClass, err = slib.DataValueFromLabel(rs.RRA.DefData)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

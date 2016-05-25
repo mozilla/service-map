@@ -139,6 +139,15 @@ const (
 	ImpactMaxValue     = 4.0
 )
 
+// Values for data classification
+const (
+	DataUnknownValue = 0.0
+	DataPublicValue  = 1.0
+	DataConfIntValue = 2.0
+	DataConfResValue = 3.0
+	DataConfSecValue = 4.0
+)
+
 type RRAAttribute struct {
 	Impact      float64 `json:"impact"`
 	Probability float64 `json:"probability"`
@@ -162,6 +171,7 @@ type RRAServiceRisk struct {
 		MedianLabel    string  `json:"median_label"`
 		Average        float64 `json:"average"`
 		AverageLabel   string  `json:"average_label"`
+		DataClass      float64 `json:"data_classification"`
 	} `json:"risk"`
 
 	Scenarios []RiskScenario `json:"scenarios"` // Risk scenarios
@@ -213,6 +223,24 @@ func ImpactValueFromLabel(l string) (float64, error) {
 		return ImpactLowValue, nil
 	case "unknown":
 		return ImpactUnknownValue, nil
+	}
+	return 0, fmt.Errorf("invalid impact label %v", l)
+}
+
+// Convert an impact label into the numeric representation from 1 - 4 for
+// that label
+func DataValueFromLabel(l string) (float64, error) {
+	switch l {
+	case "confidential secret":
+		return DataConfSecValue, nil
+	case "confidential restricted":
+		return DataConfResValue, nil
+	case "confidential internal":
+		return DataConfIntValue, nil
+	case "public":
+		return DataPublicValue, nil
+	case "unknown":
+		return DataUnknownValue, nil
 	}
 	return 0, fmt.Errorf("invalid impact label %v", l)
 }
