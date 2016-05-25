@@ -442,7 +442,7 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	hm = "%" + hm + "%"
-	rows, err := op.Query(`SELECT hostid, hostname, sysgroupid,
+	rows, err := op.Query(`SELECT assetid, hostname, sysgroupid,
 		dynamic FROM asset WHERE hostname ILIKE $1 AND
 		assettype = 'host'`, hm)
 	if err != nil {
