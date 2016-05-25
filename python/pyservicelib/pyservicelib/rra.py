@@ -26,3 +26,11 @@ def get_rras():
         err = 'Request error: response {}'.format(r.status_code)
         raise search.SLIBException(err)
     return json.loads(r.text)
+
+def get_risks():
+    u = cfg.config.apiurl() + '/risks'
+    r = requests.get(u, verify=cfg.config.sslverify)
+    if r.status_code != requests.codes.ok:
+        err = 'Request error: response {}'.format(r.status_code)
+        raise search.SLIBException(err)
+    return json.loads(r.text)
