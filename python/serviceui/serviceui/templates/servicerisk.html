@@ -56,12 +56,20 @@
     $("#riskmap").treemap({
       "nodeData": treedata,
       "dimensions": [$("#riskmap").width(), 600],
-      "sizeOption": 1,
-      "colorOption": 1,
+      "sizeOption": 0,
+      "colorOption": 0,
       "colorStops": [
         {"val":0, "color":"#eee"},
         {"val":1, "color":"#f00"},
       ]
+    });
+    $("#m1").click(function() {
+      $("#riskmap").treemap("option", "sizeOption", 0);
+      $("#riskmap").treemap("option", "colorOption", 0);
+    });
+    $("#m2").click(function() {
+      $("#riskmap").treemap("option", "sizeOption", 1);
+      $("#riskmap").treemap("option", "colorOption", 1);
     });
   });
 </script>
@@ -71,6 +79,10 @@
   <h3>Service risk view</h3>
 </div>
 <div class="container" id="riskmap"></div>
+<div class="container">
+  <button id="m1" type="button" class="btn btn-default btn-xs">Risk / data classification</button>
+  <button id="m2" type="button" class="btn btn-default btn-xs">Data classification / risk</button>
+</div>
 <div class="container">
   <table id="servtab" class="display" cellspacing="0" width="100%">
     <thead>
