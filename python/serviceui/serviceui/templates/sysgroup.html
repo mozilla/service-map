@@ -89,6 +89,24 @@
   </table>
 </div>
 <div class="container">
+  <h3>Linked websites</h3>
+  <p>The following websites are linked to this system group.</p>
+  <table class="suTable" cellspacing="0" width="100%">
+    <tr><td class="suHeader">Hostname</td>
+      <td class="suHeader">Last seen</td></tr>
+    {% if results.websites|length > 0 %}
+    {% for r in results.websites %}
+    <tr>
+      <td>{{ r.hostname }}</td>
+      <td>{{ r.lastused }}</td>
+    </tr>
+    {% endfor %}
+    {% else %}
+    <tr><td>No websites linked</td><td>NA</td></tr>
+    {% endif %}
+  </table>
+</div>
+<div class="container">
   <h3>Compliance information</h3>
   <p>Latest compliance information for system group.</p>
   <table id="hostcomptable" class="display" cellspacing="0" width="100%">
