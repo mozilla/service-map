@@ -156,9 +156,12 @@ type RRAServiceRisk struct {
 	} `json:"used_rra_attributes"`
 
 	Risk struct {
-		WorstCase float64 `json:"worst_case"`
-		Median    float64 `json:"median"`
-		Average   float64 `json:"average"`
+		WorstCase      float64 `json:"worst_case"`
+		WorstCaseLabel string  `json:"worst_case_label"`
+		Median         float64 `json:"median"`
+		MedianLabel    string  `json:"median_label"`
+		Average        float64 `json:"average"`
+		AverageLabel   string  `json:"average_label"`
 	} `json:"risk"`
 
 	Scenarios []RiskScenario `json:"scenarios"` // Risk scenarios
@@ -247,14 +250,14 @@ func ImpactLabelFromValue(v float64) (string, error) {
 	return "", fmt.Errorf("invalid impact value %v", v)
 }
 
-// Given a normalize risk score from 0.0 - 100.0, convert that score into
+// Given a risk score from 1 - 16, convert that sore into
 // the string value that represents the risk
 func NormalLabelFromValue(v float64) string {
-	if v >= 75 {
+	if v >= 13 {
 		return "maximum"
-	} else if v >= 50 {
+	} else if v >= 9 {
 		return "high"
-	} else if v >= 25 {
+	} else if v >= 5 {
 		return "medium"
 	}
 	return "low"

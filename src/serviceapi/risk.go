@@ -164,14 +164,17 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 	if err != nil {
 		return err
 	}
+	rs.Risk.MedianLabel = slib.NormalLabelFromValue(rs.Risk.Median)
 	rs.Risk.Average, err = stats.Mean(rvals)
 	if err != nil {
 		return err
 	}
+	rs.Risk.AverageLabel = slib.NormalLabelFromValue(rs.Risk.Average)
 	rs.Risk.WorstCase, err = stats.Max(rvals)
 	if err != nil {
 		return err
 	}
+	rs.Risk.WorstCaseLabel = slib.NormalLabelFromValue(rs.Risk.WorstCase)
 	return nil
 }
 
