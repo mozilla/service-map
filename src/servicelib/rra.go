@@ -139,6 +139,15 @@ const (
 	ImpactMaxValue     = 4.0
 )
 
+// Values for data classification
+const (
+	DataUnknownValue = 0.0
+	DataPublicValue  = 1.0
+	DataConfIntValue = 2.0
+	DataConfResValue = 3.0
+	DataConfSecValue = 4.0
+)
+
 type RRAAttribute struct {
 	Impact      float64 `json:"impact"`
 	Probability float64 `json:"probability"`
@@ -156,9 +165,13 @@ type RRAServiceRisk struct {
 	} `json:"used_rra_attributes"`
 
 	Risk struct {
-		WorstCase float64 `json:"worst_case"`
-		Median    float64 `json:"median"`
-		Average   float64 `json:"average"`
+		WorstCase      float64 `json:"worst_case"`
+		WorstCaseLabel string  `json:"worst_case_label"`
+		Median         float64 `json:"median"`
+		MedianLabel    string  `json:"median_label"`
+		Average        float64 `json:"average"`
+		AverageLabel   string  `json:"average_label"`
+		DataClass      float64 `json:"data_classification"`
 	} `json:"risk"`
 
 	Scenarios []RiskScenario `json:"scenarios"` // Risk scenarios
@@ -214,6 +227,24 @@ func ImpactValueFromLabel(l string) (float64, error) {
 	return 0, fmt.Errorf("invalid impact label %v", l)
 }
 
+// Convert an impact label into the numeric representation from 1 - 4 for
+// that label
+func DataValueFromLabel(l string) (float64, error) {
+	switch l {
+	case "confidential secret":
+		return DataConfSecValue, nil
+	case "confidential restricted":
+		return DataConfResValue, nil
+	case "confidential internal":
+		return DataConfIntValue, nil
+	case "public":
+		return DataPublicValue, nil
+	case "unknown":
+		return DataUnknownValue, nil
+	}
+	return 0, fmt.Errorf("invalid impact label %v", l)
+}
+
 // Sanitize an impact label and verify it's a valid value
 func SanitizeImpactLabel(l string) (ret string, err error) {
 	if l == "" {
@@ -247,14 +278,14 @@ func ImpactLabelFromValue(v float64) (string, error) {
 	return "", fmt.Errorf("invalid impact value %v", v)
 }
 
-// Given a normalize risk score from 0.0 - 100.0, convert that score into
+// Given a risk score from 1 - 16, convert that sore into
 // the string value that represents the risk
 func NormalLabelFromValue(v float64) string {
-	if v >= 75 {
+	if v >= 13 {
 		return "maximum"
-	} else if v >= 50 {
+	} else if v >= 9 {
 		return "high"
-	} else if v >= 25 {
+	} else if v >= 5 {
 		return "medium"
 	}
 	return "low"

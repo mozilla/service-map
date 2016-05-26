@@ -7,10 +7,15 @@
 
 package servicelib
 
-type SystemGroup struct {
-	Name string `json:"name,omitempty"`
-	ID   int    `json:"id,omitempty"`
+import (
+	"time"
+)
 
-	Host    []Host    `json:"hosts,omitempty"`
-	Website []Website `json:"websites,omitempty"`
+type Website struct {
+	ID         int       `json:"id"`
+	SysGroupID int       `json:"sysgroupid"`
+	Website    string    `json:"hostname"`
+	Comment    string    `json:"comment"`
+	Dynamic    bool      `json:"dynamic"`
+	LastUsed   time.Time `json:"lastused"`
 }

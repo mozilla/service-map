@@ -22,6 +22,8 @@ const (
 	SYSGROUP_ADD
 	SYSGROUP_LINK_SERVICE
 	HOST_LINK_SYSGROUP
+	WEBSITE_ADD
+	WEBSITE_LINK_SYSGROUP
 )
 
 // Defines a rule in the interlink system
@@ -34,6 +36,9 @@ type interlinkRule struct {
 
 	destServiceMatch  string
 	destSysGroupMatch string
+
+	srcWebsiteMatch  string
+	destWebsiteMatch string
 }
 
 var interlinkLastLoad time.Time
@@ -78,6 +83,75 @@ func interlinkRunSysGroupAdd(op opContext) error {
 	return nil
 }
 
+// Execute any website add operations
+func interlinkRunWebsiteAdd(op opContext) error {
+	rows, err := op.Query(`SELECT destwebsitematch FROM interlinks
+		WHERE ruletype = $1`, WEBSITE_ADD)
+	if err != nil {
+		return err
+	}
+	var wsnames []string
+	for rows.Next() {
+		var nws string
+		err = rows.Scan(&nws)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		wsnames = append(wsnames, nws)
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	for _, x := range wsnames {
+		err = updateWebsite(op, x, "interlink website", 100)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Link websites with system groups based on site match and system group name match
+func interlinkWebsiteSysGroupLink(op opContext) error {
+	rows, err := op.Query(`SELECT srcwebsitematch, destsysgroupmatch FROM interlinks
+		WHERE ruletype = $1`, WEBSITE_LINK_SYSGROUP)
+	if err != nil {
+		return err
+	}
+	type linkResSet struct {
+		srchm  string
+		dstsgm string
+	}
+	var resset []linkResSet
+	for rows.Next() {
+		nr := linkResSet{}
+		err = rows.Scan(&nr.srchm, &nr.dstsgm)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		resset = append(resset, nr)
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	for _, r := range resset {
+		_, err = op.Exec(`UPDATE asset
+			SET sysgroupid = (SELECT sysgroupid FROM sysgroup
+			WHERE name ~* $1 LIMIT 1) WHERE
+			website ~* $2 AND assettype = 'website'`, r.dstsgm, r.srchm)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Link hosts with system groups based on host match and system group name match
 func interlinkHostSysGroupLink(op opContext) error {
 	rows, err := op.Query(`SELECT srchostmatch, destsysgroupmatch FROM interlinks
@@ -105,10 +179,10 @@ func interlinkHostSysGroupLink(op opContext) error {
 	}
 
 	for _, r := range resset {
-		_, err = op.Exec(`UPDATE host
+		_, err = op.Exec(`UPDATE asset
 			SET sysgroupid = (SELECT sysgroupid FROM sysgroup
 			WHERE name ~* $1 LIMIT 1) WHERE
-			hostname ~* $2`, r.dstsgm, r.srchm)
+			hostname ~* $2 AND assettype = 'host'`, r.dstsgm, r.srchm)
 		if err != nil {
 			return err
 		}
@@ -186,8 +260,26 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	// Run website adds
+	err = interlinkRunWebsiteAdd(op)
+	if err != nil {
+		e := op.rollback()
+		if e != nil {
+			panic(e)
+		}
+		return err
+	}
 	// Run host to system group linkage
 	err = interlinkHostSysGroupLink(op)
+	if err != nil {
+		e := op.rollback()
+		if e != nil {
+			panic(e)
+		}
+		return err
+	}
+	// Run website to system group linkage
+	err = interlinkWebsiteSysGroupLink(op)
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -253,6 +345,10 @@ func interlinkLoadRules() error {
 			nr.ruletype = SYSGROUP_ADD
 			nr.destSysGroupMatch = tokens[2]
 			valid = true
+		} else if len(tokens) == 3 && tokens[0] == "add" && tokens[1] == "website" {
+			nr.ruletype = WEBSITE_ADD
+			nr.destWebsiteMatch = tokens[2]
+			valid = true
 		} else if len(tokens) == 6 && tokens[0] == "sysgroup" &&
 			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "service" {
 			nr.ruletype = SYSGROUP_LINK_SERVICE
@@ -263,6 +359,12 @@ func interlinkLoadRules() error {
 			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "sysgroup" {
 			nr.ruletype = HOST_LINK_SYSGROUP
 			nr.srcHostMatch = tokens[2]
+			nr.destSysGroupMatch = tokens[5]
+			valid = true
+		} else if len(tokens) == 6 && tokens[0] == "website" &&
+			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "sysgroup" {
+			nr.ruletype = WEBSITE_LINK_SYSGROUP
+			nr.srcWebsiteMatch = tokens[2]
 			nr.destSysGroupMatch = tokens[5]
 			valid = true
 		}
@@ -309,6 +411,27 @@ func interlinkLoadRules() error {
 			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srchostmatch,
 				destsysgroupmatch) VALUES ($1, $2, $3)`, x.ruletype,
 				x.srcHostMatch, x.destSysGroupMatch)
+			if err != nil {
+				e := op.rollback()
+				if e != nil {
+					panic(e)
+				}
+				return err
+			}
+		case WEBSITE_ADD:
+			_, err = op.Exec(`INSERT INTO interlinks (ruletype, destwebsitematch)
+				VALUES ($1, $2)`, x.ruletype, x.destWebsiteMatch)
+			if err != nil {
+				e := op.rollback()
+				if e != nil {
+					panic(e)
+				}
+				return err
+			}
+		case WEBSITE_LINK_SYSGROUP:
+			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srcwebsitematch,
+				destsysgroupmatch) VALUES ($1, $2, $3)`, x.ruletype,
+				x.srcWebsiteMatch, x.destSysGroupMatch)
 			if err != nil {
 				e := op.rollback()
 				if e != nil {

@@ -121,6 +121,11 @@ def rras():
     res = slib.get_rras()
     return render_template('rras.html', results=res)
 
+@app.route('/servicerisk', methods=['GET'])
+def servicerisk():
+    res = slib.get_risks()
+    return render_template('servicerisk.html', results=res)
+
 @app.route('/')
 def rootpage():
     return render_template('rootpage.html')

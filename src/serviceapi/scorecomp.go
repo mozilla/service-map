@@ -31,8 +31,8 @@ func scoreComplianceGetHosts() (ret map[int]string, err error) {
 	cutoff := time.Now().UTC().Add(-1 * dur)
 
 	// Grab a list of candidate hosts
-	rows, err := op.Query(`SELECT hostid, hostname FROM host
-		WHERE lastcompscore < $1
+	rows, err := op.Query(`SELECT assetid, hostname FROM asset
+		WHERE lastcompscore < $1 AND assettype = 'host'
 		ORDER BY lastcompscore LIMIT $2`, cutoff, cfg.Compliance.ScoringBatchSize)
 	if err != nil {
 		return
@@ -63,10 +63,11 @@ func scoreComplianceScoreHost(hid int, h string) (err error) {
 	op.newContext(dbconn, false, "scorecomp")
 
 	defer func() {
-		_, e := op.Exec(`UPDATE host SET
+		_, e := op.Exec(`UPDATE asset SET
 		lastcompscore = now() AT TIME ZONE 'utc'
 		WHERE lower(hostname) = lower($1)
-		AND hostid = $2`, h, hid)
+		AND assettype = 'host'
+		AND assetid = $2`, h, hid)
 		if e != nil {
 			// Only change the error message if we haven't already
 			// encountered an error
@@ -132,12 +133,13 @@ func scoreComplianceScoreHost(hid int, h string) (err error) {
 		iname := x
 		ivalue := statusmap[x]
 		_, err = op.Exec(`INSERT INTO compscore
-			(timestamp, hostid, checkref, status)
+			(timestamp, assetid, checkref, status)
 			VALUES
 			(now() AT TIME ZONE 'utc',
-			(SELECT hostid FROM host
+			(SELECT assetid FROM asset
 			WHERE lower(hostname) = lower($1)
-			AND hostid = $2),
+			AND assettype = 'host'
+			AND assetid = $2),
 			$3, $4)`, h, hid, iname, ivalue)
 		if err != nil {
 			return err

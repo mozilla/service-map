@@ -5,7 +5,11 @@
   $.fn.dataTable.ext.type.detect.unshift(
     function (d) {
       var b = $("<div>" + d + "</div>").text()
-      if (b === "secret" || b === "restricted" || b === "internal" || b === "public" || b === "unknown") {
+      if (b === "confidential secret" || 
+      b === "confidential restricted" ||
+      b === "confidential internal" ||
+      b === "public" ||
+      b === "unknown") {
         return "dc";
       }
       return null;
@@ -14,9 +18,9 @@
   $.fn.dataTable.ext.type.order['dc-pre'] = function(d) {
     var lbl = $(d).html();
     switch (lbl) {
-      case "secret": return 4;
-      case "restricted": return 3;
-      case "internal": return 2;
+      case "confidential secret": return 4;
+      case "confidential restricted": return 3;
+      case "confidential internal": return 2;
       case "public": return 1;
     }
     return 0;

@@ -8,6 +8,7 @@
 {% endblock %}
 {% block scripts %}
 {{ super() }}
+<script src="{{ url_for('static', filename='jquery-ui.min.js') }}"></script>
 <script src="{{ url_for('static', filename='jquery.dataTables.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/serviceui.js') }}"></script>
 {% endblock %}
@@ -27,6 +28,12 @@
 
     <div class="collapse navbar-collapse" id="ui-navbar">
       <ul class="nav navbar-nav">
+        <li class="dropdown">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Dashboard<spam class="caret"></span></a>
+          <ul class="dropdown-menu">
+            <li><a href="{{ url_for('servicerisk') }}">Service risk</a></li>
+          </ul>
+        </li>
         <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Search<spam class="caret"></span></a>
           <ul class="dropdown-menu">
