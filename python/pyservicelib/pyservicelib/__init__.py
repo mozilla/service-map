@@ -10,3 +10,4 @@ from search import *
 from sysgroup import *
 from rra import *
 from vulns import *
+from indicator import *
