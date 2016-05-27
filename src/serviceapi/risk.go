@@ -87,9 +87,16 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 	// impact vulnerability will result in a probability score of 4.0.
 	//
 	// This could probably be changed to be a little more lenient.
+	datacount := 0
+	hostcount := 0
 	highest := 1.0
 	for _, x := range rs.RRA.SupportGrps {
 		for _, y := range x.Host {
+			hostcount++
+			if !y.VulnStatus.Coverage {
+				continue
+			}
+			datacount++
 			// If we have already seen a max impact issue, just break
 			if highest == 4.0 {
 				break
@@ -105,6 +112,19 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 			}
 		}
 	}
+	if datacount == 0 {
+		newscan := slib.RiskScenario{
+			Name:     "Vulnerability scenario for " + desc,
+			Coverage: "none",
+			NoData:   true,
+		}
+		rs.Scenarios = append(rs.Scenarios, newscan)
+		return nil
+	}
+	coverage := "complete"
+	if datacount != hostcount {
+		coverage = "partial"
+	}
 	// Set coverage to unknown as currently it is not possible to tell
 	// if all hosts are being assessed; we can't go by there being no
 	// known issues on the asset.
@@ -113,7 +133,8 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 		Impact:      src.Impact,
 		Probability: highest,
 		Score:       highest * src.Impact,
-		Coverage:    "unknown",
+		Coverage:    coverage,
+		NoData:      false,
 	}
 	err := newscen.Validate()
 	if err != nil {
