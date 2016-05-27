@@ -41,6 +41,24 @@ type SearchResult struct {
 	Service    Service `json:"service"`    // The service result information
 }
 
+// Parameters to an indicator request
+type IndicatorParams struct {
+	Indicators []Indicator `json:"indicators"` // Slice of indicators to process
+}
+
+// Describes indicator information
+type Indicator struct {
+	Host      string `json:"host,omitempty"`
+	Class     string `json:"class"`
+	CheckType string `json:"checktype"`
+	Status    bool   `json:"status"`
+}
+
+// The response to an indicator request
+type IndicatorResponse struct {
+	OK bool `json:"ok"`
+}
+
 // The response to a general service query.
 type Service struct {
 	Services    []RRAService `json:"services,omitempty"`    // Services linked from RRA table
