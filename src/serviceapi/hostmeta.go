@@ -96,6 +96,7 @@ func hostAddVuln(op opContext, h *slib.Host) error {
 		}
 		if status {
 			havecoverage = true
+			rows.Close()
 			break
 		}
 	}

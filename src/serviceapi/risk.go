@@ -181,6 +181,10 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 		}
 		rvals = append(rvals, x.Score)
 	}
+	if len(rvals) == 0 {
+		// XXX No scenario data?
+		rvals = append(rvals, 2.0)
+	}
 	rs.Risk.Median, err = stats.Median(rvals)
 	if err != nil {
 		return err
