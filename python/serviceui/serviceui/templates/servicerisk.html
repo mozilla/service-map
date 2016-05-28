@@ -30,7 +30,8 @@
       var nv = {
         id: riskdata[i].rra.name,
         size: [riskdata[i].risk.highest_business_impact / totalimpact],
-        color: [riskdata[i].risk.median / 16]
+        color: [riskdata[i].risk.median / 16,
+          riskdata[i].risk.worst_case / 16]
       }
       treedata["children"].push(nv);
     }
@@ -101,6 +102,15 @@
         {"val":1, "color":"#f00"},
       ]
     });
+
+    $('#selectrisk option').click(function () {
+      var t = $(this).text();
+      if (t.indexOf('median') > -1) {
+        $('#riskmap').treemap('option', 'colorOption', 0);
+      } else {
+        $('#riskmap').treemap('option', 'colorOption', 1);
+      }
+    });
   });
 </script>
 {% endblock %}
@@ -114,7 +124,12 @@
 </div>
 <div class="container" id="riskmap"></div>
 <div class="container">
-  <!-- Placeholder for tree map controls -->
+  <div class="col-md-4" style="margin-top: 10px; margin-bottom: 10px;">
+    <select class="form-control" id="selectrisk" autocomplete="off">
+      <option>Risk: median general case</option>
+      <option>Risk: worst case</option>
+    </select>
+  </div>
 </div>
 <div class="container">
   <table id="riskstable" class="display" cellspacing="0" width="100%">
