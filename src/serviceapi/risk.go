@@ -181,6 +181,26 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 		}
 		rvals = append(rvals, x.Score)
 	}
+
+	// Note the highest business impact value that was determined from
+	// the RRA. This can be used as an indication of the business impact
+	// for the service.
+	impv := 0.0
+	if rs.UsedRRAAttrib.Reputation.Impact > impv {
+		impv = rs.UsedRRAAttrib.Reputation.Impact
+	}
+	if rs.UsedRRAAttrib.Productivity.Impact > impv {
+		impv = rs.UsedRRAAttrib.Productivity.Impact
+	}
+	if rs.UsedRRAAttrib.Financial.Impact > impv {
+		impv = rs.UsedRRAAttrib.Financial.Impact
+	}
+	rs.Risk.Impact = impv
+	rs.Risk.ImpactLabel, err = slib.ImpactLabelFromValue(impv)
+	if err != nil {
+		return err
+	}
+
 	if len(rvals) == 0 {
 		// This can occur if we have no metric data, including no valid
 		// information in the RRA
