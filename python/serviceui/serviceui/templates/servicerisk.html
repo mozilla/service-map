@@ -10,37 +10,23 @@
   {% endfor %}
   ];
   function maketreedata() {
-    var totalmedian = 0.0;
+    var totalimpact = 0.0;
     for (i = 0; i < rdata.length; i++) {
-      totalmedian += rdata[i].risk.median;
+      // If noted risk is unknown, just ignore the entry
+      if (rdata[i].risk.worst_case == 0) {
+        continue;
+      }
+      totalimpact += rdata[i].risk.highest_business_impact;
     }
-    var totalsize = 0.0;
     for (i = 0; i < rdata.length; i++) {
-      totalsize += rdata[i].risk.data_classification;
-    }
-    for (i = 0; i < rdata.length; i++) {
+      // If noted risk is unknown, just ignore the entry
+      if (rdata[i].risk.worst_case == 0) {
+        continue;
+      }
       var nv = {};
       nv["id"] = rdata[i].rra.name;
-      var datacolor;
-      switch(rdata[i].risk.data_classification) {
-        case 0.0:
-        case 1.0:
-          datacolor = 0.1;
-          break;
-        case 2.0:
-          datacolor = .25;
-          break;
-        case 3.0:
-          datacolor = 0.5;
-          break;
-        case 4.0:
-          datacolor = 0.9;
-          break;
-      }
-      var riskcolor = rdata[i].risk.median / 16;
-      nv["color"] = [datacolor, riskcolor];
-      nv["size"] = [rdata[i].risk.median / totalmedian,
-        rdata[i].risk.data_classification / totalsize];
+      nv["size"] = [rdata[i].risk.highest_business_impact / totalimpact];
+      nv["color"] = [rdata[i].risk.median / 16];
       treedata["children"].push(nv);
     }
   }
