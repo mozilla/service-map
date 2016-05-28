@@ -172,6 +172,8 @@ type RRAServiceRisk struct {
 		Average        float64 `json:"average"`
 		AverageLabel   string  `json:"average_label"`
 		DataClass      float64 `json:"data_classification"`
+		Impact         float64 `json:"highest_business_impact"`
+		ImpactLabel    string  `json:"highest_business_impact_label"`
 	} `json:"risk"`
 
 	Scenarios []RiskScenario `json:"scenarios"` // Risk scenarios

@@ -87,9 +87,16 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 	// impact vulnerability will result in a probability score of 4.0.
 	//
 	// This could probably be changed to be a little more lenient.
+	datacount := 0
+	hostcount := 0
 	highest := 1.0
 	for _, x := range rs.RRA.SupportGrps {
 		for _, y := range x.Host {
+			hostcount++
+			if !y.VulnStatus.Coverage {
+				continue
+			}
+			datacount++
 			// If we have already seen a max impact issue, just break
 			if highest == 4.0 {
 				break
@@ -105,6 +112,19 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 			}
 		}
 	}
+	if datacount == 0 {
+		newscan := slib.RiskScenario{
+			Name:     "Vulnerability scenario for " + desc,
+			Coverage: "none",
+			NoData:   true,
+		}
+		rs.Scenarios = append(rs.Scenarios, newscan)
+		return nil
+	}
+	coverage := "complete"
+	if datacount != hostcount {
+		coverage = "partial"
+	}
 	// Set coverage to unknown as currently it is not possible to tell
 	// if all hosts are being assessed; we can't go by there being no
 	// known issues on the asset.
@@ -113,7 +133,8 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 		Impact:      src.Impact,
 		Probability: highest,
 		Score:       highest * src.Impact,
-		Coverage:    "unknown",
+		Coverage:    coverage,
+		NoData:      false,
 	}
 	err := newscen.Validate()
 	if err != nil {
@@ -159,6 +180,39 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 			continue
 		}
 		rvals = append(rvals, x.Score)
+	}
+
+	// Note the highest business impact value that was determined from
+	// the RRA. This can be used as an indication of the business impact
+	// for the service.
+	impv := 0.0
+	if rs.UsedRRAAttrib.Reputation.Impact > impv {
+		impv = rs.UsedRRAAttrib.Reputation.Impact
+	}
+	if rs.UsedRRAAttrib.Productivity.Impact > impv {
+		impv = rs.UsedRRAAttrib.Productivity.Impact
+	}
+	if rs.UsedRRAAttrib.Financial.Impact > impv {
+		impv = rs.UsedRRAAttrib.Financial.Impact
+	}
+	rs.Risk.Impact = impv
+	rs.Risk.ImpactLabel, err = slib.ImpactLabelFromValue(impv)
+	if err != nil {
+		return err
+	}
+
+	if len(rvals) == 0 {
+		// This can occur if we have no metric data, including no valid
+		// information in the RRA
+		logf("error in risk calculation: %q has no valid scenarios", rs.RRA.Name)
+		rs.Risk.Median = 0.0
+		rs.Risk.Average = 0.0
+		rs.Risk.WorstCase = 0.0
+		rs.Risk.MedianLabel = "unknown"
+		rs.Risk.AverageLabel = "unknown"
+		rs.Risk.WorstCaseLabel = "unknown"
+		rs.Risk.DataClass, err = slib.DataValueFromLabel(rs.RRA.DefData)
+		return nil
 	}
 	rs.Risk.Median, err = stats.Median(rvals)
 	if err != nil {

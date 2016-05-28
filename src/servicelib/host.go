@@ -24,6 +24,8 @@ type Host struct {
 }
 
 type VulnerabilityStatus struct {
+	Coverage bool `json:"coverage"` // True if we have assessment coverage
+
 	Maximum int `json:"maximum"`
 	High    int `json:"high"`
 	Medium  int `json:"medium"`

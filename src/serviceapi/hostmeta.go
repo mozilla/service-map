@@ -73,7 +73,46 @@ func hostAddComp(op opContext, h *slib.Host) error {
 func hostAddVuln(op opContext, h *slib.Host) error {
 	var tstamp time.Time
 	h.VulnStatus.Reset()
-	err := op.QueryRow(`SELECT maxcount, highcount,
+
+	// Determine if we have coverage
+	cutoff := time.Now().UTC().Add(-1 * time.Duration(time.Hour*72))
+	rows, err := op.Query(`SELECT MAX(timestamp), checktype, status FROM
+		vulnstatus WHERE assetid=$1 AND
+		timestamp > $2 GROUP BY checktype, status`, h.ID, cutoff)
+	if err != nil {
+		return err
+	}
+	havecoverage := false
+	for rows.Next() {
+		var (
+			t      time.Time
+			check  string
+			status bool
+		)
+		err = rows.Scan(&t, &check, &status)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		if status {
+			havecoverage = true
+			rows.Close()
+			break
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	if havecoverage {
+		h.VulnStatus.Coverage = true
+	} else {
+		h.VulnStatus.Coverage = false
+		return nil
+	}
+
+	err = op.QueryRow(`SELECT maxcount, highcount,
 		mediumcount, lowcount, MAX(timestamp)
 		FROM vulnscore WHERE assetid = $1 AND
 		timestamp > now() AT TIME ZONE 'utc' -

@@ -6,6 +6,7 @@ psql="psql -f - ${dbname}"
 $psql << EOF
 DROP TABLE IF EXISTS importcomphostcfg;
 DROP TABLE IF EXISTS vulnscore;
+DROP TABLE IF EXISTS vulnstatus;
 DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS rra_sysgroup;
 DROP TABLE IF EXISTS asset;
@@ -87,6 +88,13 @@ CREATE TABLE vulnscore (
 	highcount INTEGER DEFAULT 0 NOT NULL,
 	mediumcount INTEGER DEFAULT 0 NOT NULL,
 	lowcount INTEGER DEFAULT 0 NOT NULL
+);
+CREATE TABLE vulnstatus (
+	statusid SERIAL PRIMARY KEY,
+	timestamp TIMESTAMP NOT NULL,
+	assetid INTEGER REFERENCES asset (assetid),
+	checktype TEXT NOT NULL,
+	status BOOLEAN NOT NULL
 );
 CREATE TABLE importcomphostcfg (
 	exid SERIAL PRIMARY KEY,
