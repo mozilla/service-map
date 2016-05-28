@@ -182,8 +182,17 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 		rvals = append(rvals, x.Score)
 	}
 	if len(rvals) == 0 {
-		// XXX No scenario data?
-		rvals = append(rvals, 2.0)
+		// This can occur if we have no metric data, including no valid
+		// information in the RRA
+		logf("error in risk calculation: %q has no valid scenarios", rs.RRA.Name)
+		rs.Risk.Median = 0.0
+		rs.Risk.Average = 0.0
+		rs.Risk.WorstCase = 0.0
+		rs.Risk.MedianLabel = "unknown"
+		rs.Risk.AverageLabel = "unknown"
+		rs.Risk.WorstCaseLabel = "unknown"
+		rs.Risk.DataClass, err = slib.DataValueFromLabel(rs.RRA.DefData)
+		return nil
 	}
 	rs.Risk.Median, err = stats.Median(rvals)
 	if err != nil {
