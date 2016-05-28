@@ -3,44 +3,61 @@
 {{ super() }}
 <script src="{{ url_for('static', filename='js/jquery.ui.treemap.js') }}"></script>
 <script>
-  var treedata = {"id": "root", "children": []};
-  var rdata = [
+  var riskdata = [
   {% for r in results.risks %}
     {{ r|tojson|safe }},
   {% endfor %}
   ];
+
+  // Process riskdata and return object suitable for treemap
   function maketreedata() {
+    var treedata = {id: "root", children: []};
+
     var totalimpact = 0.0;
-    for (i = 0; i < rdata.length; i++) {
+    for (i = 0; i < riskdata.length; i++) {
       // If noted risk is unknown, just ignore the entry
-      if (rdata[i].risk.worst_case == 0) {
+      if (riskdata[i].risk.worst_case == 0) {
         continue;
       }
-      totalimpact += rdata[i].risk.highest_business_impact;
+      totalimpact += riskdata[i].risk.highest_business_impact;
     }
-    for (i = 0; i < rdata.length; i++) {
+
+    for (i = 0; i < riskdata.length; i++) {
       // If noted risk is unknown, just ignore the entry
-      if (rdata[i].risk.worst_case == 0) {
+      if (riskdata[i].risk.worst_case == 0) {
         continue;
       }
-      var nv = {};
-      nv["id"] = rdata[i].rra.name;
-      nv["size"] = [rdata[i].risk.highest_business_impact / totalimpact];
-      nv["color"] = [rdata[i].risk.median / 16];
+      var nv = {
+        id: riskdata[i].rra.name,
+        size: [riskdata[i].risk.highest_business_impact / totalimpact],
+        color: [riskdata[i].risk.median / 16]
+      }
       treedata["children"].push(nv);
     }
+    return treedata;
   }
+
   $(document).ready(function() {
-    maketreedata();
-    $('#servtab').DataTable( {
-      "createdRow": function (row, data, index) {
+    rt = $('#riskstable > tbody');
+    for (i = 0; i < riskdata.length; i++) {
+      var tr = '<tr>' +
+        '<td>' + riskdata[i].rra.name + '</td>' +
+        '<td><span name="rlabel">' + riskdata[i].rra.default_data_classification + '</span></td>' +
+        '<td><span name="rlabel">' + riskdata[i].risk.median_label + '</span></td>' +
+        '<td><span name="rlabel">' + riskdata[i].risk.worst_case_label + '</span></td>' +
+        '</tr>';
+      rt.append(tr);
+    }
+
+    $('#riskstable').DataTable({
+      "createdRow": function(row, data, index) {
         trColor();
       },
       "pageLength": 50
     });
-    trColor();
+
     $("#riskmap").treemap({
-      "nodeData": treedata,
+      "nodeData": maketreedata(),
       "dimensions": [$("#riskmap").width(), 600],
       "sizeOption": 0,
       "colorOption": 0,
@@ -50,28 +67,23 @@
         {"val":1, "color":"#f00"},
       ]
     });
-    $("#m1").click(function() {
-      $("#riskmap").treemap("option", "sizeOption", 0);
-      $("#riskmap").treemap("option", "colorOption", 0);
-    });
-    $("#m2").click(function() {
-      $("#riskmap").treemap("option", "sizeOption", 1);
-      $("#riskmap").treemap("option", "colorOption", 1);
-    });
   });
 </script>
 {% endblock %}
 {% block content %}
 <div class="container">
   <h3>Service risk view</h3>
+  <p>
+  Size reflects service business impact assessed from RRA. Cell color reflects
+  analyzed real-time service risk.
+  </p>
 </div>
 <div class="container" id="riskmap"></div>
 <div class="container">
-  <button id="m1" type="button" class="btn btn-default btn-xs">Risk / data classification</button>
-  <button id="m2" type="button" class="btn btn-default btn-xs">Data classification / risk</button>
+  <!-- Placeholder for tree map controls -->
 </div>
 <div class="container">
-  <table id="servtab" class="display" cellspacing="0" width="100%">
+  <table id="riskstable" class="display" cellspacing="0" width="100%">
     <thead>
       <tr>
       <td>Service</td>
@@ -81,14 +93,6 @@
       </tr>
     </thead>
     <tbody>
-      {% for r in results.risks %}
-      <tr>
-      <td>{{ r.rra.name }}</td>
-      <td><span name="rlabel">{{ r.rra.default_data_classification }}</span></td>
-      <td><span name="rlabel">{{ r.risk.median_label }}</span></td>
-      <td><span name="rlabel">{{ r.risk.worst_case_label }}</span></td>
-      </tr>
-      {% endfor %}
     </tbody>
   </table>
 </div>
