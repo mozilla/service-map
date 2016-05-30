@@ -20,7 +20,7 @@ func hostAddComp(op opContext, h *slib.Host) error {
 	h.CompStatus.Reset()
 	rows, err := op.Query(`SELECT checkref, status,
 		MAX(timestamp) FROM compscore WHERE assetid = $1 AND
-		timestamp > now() AT TIME ZONE 'utc' -
+		timestamp > now() -
 		interval '168 hours' GROUP BY checkref, status`, h.ID)
 	if err != nil {
 		return err
@@ -115,7 +115,7 @@ func hostAddVuln(op opContext, h *slib.Host) error {
 	err = op.QueryRow(`SELECT maxcount, highcount,
 		mediumcount, lowcount, MAX(timestamp)
 		FROM vulnscore WHERE assetid = $1 AND
-		timestamp > now() AT TIME ZONE 'utc' -
+		timestamp > now() -
 		interval '168 hours'
 		GROUP BY maxcount, highcount,
 		mediumcount, lowcount`, h.ID).Scan(&h.VulnStatus.Maximum,

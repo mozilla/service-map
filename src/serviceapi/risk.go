@@ -145,6 +145,71 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 	return nil
 }
 
+// Add scenarios based on available HTTP observatory metrics
+func riskHTTPObsScenario(op opContext, rs *slib.RRAServiceRisk,
+	src slib.RRAAttribute, desc string) error {
+	// The score here will range from 1 to 4, based on deriving the
+	// value from the 0 -> 100 score returned by the httpobs scanner
+	// and grader.
+	totalcnt := 0
+	havecnt := 0
+	highest := 0.0
+	for _, x := range rs.RRA.SupportGrps {
+		for _, y := range x.Website {
+			totalcnt++
+			if !y.HTTPObs.Coverage {
+				continue
+			}
+			havecnt++
+			var uval int
+			if y.HTTPObs.Score >= 75 {
+				uval = 1
+			} else if y.HTTPObs.Score >= 50 {
+				uval = 2
+			} else if y.HTTPObs.Score >= 24 {
+				uval = 3
+			} else {
+				uval = 4
+			}
+			if float64(uval) >= highest {
+				highest = float64(uval)
+			}
+		}
+	}
+
+	if havecnt == 0 {
+		newscan := slib.RiskScenario{
+			Name:     "httpobs scenario for " + desc,
+			Coverage: "none",
+			NoData:   true,
+		}
+		rs.Scenarios = append(rs.Scenarios, newscan)
+		return nil
+	}
+	coverage := "complete"
+	if havecnt != totalcnt {
+		coverage = "partial"
+	}
+	// Set coverage to unknown as currently it is not possible to tell
+	// if all hosts are being assessed; we can't go by there being no
+	// known issues on the asset.
+	newscen := slib.RiskScenario{
+		Name:        "httpobs scenario for " + desc,
+		Impact:      src.Impact,
+		Probability: highest,
+		Score:       highest * src.Impact,
+		Coverage:    coverage,
+		NoData:      false,
+	}
+	err := newscen.Validate()
+	if err != nil {
+		return err
+	}
+	rs.Scenarios = append(rs.Scenarios, newscen)
+
+	return nil
+}
+
 // Calculate a risk scenario, uses information from the RRA
 func riskRRAScenario(op opContext, rs *slib.RRAServiceRisk, src slib.RRAAttribute, desc string) error {
 	newscen := slib.RiskScenario{
@@ -290,6 +355,18 @@ func riskCalculation(op opContext, rs *slib.RRAServiceRisk) error {
 		return err
 	}
 	err = riskVulnerabilityScenario(op, rs, rs.UsedRRAAttrib.Financial, "financial")
+	if err != nil {
+		return err
+	}
+	err = riskHTTPObsScenario(op, rs, rs.UsedRRAAttrib.Reputation, "reputation")
+	if err != nil {
+		return err
+	}
+	err = riskHTTPObsScenario(op, rs, rs.UsedRRAAttrib.Productivity, "productivity")
+	if err != nil {
+		return err
+	}
+	err = riskHTTPObsScenario(op, rs, rs.UsedRRAAttrib.Financial, "financial")
 	if err != nil {
 		return err
 	}

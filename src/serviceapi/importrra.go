@@ -304,7 +304,7 @@ func dbUpdateRRAs(rraList []rraESData) error {
 			lastupdated, raw)
 			SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
 			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-			now() AT TIME ZONE 'utc', $21
+			now(), $21
 			WHERE NOT EXISTS (
 				SELECT 1 FROM rra WHERE service = $22
 			)`,
@@ -336,7 +336,7 @@ func dbUpdateRRAs(rraList []rraESData) error {
 			ipp = $17,
 			ifp = $18,
 			datadefault = $19,
-			lastupdated = now() AT TIME ZONE 'utc',
+			lastupdated = now(),
 			raw = $20
 			WHERE service = $21`,
 			riskARI, riskAPI, riskAFI,

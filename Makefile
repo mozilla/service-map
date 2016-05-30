@@ -12,6 +12,7 @@ depends:
 	$(GO) get github.com/gorilla/mux
 	$(GO) get code.google.com/p/go-uuid/uuid
 	$(GO) get github.com/jvehent/gozdef
+	$(GO) get github.com/ameihm0912/http-observatory-go
 
 servicelib:
 	$(GO) install servicelib

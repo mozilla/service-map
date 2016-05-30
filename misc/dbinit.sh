@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS importcomphostcfg;
 DROP TABLE IF EXISTS vulnscore;
 DROP TABLE IF EXISTS vulnstatus;
 DROP TABLE IF EXISTS compscore;
+DROP TABLE IF EXISTS httpobsscore;
 DROP TABLE IF EXISTS rra_sysgroup;
 DROP TABLE IF EXISTS asset;
 DROP TABLE IF EXISTS rra;
@@ -36,7 +37,7 @@ CREATE TABLE rra (
 	ipp TEXT NOT NULL,
 	ifp TEXT NOT NULL,
 	datadefault TEXT NOT NULL,
-	lastupdated TIMESTAMP NOT NULL,
+	lastupdated TIMESTAMP WITH TIME ZONE NOT NULL,
 	raw JSON NOT NULL
 );
 CREATE TABLE sysgroup (
@@ -57,11 +58,12 @@ CREATE TABLE asset (
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	comment TEXT,
 	dynamic BOOLEAN NOT NULL,
-	dynamic_added TIMESTAMP,
+	dynamic_added TIMESTAMP WITH TIME ZONE,
 	dynamic_confidence INTEGER,
-	lastused TIMESTAMP NOT NULL,
-	lastcompscore TIMESTAMP NOT NULL,
-	lastvulnscore TIMESTAMP NOT NULL,
+	lastused TIMESTAMP WITH TIME ZONE NOT NULL,
+	lastcompscore TIMESTAMP WITH TIME ZONE NOT NULL,
+	lastvulnscore TIMESTAMP WITH TIME ZONE NOT NULL,
+	lasthttpobsscore TIMESTAMP WITH TIME ZONE NOT NULL,
 	UNIQUE(assettype, hostname)
 );
 CREATE INDEX ON asset (hostname);
@@ -70,28 +72,38 @@ CREATE TABLE searchresults (
 	opid TEXT NOT NULL,
 	identifier TEXT NOT NULL,
 	result TEXT NOT NULL,
-	timestamp TIMESTAMP NOT NULL,
+	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 	UNIQUE(opid, identifier)
 );
 CREATE TABLE compscore (
 	scoreid SERIAL PRIMARY KEY,
-	timestamp TIMESTAMP NOT NULL,
+	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 	assetid INTEGER REFERENCES asset (assetid),
 	checkref TEXT NOT NULL,
 	status BOOLEAN NOT NULL
 );
 CREATE TABLE vulnscore (
 	scoreid SERIAL PRIMARY KEY,
-	timestamp TIMESTAMP NOT NULL,
+	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 	assetid INTEGER REFERENCES asset (assetid),
 	maxcount INTEGER DEFAULT 0 NOT NULL,
 	highcount INTEGER DEFAULT 0 NOT NULL,
 	mediumcount INTEGER DEFAULT 0 NOT NULL,
 	lowcount INTEGER DEFAULT 0 NOT NULL
 );
+CREATE TABLE httpobsscore (
+	scoreid SERIAL PRIMARY KEY,
+	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+	assetid INTEGER REFERENCES asset (assetid),
+	score INTEGER NOT NULL,
+	grade TEXT NOT NULL,
+	passcount INTEGER NOT NULL,
+	failcount INTEGER NOT NULL,
+	totalcount INTEGER NOT NULL
+);
 CREATE TABLE vulnstatus (
 	statusid SERIAL PRIMARY KEY,
-	timestamp TIMESTAMP NOT NULL,
+	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 	assetid INTEGER REFERENCES asset (assetid),
 	checktype TEXT NOT NULL,
 	status BOOLEAN NOT NULL
