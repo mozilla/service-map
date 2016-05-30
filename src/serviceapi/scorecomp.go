@@ -64,7 +64,7 @@ func scoreComplianceScoreHost(hid int, h string) (err error) {
 
 	defer func() {
 		_, e := op.Exec(`UPDATE asset SET
-		lastcompscore = now() AT TIME ZONE 'utc'
+		lastcompscore = now()
 		WHERE lower(hostname) = lower($1)
 		AND assettype = 'host'
 		AND assetid = $2`, h, hid)
@@ -135,7 +135,7 @@ func scoreComplianceScoreHost(hid int, h string) (err error) {
 		_, err = op.Exec(`INSERT INTO compscore
 			(timestamp, assetid, checkref, status)
 			VALUES
-			(now() AT TIME ZONE 'utc',
+			(now(),
 			(SELECT assetid FROM asset
 			WHERE lower(hostname) = lower($1)
 			AND assettype = 'host'

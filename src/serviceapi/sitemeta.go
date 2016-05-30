@@ -22,7 +22,7 @@ func siteAddHTTPObs(op opContext, w *slib.Website) error {
 		passcount, failcount, totalcount,
 		MAX(timestamp)
 		FROM httpobsscore WHERE assetid = $1 AND
-		timestamp > now() AT TIME ZONE 'utc' -
+		timestamp > now() -
 		interval '168 hours'
 		GROUP BY score, grade,
 		passcount, failcount, totalcount`, w.ID).Scan(&w.HTTPObs.Score,

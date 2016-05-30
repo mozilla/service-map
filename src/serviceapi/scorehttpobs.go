@@ -57,7 +57,7 @@ func scoreHTTPObsSite(wid int, w string) (err error) {
 
 	defer func() {
 		_, e := op.Exec(`UPDATE asset SET
-		lasthttpobsscore = now() AT TIME ZONE 'utc'
+		lasthttpobsscore = now()
 		WHERE lower(website) = lower($1)
 		AND assettype = 'website'
 		AND assetid = $2`, w, wid)
@@ -79,7 +79,7 @@ func scoreHTTPObsSite(wid int, w string) (err error) {
 			(timestamp, assetid, score, grade,
 			passcount, failcount, totalcount)
 			VALUES
-			(now() AT TIME ZONE 'utc',
+			(now(),
 			(SELECT assetid FROM asset
 			WHERE lower(website) = lower($1)
 			AND assettype = 'website'

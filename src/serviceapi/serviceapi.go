@@ -150,11 +150,11 @@ func updateDynamicHost(op opContext, hn string, comment string, confidence int) 
 	_, err := op.Exec(`INSERT INTO asset
 		(hostname, comment, dynamic, dynamic_added, dynamic_confidence, lastused,
 		lastcompscore, lastvulnscore, lasthttpobsscore, assettype)
-		SELECT $1, $2, TRUE, now() AT TIME ZONE 'utc',
-		$3, now() AT TIME ZONE 'utc',
-		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
-		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
-		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
+		SELECT $1, $2, TRUE, now(),
+		$3, now(),
+		now() - INTERVAL '5 days',
+		now() - INTERVAL '5 days',
+		now() - INTERVAL '5 days',
 		'host'
 		WHERE NOT EXISTS (
 			SELECT 1 FROM asset WHERE lower(hostname) = lower($4) AND
@@ -164,7 +164,7 @@ func updateDynamicHost(op opContext, hn string, comment string, confidence int) 
 		return err
 	}
 	_, err = op.Exec(`UPDATE asset
-		SET lastused = now() AT TIME ZONE 'utc'
+		SET lastused = now()
 		WHERE lower(hostname) = lower($1) AND
 		assettype = 'host'`, hn)
 	if err != nil {
@@ -178,11 +178,11 @@ func updateWebsite(op opContext, ws string, comment string, confidence int) erro
 	_, err := op.Exec(`INSERT INTO asset
 		(website, comment, dynamic, dynamic_added, dynamic_confidence, lastused,
 		lastcompscore, lastvulnscore, lasthttpobsscore, assettype)
-		SELECT $1, $2, TRUE, now() AT TIME ZONE 'utc',
-		$3, now() AT TIME ZONE 'utc',
-		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
-		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
-		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
+		SELECT $1, $2, TRUE, now(),
+		$3, now(),
+		now() - INTERVAL '5 days',
+		now() - INTERVAL '5 days',
+		now() - INTERVAL '5 days',
 		'website'
 		WHERE NOT EXISTS (
 			SELECT 1 FROM asset WHERE lower(website) = lower($4) AND
@@ -192,7 +192,7 @@ func updateWebsite(op opContext, ws string, comment string, confidence int) erro
 		return err
 	}
 	_, err = op.Exec(`UPDATE asset
-		SET lastused = now() AT TIME ZONE 'utc'
+		SET lastused = now()
 		WHERE lower(website) = lower($1) AND
 		assettype = 'website'`, ws)
 	if err != nil {
@@ -253,7 +253,7 @@ func mergeSystemGroup(op opContext, s *slib.Service, group slib.SystemGroup) err
 // a search for this asset
 func updateLastUsedHost(op opContext, hn string) error {
 	_, err := op.Exec(`UPDATE asset
-		SET lastused = now() AT TIME ZONE 'utc'
+		SET lastused = now()
 		WHERE lower(hostname) = lower($1) AND
 		assettype = 'host'`, hn)
 	if err != nil {
@@ -320,7 +320,7 @@ func runSearch(o opContext, s slib.Search) error {
 		return err
 	}
 	_, err = o.Exec(`INSERT INTO searchresults
-		VALUES ( $1, $2, $3, now() AT TIME ZONE 'utc')`, o.opid, s.Identifier, string(sresstr))
+		VALUES ( $1, $2, $3, now())`, o.opid, s.Identifier, string(sresstr))
 	if err != nil {
 		return err
 	}

@@ -65,7 +65,7 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 
 	defer func() {
 		_, e := op.Exec(`UPDATE asset SET
-		lastvulnscore = now() AT TIME ZONE 'utc'
+		lastvulnscore = now()
 		WHERE lower(hostname) = lower($1)
 		AND assettype = 'host'
 		AND assetid = $2`, h, hid)
@@ -159,7 +159,7 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 	_, err = op.Exec(`INSERT INTO vulnscore
 		(timestamp, assetid, maxcount, highcount, mediumcount, lowcount)
 		VALUES
-		(now() AT TIME ZONE 'utc',
+		(now(),
 		(SELECT assetid FROM asset
 		WHERE lower(hostname) = lower($1)
 		AND assettype = 'host'
