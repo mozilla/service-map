@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS importcomphostcfg;
 DROP TABLE IF EXISTS vulnscore;
 DROP TABLE IF EXISTS vulnstatus;
 DROP TABLE IF EXISTS compscore;
+DROP TABLE IF EXISTS httpobsscore;
 DROP TABLE IF EXISTS rra_sysgroup;
 DROP TABLE IF EXISTS asset;
 DROP TABLE IF EXISTS rra;
@@ -62,6 +63,7 @@ CREATE TABLE asset (
 	lastused TIMESTAMP NOT NULL,
 	lastcompscore TIMESTAMP NOT NULL,
 	lastvulnscore TIMESTAMP NOT NULL,
+	lasthttpobsscore TIMESTAMP NOT NULL,
 	UNIQUE(assettype, hostname)
 );
 CREATE INDEX ON asset (hostname);
@@ -88,6 +90,16 @@ CREATE TABLE vulnscore (
 	highcount INTEGER DEFAULT 0 NOT NULL,
 	mediumcount INTEGER DEFAULT 0 NOT NULL,
 	lowcount INTEGER DEFAULT 0 NOT NULL
+);
+CREATE TABLE httpobsscore (
+	scoreid SERIAL PRIMARY KEY,
+	timestamp TIMESTAMP NOT NULL,
+	assetid INTEGER REFERENCES asset (assetid),
+	score INTEGER NOT NULL,
+	grade TEXT NOT NULL,
+	passcount INTEGER NOT NULL,
+	failcount INTEGER NOT NULL,
+	totalcount INTEGER NOT NULL
 );
 CREATE TABLE vulnstatus (
 	statusid SERIAL PRIMARY KEY,

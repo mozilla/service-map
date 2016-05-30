@@ -18,4 +18,15 @@ type Website struct {
 	Comment    string    `json:"comment"`
 	Dynamic    bool      `json:"dynamic"`
 	LastUsed   time.Time `json:"lastused"`
+
+	HTTPObs HTTPObsStatus `json:"http_observatory"`
+}
+
+type HTTPObsStatus struct {
+	Coverage    bool   `json:"coverage"`
+	Score       int    `json:"score"`
+	Grade       string `json:"grade"`
+	TestsFailed int    `json:"tests_failed"`
+	TestsPassed int    `json:"tests_passed"`
+	TestsTotal  int    `json:"tests_total"`
 }

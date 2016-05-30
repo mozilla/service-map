@@ -107,6 +107,10 @@ type Config struct {
 		ESHost string
 		Index  string
 	}
+	HTTPObs struct {
+		ScoringBatchSize int
+		ScoreEvery       string
+	}
 	Vulnerabilities struct {
 		ESHost           string
 		Index            string
@@ -145,9 +149,10 @@ var logChan chan string
 func updateDynamicHost(op opContext, hn string, comment string, confidence int) error {
 	_, err := op.Exec(`INSERT INTO asset
 		(hostname, comment, dynamic, dynamic_added, dynamic_confidence, lastused,
-		lastcompscore, lastvulnscore, assettype)
+		lastcompscore, lastvulnscore, lasthttpobsscore, assettype)
 		SELECT $1, $2, TRUE, now() AT TIME ZONE 'utc',
 		$3, now() AT TIME ZONE 'utc',
+		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
 		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
 		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
 		'host'
@@ -172,9 +177,10 @@ func updateDynamicHost(op opContext, hn string, comment string, confidence int) 
 func updateWebsite(op opContext, ws string, comment string, confidence int) error {
 	_, err := op.Exec(`INSERT INTO asset
 		(website, comment, dynamic, dynamic_added, dynamic_confidence, lastused,
-		lastcompscore, lastvulnscore, assettype)
+		lastcompscore, lastvulnscore, lasthttpobsscore, assettype)
 		SELECT $1, $2, TRUE, now() AT TIME ZONE 'utc',
 		$3, now() AT TIME ZONE 'utc',
+		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
 		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
 		now() AT TIME ZONE 'utc' - INTERVAL '5 days',
 		'website'
@@ -664,6 +670,14 @@ func main() {
 		logf("spawning vulnerability scoring routine")
 		for {
 			scoreVuln()
+			time.Sleep(5 * time.Second)
+		}
+	}()
+	// Spawn the http observatory scoring process
+	go func() {
+		logf("spawning http observatory scoring routine")
+		for {
+			scoreHTTPObs()
 			time.Sleep(5 * time.Second)
 		}
 	}()

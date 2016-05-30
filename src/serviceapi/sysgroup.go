@@ -76,6 +76,10 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 		if err != nil {
 			return err
 		}
+		err = siteAddHTTPObs(op, &h)
+		if err != nil {
+			return err
+		}
 		s.Website = append(s.Website, h)
 	}
 
