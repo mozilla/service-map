@@ -408,12 +408,14 @@ func serviceGetSearchID(rw http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
+			rows.Close()
 			return
 		}
 		err = json.Unmarshal([]byte(resstr), &s)
 		if err != nil {
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
+			rows.Close()
 			return
 		}
 		nr.Service = s
@@ -465,6 +467,7 @@ func serviceSearchMatch(rw http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			op.logf(err.Error())
 			http.Error(rw, err.Error(), 500)
+			rows.Close()
 			return
 		}
 		if sgid.Valid {
@@ -559,6 +562,16 @@ func dynAssetManager() {
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM vulnscore
+				WHERE assetid = $1`, assetid)
+		if err != nil {
+			panic(err)
+		}
+		_, err = op.Exec(`DELETE FROM vulnstatus
+				WHERE assetid = $1`, assetid)
+		if err != nil {
+			panic(err)
+		}
+		_, err = op.Exec(`DELETE FROM httpobsscore
 				WHERE assetid = $1`, assetid)
 		if err != nil {
 			panic(err)
