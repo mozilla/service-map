@@ -41,6 +41,7 @@ func scoreHTTPObsGetHosts() (ret map[int]string, err error) {
 		)
 		err = rows.Scan(&hid, &h)
 		if err != nil {
+			rows.Close()
 			return
 		}
 		ret[hid] = h
