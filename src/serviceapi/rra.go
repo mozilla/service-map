@@ -100,7 +100,7 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, err.Error(), 500)
 			return
 		}
-		rs, err := riskForRRA(op, rraid)
+		rs, err := riskForRRA(op, true, rraid)
 		if err != nil {
 			rows.Close()
 			op.logf(err.Error())
@@ -145,7 +145,7 @@ func serviceGetRRARisk(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, err.Error(), 500)
 		return
 	}
-	rs, err := riskForRRA(op, r)
+	rs, err := riskForRRA(op, true, r)
 	if err != nil {
 		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)

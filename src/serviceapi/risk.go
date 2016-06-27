@@ -8,6 +8,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"github.com/lib/pq"
 	"github.com/montanaflynn/stats"
@@ -383,7 +384,38 @@ func riskCalculation(op opContext, rs *slib.RRAServiceRisk) error {
 
 // Given an RRA ID, return RRAServiceRisk representing calculated risk
 // at the current time
-func riskForRRA(op opContext, rraid int) (ret slib.RRAServiceRisk, err error) {
+func riskForRRA(op opContext, useCache bool, rraid int) (ret slib.RRAServiceRisk, err error) {
+	// If the cache is desired, see if we have an entry in the cache for this RRA
+	// and how old it is. If it is less than 4 hours old just return this.
+	if useCache {
+		var (
+			ts  time.Time
+			buf []byte
+		)
+		err = op.QueryRow(`SELECT timestamp, risk FROM risk WHERE
+			rraid = $1 ORDER BY timestamp DESC LIMIT 1`, rraid).Scan(&ts, &buf)
+		if err != nil && err != sql.ErrNoRows {
+			return ret, err
+		}
+		// If no error was returned we got a valid hit from the cache, otherwise
+		// no rows and proceed with calculation
+		if err == nil {
+			cutoff := time.Now().UTC().Add(-1 * (time.Minute * 60 * 4))
+			if ts.After(cutoff) {
+				logf("returning cached risk data for rra %v", rraid)
+				err = json.Unmarshal(buf, &ret)
+				if err != nil {
+					return ret, err
+				}
+				err = ret.Validate()
+				if err != nil {
+					return ret, err
+				}
+				return ret, nil
+			}
+		}
+	}
+
 	r, err := getRRA(op, strconv.Itoa(rraid))
 	if err != nil {
 		return ret, err
@@ -413,7 +445,7 @@ func riskForRRA(op opContext, rraid int) (ret slib.RRAServiceRisk, err error) {
 // for a service at current point in time
 func cacheRisk(op opContext, rraid int) error {
 	logf("cacherisk: processing rraid %v", rraid)
-	rs, err := riskForRRA(op, rraid)
+	rs, err := riskForRRA(op, false, rraid)
 	if err != nil {
 		return err
 	}
