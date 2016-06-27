@@ -8,8 +8,12 @@
 package main
 
 import (
+	"encoding/json"
+	"github.com/lib/pq"
 	"github.com/montanaflynn/stats"
 	slib "servicelib"
+	"strconv"
+	"time"
 )
 
 // Calculate a risk scenario, uses compliance data as probability metric
@@ -375,4 +379,110 @@ func riskCalculation(op opContext, rs *slib.RRAServiceRisk) error {
 		return err
 	}
 	return nil
+}
+
+// Given an RRA ID, return RRAServiceRisk representing calculated risk
+// at the current time
+func riskForRRA(op opContext, rraid int) (ret slib.RRAServiceRisk, err error) {
+	r, err := getRRA(op, strconv.Itoa(rraid))
+	if err != nil {
+		return ret, err
+	}
+	// Introduce system group metadata into the RRA which datapoints may
+	// use as part of processing.
+	for i := range r.SupportGrps {
+		err = sysGroupAddMeta(op, &r.SupportGrps[i])
+		if err != nil {
+			return ret, err
+		}
+	}
+
+	ret.RRA = r
+	err = riskCalculation(op, &ret)
+	if err != nil {
+		return ret, err
+	}
+	err = ret.Validate()
+	if err != nil {
+		return ret, err
+	}
+	return ret, nil
+}
+
+// Cache entry point, called from risk cache routine to store risk document
+// for a service at current point in time
+func cacheRisk(op opContext, rraid int) error {
+	logf("cacherisk: processing rraid %v", rraid)
+	rs, err := riskForRRA(op, rraid)
+	if err != nil {
+		return err
+	}
+	buf, err := json.Marshal(&rs)
+	if err != nil {
+		return err
+	}
+	// Store the generated risk document in the risks table
+	_, err = op.Exec(`INSERT INTO risk
+		(rraid, timestamp, risk)
+		VALUES
+		($1, now(), $2)`, rraid, buf)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func riskCacheGetRRAs(op opContext) error {
+	rows, err := op.Query(`SELECT rra.rraid, MAX(risk.timestamp)
+		FROM rra LEFT OUTER JOIN risk ON rra.rraid = risk.rraid
+		GROUP BY rra.rraid`)
+	if err != nil {
+		return err
+	}
+	dur, err := time.ParseDuration(cfg.General.RiskCacheEvery)
+	if err != nil {
+		return err
+	}
+	cutoff := time.Now().UTC().Add(-1 * dur)
+	for rows.Next() {
+		var (
+			rraid int
+			ts    pq.NullTime
+		)
+		err = rows.Scan(&rraid, &ts)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		if ts.Valid {
+			if ts.Time.After(cutoff) {
+				continue
+			}
+		}
+		err = cacheRisk(op, rraid)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func riskCache() {
+	defer func() {
+		if e := recover(); e != nil {
+			logf("error in risk cache routine: %v", e)
+		}
+	}()
+	op := opContext{}
+	op.newContext(dbconn, false, "riskcache")
+
+	err := riskCacheGetRRAs(op)
+	if err != nil {
+		panic(err)
+	}
 }
