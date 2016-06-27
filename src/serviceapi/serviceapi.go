@@ -92,9 +92,10 @@ func (o *opContext) logf(s string, args ...interface{}) {
 
 type Config struct {
 	General struct {
-		Listen string
-		Key    string
-		Cert   string
+		Listen         string
+		Key            string
+		Cert           string
+		RiskCacheEvery string
 	}
 	Database struct {
 		Hostname string
@@ -683,6 +684,14 @@ func main() {
 		logf("spawning vulnerability scoring routine")
 		for {
 			scoreVuln()
+			time.Sleep(5 * time.Second)
+		}
+	}()
+	// Spawn risk cache process
+	go func() {
+		logf("spawning risk cache routine")
+		for {
+			riskCache()
 			time.Sleep(5 * time.Second)
 		}
 	}()

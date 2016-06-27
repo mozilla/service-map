@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS httpobsscore;
 DROP TABLE IF EXISTS rra_sysgroup;
 DROP TABLE IF EXISTS asset;
+DROP TABLE IF EXISTS risk;
 DROP TABLE IF EXISTS rra;
 DROP TABLE IF EXISTS sysgroup;
 DROP TABLE IF EXISTS searchresults;
@@ -39,6 +40,11 @@ CREATE TABLE rra (
 	datadefault TEXT NOT NULL,
 	lastupdated TIMESTAMP WITH TIME ZONE NOT NULL,
 	raw JSON NOT NULL
+);
+CREATE TABLE risk (
+	rraid INTEGER REFERENCES rra (rraid),
+	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+	risk JSON NOT NULL
 );
 CREATE TABLE sysgroup (
 	sysgroupid SERIAL PRIMARY KEY,
@@ -82,6 +88,7 @@ CREATE TABLE compscore (
 	checkref TEXT NOT NULL,
 	status BOOLEAN NOT NULL
 );
+CREATE INDEX ON compscore (assetid);
 CREATE TABLE vulnscore (
 	scoreid SERIAL PRIMARY KEY,
 	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -91,6 +98,7 @@ CREATE TABLE vulnscore (
 	mediumcount INTEGER DEFAULT 0 NOT NULL,
 	lowcount INTEGER DEFAULT 0 NOT NULL
 );
+CREATE INDEX ON vulnscore (assetid);
 CREATE TABLE httpobsscore (
 	scoreid SERIAL PRIMARY KEY,
 	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -101,6 +109,7 @@ CREATE TABLE httpobsscore (
 	failcount INTEGER NOT NULL,
 	totalcount INTEGER NOT NULL
 );
+CREATE INDEX ON httpobsscore (assetid);
 CREATE TABLE vulnstatus (
 	statusid SERIAL PRIMARY KEY,
 	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -108,6 +117,7 @@ CREATE TABLE vulnstatus (
 	checktype TEXT NOT NULL,
 	status BOOLEAN NOT NULL
 );
+CREATE INDEX ON vulnstatus (assetid);
 CREATE TABLE importcomphostcfg (
 	exid SERIAL PRIMARY KEY,
 	hostmatch TEXT NOT NULL UNIQUE

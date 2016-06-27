@@ -100,32 +100,7 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, err.Error(), 500)
 			return
 		}
-		r, err := getRRA(op, strconv.Itoa(rraid))
-		if err != nil {
-			rows.Close()
-			op.logf(err.Error())
-			http.Error(rw, err.Error(), 500)
-			return
-		}
-		for i := range r.SupportGrps {
-			err = sysGroupAddMeta(op, &r.SupportGrps[i])
-			if err != nil {
-				rows.Close()
-				op.logf(err.Error())
-				http.Error(rw, err.Error(), 500)
-				return
-			}
-		}
-		rs := slib.RRAServiceRisk{}
-		rs.RRA = r
-		err = riskCalculation(op, &rs)
-		if err != nil {
-			rows.Close()
-			op.logf(err.Error())
-			http.Error(rw, err.Error(), 500)
-			return
-		}
-		err = rs.Validate()
+		rs, err := riskForRRA(op, true, rraid)
 		if err != nil {
 			rows.Close()
 			op.logf(err.Error())
@@ -164,36 +139,17 @@ func serviceGetRRARisk(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, err.Error(), 400)
 		return
 	}
-
-	r, err := getRRA(op, rraid)
+	r, err := strconv.Atoi(rraid)
 	if err != nil {
 		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
 	}
-	// Introduce system group metadata into the RRA which datapoints may
-	// use as part of processing.
-	for i := range r.SupportGrps {
-		err = sysGroupAddMeta(op, &r.SupportGrps[i])
-		if err != nil {
-			op.logf(err.Error())
-			http.Error(rw, err.Error(), 500)
-			return
-		}
-	}
-
-	rs := slib.RRAServiceRisk{}
-	rs.RRA = r
-	err = riskCalculation(op, &rs)
+	rs, err := riskForRRA(op, true, r)
 	if err != nil {
 		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
 		return
-	}
-	err = rs.Validate()
-	if err != nil {
-		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
 	}
 
 	buf, err := json.Marshal(&rs)
