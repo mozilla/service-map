@@ -88,6 +88,7 @@ CREATE TABLE compscore (
 	checkref TEXT NOT NULL,
 	status BOOLEAN NOT NULL
 );
+CREATE INDEX ON compscore (assetid);
 CREATE TABLE vulnscore (
 	scoreid SERIAL PRIMARY KEY,
 	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -97,6 +98,7 @@ CREATE TABLE vulnscore (
 	mediumcount INTEGER DEFAULT 0 NOT NULL,
 	lowcount INTEGER DEFAULT 0 NOT NULL
 );
+CREATE INDEX ON vulnscore (assetid);
 CREATE TABLE httpobsscore (
 	scoreid SERIAL PRIMARY KEY,
 	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -107,6 +109,7 @@ CREATE TABLE httpobsscore (
 	failcount INTEGER NOT NULL,
 	totalcount INTEGER NOT NULL
 );
+CREATE INDEX ON httpobsscore (assetid);
 CREATE TABLE vulnstatus (
 	statusid SERIAL PRIMARY KEY,
 	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -114,6 +117,7 @@ CREATE TABLE vulnstatus (
 	checktype TEXT NOT NULL,
 	status BOOLEAN NOT NULL
 );
+CREATE INDEX ON vulnstatus (assetid);
 CREATE TABLE importcomphostcfg (
 	exid SERIAL PRIMARY KEY,
 	hostmatch TEXT NOT NULL UNIQUE
