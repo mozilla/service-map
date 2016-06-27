@@ -100,32 +100,7 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, err.Error(), 500)
 			return
 		}
-		r, err := getRRA(op, strconv.Itoa(rraid))
-		if err != nil {
-			rows.Close()
-			op.logf(err.Error())
-			http.Error(rw, err.Error(), 500)
-			return
-		}
-		for i := range r.SupportGrps {
-			err = sysGroupAddMeta(op, &r.SupportGrps[i])
-			if err != nil {
-				rows.Close()
-				op.logf(err.Error())
-				http.Error(rw, err.Error(), 500)
-				return
-			}
-		}
-		rs := slib.RRAServiceRisk{}
-		rs.RRA = r
-		err = riskCalculation(op, &rs)
-		if err != nil {
-			rows.Close()
-			op.logf(err.Error())
-			http.Error(rw, err.Error(), 500)
-			return
-		}
-		err = rs.Validate()
+		rs, err := riskForRRA(op, rraid)
 		if err != nil {
 			rows.Close()
 			op.logf(err.Error())
