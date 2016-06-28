@@ -16,13 +16,15 @@ import (
 	elastigo "github.com/mattbaird/elastigo/lib"
 	slib "servicelib"
 	"strings"
+	"time"
 )
 
 // Defines a structure used to parse the fields from an RRA document that we
 // want to normalize and store in the database. This doesn't describe all the
 // fields in the RRA document.
 type rra struct {
-	Details rraDetails `json:"details"`
+	Details      rraDetails `json:"details"`
+	LastModified time.Time  `json:"lastmodified"`
 }
 
 func (r *rra) validate() error {
@@ -240,6 +242,32 @@ func requestRRAs() (ret []rraESData, err error) {
 	return
 }
 
+// Multiple RRAs for the same service can be returned if they have been updated. This
+// filters older RRAs for a given service out, by comparing the last modified time
+// stamp on each one.
+func filterLatestRRAs(rraList []rraESData) (ret []rraESData) {
+	svcdates := make(map[string]time.Time)
+	for _, x := range rraList {
+		ts, ok := svcdates[x.rra.Details.Metadata.Service]
+		if !ok || x.rra.LastModified.After(ts) {
+			svcdates[x.rra.Details.Metadata.Service] = x.rra.LastModified
+		}
+	}
+	// Build the new list, only use entries that match the map so we get the
+	// latest RRA version
+	var cnt int
+	for _, x := range rraList {
+		ts := svcdates[x.rra.Details.Metadata.Service]
+		if x.rra.LastModified.Before(ts) {
+			cnt++
+			continue
+		}
+		ret = append(ret, x)
+	}
+	logf("importrra: filtered %v older rra versions", cnt)
+	return ret
+}
+
 func dbUpdateRRAs(rraList []rraESData) error {
 	op := opContext{}
 	op.newContext(dbconn, false, "importrra")
@@ -361,6 +389,7 @@ func importRRA() {
 	if err != nil {
 		panic(err)
 	}
+	rralist = filterLatestRRAs(rralist)
 	err = dbUpdateRRAs(rralist)
 	if err != nil {
 		panic(err)
