@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS httpobsscore;
 DROP TABLE IF EXISTS rra_sysgroup;
 DROP TABLE IF EXISTS asset;
+DROP TABLE IF EXISTS assetowners;
 DROP TABLE IF EXISTS risk;
 DROP TABLE IF EXISTS rra;
 DROP TABLE IF EXISTS sysgroup;
@@ -56,12 +57,20 @@ CREATE TABLE rra_sysgroup (
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	UNIQUE(rraid, sysgroupid)
 );
+CREATE TABLE assetowners (
+	ownerid SERIAL PRIMARY KEY,
+	team TEXT NOT NULL,
+	operator TEXT NOT NULL,
+	UNIQUE (team, operator)
+);
 CREATE TABLE asset (
 	assetid SERIAL PRIMARY KEY,
 	assettype TEXT NOT NULL,
 	hostname TEXT,
 	website TEXT,
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
+	ownerid INTEGER REFERENCES assetowners (ownerid),
+	v2boverride TEXT,
 	comment TEXT,
 	dynamic BOOLEAN NOT NULL,
 	dynamic_added TIMESTAMP WITH TIME ZONE,
@@ -130,7 +139,10 @@ CREATE TABLE interlinks (
 	destsysgroupmatch TEXT,
 	destservicematch TEXT,
 	srcwebsitematch TEXT,
-	destwebsitematch TEXT
+	destwebsitematch TEXT,
+	destoperatormatch TEXT,
+	destteammatch TEXT,
+	destv2boverride TEXT
 );
 EOF
 

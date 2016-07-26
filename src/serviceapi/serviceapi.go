@@ -241,7 +241,6 @@ func serviceLookup(op opContext, s *slib.Service) error {
 // Merge the specified system group into Service s, which populates it with
 // linked services and other information
 func mergeSystemGroup(op opContext, s *slib.Service, group slib.SystemGroup) error {
-	s.Found = true
 	s.SystemGroup = group
 	err := serviceLookup(op, s)
 	if err != nil {
@@ -270,21 +269,56 @@ func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 	if err != nil {
 		return ret, err
 	}
-	var grp slib.SystemGroup
-	err = op.QueryRow(`SELECT sysgroup.sysgroupid, sysgroup.name FROM sysgroup
-		JOIN asset ON (sysgroup.sysgroupid = asset.sysgroupid)
-		WHERE hostname = $1 AND assettype = 'host'`, hn).Scan(&grp.ID, &grp.Name)
+	found := false
+	var (
+		grp                    slib.SystemGroup
+		sgid                   sql.NullInt64
+		sgname, owteam, owoper sql.NullString
+		v2bover                sql.NullString
+	)
+	err = op.QueryRow(`SELECT sysgroup.sysgroupid,
+		sysgroup.name, assetowners.operator, assetowners.team,
+		asset.v2boverride
+		FROM asset
+		LEFT OUTER JOIN sysgroup ON (sysgroup.sysgroupid = asset.sysgroupid)
+		LEFT OUTER JOIN assetowners ON (assetowners.ownerid = asset.ownerid)
+		WHERE hostname = $1 AND assettype = 'host'`,
+		hn).Scan(&sgid, &sgname, &owoper, &owteam, &v2bover)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ret, nil
-		} else {
-			return ret, err
 		}
-	}
-	err = mergeSystemGroup(op, &ret, grp)
-	if err != nil {
 		return ret, err
 	}
+	if sgname.Valid && sgname.String != "" {
+		grp.ID = int(sgid.Int64)
+		grp.Name = sgname.String
+		err = mergeSystemGroup(op, &ret, grp)
+		if err != nil {
+			return ret, err
+		}
+		found = true
+	}
+	if (owoper.Valid && owoper.String != "") ||
+		(owteam.Valid && owteam.String != "") {
+		if owteam.Valid {
+			ret.Owner.Team = owteam.String
+		}
+		if owoper.Valid {
+			ret.Owner.Operator = owoper.String
+		}
+		// If both the team and operator were set, construct a
+		// default v2bkey
+		if ret.Owner.Team != "" && ret.Owner.Operator != "" {
+			ret.Owner.V2BKey = ret.Owner.Operator + "-" + ret.Owner.Team
+		}
+		found = true
+	}
+	// If the asset has a V2B override set, apply it here
+	if v2bover.Valid && v2bover.String != "" {
+		ret.Owner.V2BKey = v2bover.String
+	}
+	ret.Found = found
 	return ret, nil
 }
 

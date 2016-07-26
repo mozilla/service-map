@@ -11,6 +11,7 @@ package main
 
 import (
 	"bufio"
+	"database/sql"
 	"fmt"
 	"os"
 	"strings"
@@ -24,6 +25,8 @@ const (
 	HOST_LINK_SYSGROUP
 	WEBSITE_ADD
 	WEBSITE_LINK_SYSGROUP
+	HOST_OWNERSHIP
+	OWNER_ADD
 )
 
 // Defines a rule in the interlink system
@@ -39,6 +42,13 @@ type interlinkRule struct {
 
 	srcWebsiteMatch  string
 	destWebsiteMatch string
+
+	destOwnerMatch struct {
+		Operator string
+		Team     string
+	}
+
+	destV2BOverride sql.NullString
 }
 
 var interlinkLastLoad time.Time
@@ -78,6 +88,98 @@ func interlinkRunSysGroupAdd(op opContext) error {
 		)`, s, s)
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// Execute any owner add operations
+func interlinkRunOwnerAdd(op opContext) error {
+	rows, err := op.Query(`SELECT destoperatormatch, destteammatch FROM interlinks
+		WHERE ruletype = $1`, OWNER_ADD)
+	if err != nil {
+		return err
+	}
+	type os struct {
+		operator string
+		team     string
+	}
+	var osl []os
+	for rows.Next() {
+		var nos os
+		err = rows.Scan(&nos.operator, &nos.team)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		osl = append(osl, nos)
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	for _, o := range osl {
+		_, err := op.Exec(`INSERT INTO assetowners
+		(operator, team) SELECT $1, $2
+		WHERE NOT EXISTS (
+			SELECT 1 FROM assetowners WHERE operator = $3 AND
+			team = $4
+		)`, o.operator, o.team, o.operator, o.team)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Link hosts with owners based on host match and operator/team
+func interlinkHostOwnerLink(op opContext) error {
+	rows, err := op.Query(`SELECT srchostmatch, destoperatormatch,
+		destteammatch, destv2boverride FROM interlinks
+		WHERE ruletype = $1`, HOST_OWNERSHIP)
+	if err != nil {
+		return err
+	}
+	type os struct {
+		srchm    string
+		operator string
+		team     string
+		v2b      sql.NullString
+	}
+	var resset []os
+	for rows.Next() {
+		nr := os{}
+		err = rows.Scan(&nr.srchm, &nr.operator, &nr.team, &nr.v2b)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		resset = append(resset, nr)
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	for _, r := range resset {
+		_, err = op.Exec(`UPDATE asset
+			SET ownerid = (SELECT ownerid FROM assetowners
+			WHERE operator = $1 AND team = $2 LIMIT 1) WHERE
+			hostname ~* $3 AND assettype = 'host'`, r.operator,
+			r.team, r.srchm)
+		if err != nil {
+			return err
+		}
+		// If a V2B key override was set for this entry, apply it as well
+		if r.v2b.Valid && r.v2b.String != "" {
+			_, err = op.Exec(`UPDATE asset
+				SET v2boverride = $1 WHERE
+				hostname ~* $2 AND assettype = 'host'`, r.v2b.String,
+				r.srchm)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -269,8 +371,26 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	// Run owner adds
+	err = interlinkRunOwnerAdd(op)
+	if err != nil {
+		e := op.rollback()
+		if e != nil {
+			panic(e)
+		}
+		return err
+	}
 	// Run host to system group linkage
 	err = interlinkHostSysGroupLink(op)
+	if err != nil {
+		e := op.rollback()
+		if e != nil {
+			panic(e)
+		}
+		return err
+	}
+	// Run host to owner linkage
+	err = interlinkHostOwnerLink(op)
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -345,6 +465,11 @@ func interlinkLoadRules() error {
 			nr.ruletype = SYSGROUP_ADD
 			nr.destSysGroupMatch = tokens[2]
 			valid = true
+		} else if len(tokens) == 4 && tokens[0] == "add" && tokens[1] == "owner" {
+			nr.ruletype = OWNER_ADD
+			nr.destOwnerMatch.Operator = tokens[2]
+			nr.destOwnerMatch.Team = tokens[3]
+			valid = true
 		} else if len(tokens) == 3 && tokens[0] == "add" && tokens[1] == "website" {
 			nr.ruletype = WEBSITE_ADD
 			nr.destWebsiteMatch = tokens[2]
@@ -360,6 +485,17 @@ func interlinkLoadRules() error {
 			nr.ruletype = HOST_LINK_SYSGROUP
 			nr.srcHostMatch = tokens[2]
 			nr.destSysGroupMatch = tokens[5]
+			valid = true
+		} else if len(tokens) >= 6 && tokens[0] == "host" &&
+			tokens[1] == "matches" && tokens[3] == "ownership" {
+			nr.ruletype = HOST_OWNERSHIP
+			nr.srcHostMatch = tokens[2]
+			nr.destOwnerMatch.Operator = tokens[4]
+			nr.destOwnerMatch.Team = tokens[5]
+			if len(tokens) == 7 {
+				nr.destV2BOverride.String = tokens[6]
+				nr.destV2BOverride.Valid = true
+			}
 			valid = true
 		} else if len(tokens) == 6 && tokens[0] == "website" &&
 			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "sysgroup" {
@@ -432,6 +568,31 @@ func interlinkLoadRules() error {
 			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srcwebsitematch,
 				destsysgroupmatch) VALUES ($1, $2, $3)`, x.ruletype,
 				x.srcWebsiteMatch, x.destSysGroupMatch)
+			if err != nil {
+				e := op.rollback()
+				if e != nil {
+					panic(e)
+				}
+				return err
+			}
+		case HOST_OWNERSHIP:
+			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srchostmatch,
+				destoperatormatch, destteammatch, destv2boverride)
+				VALUES ($1, $2, $3, $4, $5)`, x.ruletype, x.srcHostMatch,
+				x.destOwnerMatch.Operator, x.destOwnerMatch.Team,
+				x.destV2BOverride)
+			if err != nil {
+				e := op.rollback()
+				if e != nil {
+					panic(e)
+				}
+				return err
+			}
+		case OWNER_ADD:
+			_, err = op.Exec(`INSERT INTO interlinks (ruletype, destoperatormatch,
+				destteammatch)
+				VALUES ($1, $2, $3)`, x.ruletype, x.destOwnerMatch.Operator,
+				x.destOwnerMatch.Team)
 			if err != nil {
 				e := op.rollback()
 				if e != nil {

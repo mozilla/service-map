@@ -63,6 +63,7 @@ type IndicatorResponse struct {
 type Service struct {
 	Services    []RRAService `json:"services,omitempty"`    // Services linked from RRA table
 	SystemGroup SystemGroup  `json:"systemgroup,omitempty"` // Database system group
+	Owner       Owner        `json:"owner,omitempty"`       // Ownership details
 	Found       bool         `json:"found"`                 // Results of search
 }
 
