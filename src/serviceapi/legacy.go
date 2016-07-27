@@ -33,7 +33,7 @@ func serviceVulnAuto(rw http.ResponseWriter, req *http.Request) {
 	rows, err := op.Query(`SELECT srchostmatch,
 		destoperatormatch, destteammatch, destv2boverride
 		FROM interlinks
-		WHERE ruletype = $1 ORDER BY srchostmatch`, HOST_OWNERSHIP)
+		WHERE ruletype = $1 ORDER BY ruleid`, HOST_OWNERSHIP)
 	for rows.Next() {
 		err = rows.Scan(&srchm, &destoper, &destteam, &destv2boverride)
 		if err != nil {
