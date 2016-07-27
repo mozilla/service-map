@@ -11,3 +11,4 @@ from sysgroup import *
 from rra import *
 from vulns import *
 from indicator import *
+from legacy import *
