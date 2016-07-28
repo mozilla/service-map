@@ -785,6 +785,7 @@ func main() {
 	s.HandleFunc("/rra/risk", serviceGetRRARisk).Methods("GET")
 	s.HandleFunc("/vulns/target", serviceGetVulnsTarget).Methods("GET")
 	s.HandleFunc("/legacy/vulnauto", serviceVulnAuto).Methods("GET")
+	s.HandleFunc("/owners", serviceOwners).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
 	listenAddr := cfg.General.Listen
 	err = http.ListenAndServeTLS(listenAddr, cfg.General.Cert, cfg.General.Key, nil)
