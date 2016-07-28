@@ -135,9 +135,11 @@ func interlinkRunOwnerAdd(op opContext) error {
 
 // Link hosts with owners based on host match and operator/team
 func interlinkHostOwnerLink(op opContext) error {
+	// Run the rules in reverse order here so rules specified earlier in the
+	// rule set take precedence
 	rows, err := op.Query(`SELECT srchostmatch, destoperatormatch,
 		destteammatch, destv2boverride FROM interlinks
-		WHERE ruletype = $1`, HOST_OWNERSHIP)
+		WHERE ruletype = $1 ORDER BY ruletype DESC`, HOST_OWNERSHIP)
 	if err != nil {
 		return err
 	}
