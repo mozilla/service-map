@@ -139,7 +139,7 @@ func interlinkHostOwnerLink(op opContext) error {
 	// rule set take precedence
 	rows, err := op.Query(`SELECT srchostmatch, destoperatormatch,
 		destteammatch, destv2boverride FROM interlinks
-		WHERE ruletype = $1 ORDER BY ruletype DESC`, HOST_OWNERSHIP)
+		WHERE ruletype = $1 ORDER BY ruleid DESC`, HOST_OWNERSHIP)
 	if err != nil {
 		return err
 	}
@@ -174,12 +174,21 @@ func interlinkHostOwnerLink(op opContext) error {
 			return err
 		}
 		// If a V2B key override was set for this entry, apply it as well
-		_, err = op.Exec(`UPDATE asset
+		if r.v2b.Valid && r.v2b.String != "" {
+			_, err = op.Exec(`UPDATE asset
 			SET v2boverride = $1 WHERE
-			hostname ~* $2 AND assettype = 'host'`, r.v2b,
-			r.srchm)
-		if err != nil {
-			return err
+			hostname ~* $2 AND assettype = 'host'`, r.v2b.String,
+				r.srchm)
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err = op.Exec(`UPDATE asset
+			SET v2boverride = NULL WHERE
+			hostname ~* $1 AND assettype = 'host'`, r.srchm)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
