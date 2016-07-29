@@ -174,14 +174,12 @@ func interlinkHostOwnerLink(op opContext) error {
 			return err
 		}
 		// If a V2B key override was set for this entry, apply it as well
-		if r.v2b.Valid && r.v2b.String != "" {
-			_, err = op.Exec(`UPDATE asset
-				SET v2boverride = $1 WHERE
-				hostname ~* $2 AND assettype = 'host'`, r.v2b.String,
-				r.srchm)
-			if err != nil {
-				return err
-			}
+		_, err = op.Exec(`UPDATE asset
+			SET v2boverride = $1 WHERE
+			hostname ~* $2 AND assettype = 'host'`, r.v2b,
+			r.srchm)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
