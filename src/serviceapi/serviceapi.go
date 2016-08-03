@@ -103,6 +103,7 @@ type Config struct {
 	}
 	Interlink struct {
 		RulePath string
+		RunEvery string
 	}
 	RRA struct {
 		ESHost string
@@ -764,8 +765,14 @@ func main() {
 	go func() {
 		logf("spawning interlink manager")
 		for {
+			sd, err := time.ParseDuration(cfg.Interlink.RunEvery)
+			if err != nil {
+				logf("interlink: bad value for runevery, default to 10m")
+				sd, _ = time.ParseDuration("10m")
+			}
 			interlinkManager()
-			time.Sleep(30 * time.Second)
+			logf("interlink: waiting %v for next run", sd)
+			time.Sleep(sd)
 		}
 	}()
 
