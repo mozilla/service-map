@@ -18,10 +18,15 @@ import (
 // for the host.
 func hostAddComp(op opContext, h *slib.Host) error {
 	h.CompStatus.Reset()
-	rows, err := op.Query(`SELECT checkref, status,
-		MAX(timestamp) FROM compscore WHERE assetid = $1 AND
-		timestamp > now() -
-		interval '168 hours' GROUP BY checkref, status`, h.ID)
+	rows, err := op.Query(`SELECT checkref, status, timestamp
+		FROM compscore x WHERE assetid = $1 AND
+		timestamp > now() - interval '168 hours' AND
+		timestamp = (
+			SELECT MAX(timestamp) FROM compscore y
+			WHERE assetid = $2 AND
+			x.checkref = y.checkref AND
+			timestamp > now() - interval '168 hours'
+		)`, h.ID, h.ID)
 	if err != nil {
 		return err
 	}
