@@ -110,10 +110,18 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 	if err != nil {
 		return err
 	}
-	if res.Hits.Len() == 0 {
-		return nil
-	}
+
+	var maxcnt, highcnt, medcnt, lowcnt int
 	var vi []gozdef.VulnEvent
+
+	if res.Hits.Len() == 0 {
+		// If we didn't get any results, it could be because the host is not being
+		// assessed, or there are no known issues. We want to insert an entry indicating
+		// no issues. This should not provide invalid information for hosts that are
+		// not assessed, as vulnstatus should note the status of coverage for the host
+		// when we perform risk calculation.
+		goto skipanalyze
+	}
 	for _, x := range res.Hits.Hits {
 		var nvi gozdef.VulnEvent
 		err = json.Unmarshal(*x.Source, &nvi)
@@ -121,7 +129,6 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 	}
 
 	// Count issues on the host
-	var maxcnt, highcnt, medcnt, lowcnt int
 	for _, x := range vi {
 		// First try the impact label, if that is not successful try the CVSS score
 		if x.Vuln.ImpactLabel != "" {
@@ -156,6 +163,7 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 		}
 	}
 
+skipanalyze:
 	_, err = op.Exec(`INSERT INTO vulnscore
 		(timestamp, assetid, maxcount, highcount, mediumcount, lowcount)
 		VALUES
