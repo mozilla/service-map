@@ -113,12 +113,11 @@ func hostAddVuln(op opContext, h *slib.Host) error {
 	}
 
 	err = op.QueryRow(`SELECT maxcount, highcount,
-		mediumcount, lowcount, MAX(timestamp)
+		mediumcount, lowcount, timestamp
 		FROM vulnscore WHERE assetid = $1 AND
-		timestamp > now() -
-		interval '168 hours'
-		GROUP BY maxcount, highcount,
-		mediumcount, lowcount`, h.ID).Scan(&h.VulnStatus.Maximum,
+		timestamp > now() - interval '168 hours'
+		ORDER BY timestamp DESC
+		LIMIT 1`, h.ID).Scan(&h.VulnStatus.Maximum,
 		&h.VulnStatus.High, &h.VulnStatus.Medium, &h.VulnStatus.Low, &tstamp)
 	if err != nil {
 		if err == sql.ErrNoRows {
