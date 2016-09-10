@@ -19,7 +19,7 @@ DROP TABLE IF EXISTS searchresults;
 DROP TABLE IF EXISTS interlinks;
 CREATE TABLE rra (
 	rraid SERIAL PRIMARY KEY,
-	service TEXT NOT NULL UNIQUE,
+	service TEXT NOT NULL,
 	ari TEXT NOT NULL,
 	api TEXT NOT NULL,
 	afi TEXT NOT NULL,
@@ -40,7 +40,9 @@ CREATE TABLE rra (
 	ifp TEXT NOT NULL,
 	datadefault TEXT NOT NULL,
 	lastupdated TIMESTAMP WITH TIME ZONE NOT NULL,
-	raw JSON NOT NULL
+	lastmodified TIMESTAMP WITH TIME ZONE NOT NULL,
+	raw JSON NOT NULL,
+	UNIQUE(service, lastmodified)
 );
 CREATE TABLE risk (
 	rraid INTEGER REFERENCES rra (rraid),

@@ -242,32 +242,6 @@ func requestRRAs() (ret []rraESData, err error) {
 	return
 }
 
-// Multiple RRAs for the same service can be returned if they have been updated. This
-// filters older RRAs for a given service out, by comparing the last modified time
-// stamp on each one.
-func filterLatestRRAs(rraList []rraESData) (ret []rraESData) {
-	svcdates := make(map[string]time.Time)
-	for _, x := range rraList {
-		ts, ok := svcdates[x.rra.Details.Metadata.Service]
-		if !ok || x.rra.LastModified.After(ts) {
-			svcdates[x.rra.Details.Metadata.Service] = x.rra.LastModified
-		}
-	}
-	// Build the new list, only use entries that match the map so we get the
-	// latest RRA version
-	var cnt int
-	for _, x := range rraList {
-		ts := svcdates[x.rra.Details.Metadata.Service]
-		if x.rra.LastModified.Before(ts) {
-			cnt++
-			continue
-		}
-		ret = append(ret, x)
-	}
-	logf("importrra: filtered %v older rra versions", cnt)
-	return ret
-}
-
 func dbUpdateRRAs(rraList []rraESData) error {
 	op := opContext{}
 	op.newContext(dbconn, false, "importrra")
@@ -329,17 +303,19 @@ func dbUpdateRRAs(rraList []rraESData) error {
 		_, err = op.Exec(`INSERT INTO rra
 			(service, ari, api, afi, cri, cpi, cfi, iri, ipi, ifi,
 			arp, app, afp, crp, cpp, cfp, irp, ipp, ifp, datadefault,
-			lastupdated, raw)
+			lastupdated, lastmodified, raw)
 			SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
 			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-			now(), $21
+			now(), $21, $22
 			WHERE NOT EXISTS (
-				SELECT 1 FROM rra WHERE service = $22
+				SELECT 1 FROM rra WHERE service = $23 AND
+				lastmodified = $24
 			)`,
 			x.rra.Details.Metadata.Service, riskARI, riskAPI, riskAFI,
 			riskCRI, riskCPI, riskCFI, riskIRI, riskIPI, riskIFI,
 			riskARP, riskAPP, riskAFP, riskCRP, riskCPP, riskCFP,
-			riskIRP, riskIPP, riskIFP, datadef, buf, x.rra.Details.Metadata.Service)
+			riskIRP, riskIPP, riskIFP, datadef, x.rra.LastModified,
+			buf, x.rra.Details.Metadata.Service, x.rra.LastModified)
 		if err != nil {
 			return err
 		}
@@ -365,12 +341,15 @@ func dbUpdateRRAs(rraList []rraESData) error {
 			ifp = $18,
 			datadefault = $19,
 			lastupdated = now(),
-			raw = $20
-			WHERE service = $21`,
+			lastmodified = $20,
+			raw = $21
+			WHERE service = $22 AND
+			lastmodified = $23`,
 			riskARI, riskAPI, riskAFI,
 			riskCRI, riskCPI, riskCFI, riskIRI, riskIPI, riskIFI,
 			riskARP, riskAPP, riskAFP, riskCRP, riskCPP, riskCFP,
-			riskIRP, riskIPP, riskIFP, datadef, buf, x.rra.Details.Metadata.Service)
+			riskIRP, riskIPP, riskIFP, datadef, x.rra.LastModified,
+			buf, x.rra.Details.Metadata.Service, x.rra.LastModified)
 		if err != nil {
 			return err
 		}
@@ -389,7 +368,6 @@ func importRRA() {
 	if err != nil {
 		panic(err)
 	}
-	rralist = filterLatestRRAs(rralist)
 	err = dbUpdateRRAs(rralist)
 	if err != nil {
 		panic(err)
