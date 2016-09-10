@@ -84,7 +84,11 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
 
-	rows, err := op.Query(`SELECT rraid FROM rra`)
+	rows, err := op.Query(`SELECT rraid FROM rra x
+		WHERE lastmodified = (
+			SELECT MAX(lastmodified) FROM rra y
+			WHERE x.service = y.service
+		)`)
 	if err != nil {
 		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
