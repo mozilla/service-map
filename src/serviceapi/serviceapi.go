@@ -789,6 +789,7 @@ func main() {
 	s.HandleFunc("/rras", serviceRRAs).Methods("GET")
 	s.HandleFunc("/risks", serviceRisks).Methods("GET")
 	s.HandleFunc("/rra/id", serviceGetRRA).Methods("GET")
+	s.HandleFunc("/rra/update", serviceUpdateRRA).Methods("POST")
 	s.HandleFunc("/rra/risk", serviceGetRRARisk).Methods("GET")
 	s.HandleFunc("/vulns/target", serviceGetVulnsTarget).Methods("GET")
 	s.HandleFunc("/legacy/vulnauto", serviceVulnAuto).Methods("GET")

@@ -161,6 +161,65 @@ func serviceGetRRARisk(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
+// Read incoming RRA and update database as required. This can result in a
+// new RRA being added, or an existing RRA being updated.
+func serviceUpdateRRA(rw http.ResponseWriter, req *http.Request) {
+	req.ParseMultipartForm(10000000)
+
+	rawrra := req.FormValue("rra")
+	if rawrra == "" {
+		logf("no rra parameter in update request")
+		http.Error(rw, "no rra parameter in update request", 500)
+		return
+	}
+
+	op := opContext{}
+	op.newContext(dbconn, false, req.RemoteAddr)
+
+	// XXX Use the same import function we use in the RRA importer for now.
+	// This can be cleaned up once the RRA importer is removed and the POST
+	// functionality for RRAs is being used exclusively.
+	var (
+		nrra    rraESData
+		rraList []rraESData
+	)
+	err := json.Unmarshal([]byte(rawrra), &nrra.rra)
+	if err != nil {
+		logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	err = json.Unmarshal([]byte(rawrra), &nrra.raw)
+	if err != nil {
+		logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	err = nrra.rra.validate()
+	if err != nil {
+		logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	rraList = append(rraList, nrra)
+
+	err = dbUpdateRRAs(rraList)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+
+	ur := slib.RRAUpdateResponse{OK: true}
+	buf, err := json.Marshal(&ur)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 500)
+		return
+	}
+	fmt.Fprintf(rw, string(buf))
+}
+
 // API entry point to retrieve specific RRA details
 func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
