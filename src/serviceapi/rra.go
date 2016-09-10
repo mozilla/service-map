@@ -251,7 +251,10 @@ func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 	op.newContext(dbconn, false, req.RemoteAddr)
 
 	rows, err := op.Query(`SELECT rraid, service, datadefault
-		FROM rra`)
+		FROM rra x WHERE lastmodified = (
+			SELECT MAX(lastmodified) FROM rra y WHERE
+			x.service = y.service
+		)`)
 	if err != nil {
 		op.logf(err.Error())
 		http.Error(rw, err.Error(), 500)
