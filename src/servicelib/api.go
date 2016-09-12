@@ -59,6 +59,10 @@ type IndicatorResponse struct {
 	OK bool `json:"ok"`
 }
 
+type RRAUpdateResponse struct {
+	OK bool `json:"ok"`
+}
+
 // The response to a general service query.
 type Service struct {
 	Services    []RRAService `json:"services,omitempty"`    // Services linked from RRA table

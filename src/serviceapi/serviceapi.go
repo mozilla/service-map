@@ -213,10 +213,14 @@ func serviceLookup(op opContext, s *slib.Service) error {
 		crp, cpp, cfp,
 		irp, ipp, ifp,
 		datadefault
-		FROM rra
+		FROM rra x
 		WHERE rraid IN (
 		SELECT rraid FROM rra_sysgroup
-		WHERE sysgroupid = $1 )`, useid)
+		WHERE sysgroupid = $1 ) AND
+		lastmodified = (
+			SELECT MAX(lastmodified) FROM rra y
+			WHERE x.service = y.service
+		)`, useid)
 	if err != nil {
 		return err
 	}
@@ -789,6 +793,7 @@ func main() {
 	s.HandleFunc("/rras", serviceRRAs).Methods("GET")
 	s.HandleFunc("/risks", serviceRisks).Methods("GET")
 	s.HandleFunc("/rra/id", serviceGetRRA).Methods("GET")
+	s.HandleFunc("/rra/update", serviceUpdateRRA).Methods("POST")
 	s.HandleFunc("/rra/risk", serviceGetRRARisk).Methods("GET")
 	s.HandleFunc("/vulns/target", serviceGetVulnsTarget).Methods("GET")
 	s.HandleFunc("/legacy/vulnauto", serviceVulnAuto).Methods("GET")

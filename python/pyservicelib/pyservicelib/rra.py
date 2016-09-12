@@ -34,3 +34,15 @@ def get_risks():
         err = 'Request error: response {}'.format(r.status_code)
         raise search.SLIBException(err)
     return json.loads(r.text)
+
+# Submits an RRA to be updated via the API, rradict should be a dict
+# representation of the RRA; the RRA information itself should be stored
+# in a 'details' struct there, and it should also have a lastmodified
+# element that is the lastmodified timestamp from the RRA
+def update_rra(rradict):
+    u = cfg.config.apiurl() + '/rra/update'
+    payload = {'rra': json.dumps(rradict)}
+    r = requests.post(u, data=payload, verify=cfg.config.sslverify)
+    if r.status_code != requests.codes.ok:
+        err = 'Request error: response {}'.format(r.status_code)
+        raise search.SLIBException(err)
