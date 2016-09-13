@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS httpobsscore;
 DROP TABLE IF EXISTS rra_sysgroup;
 DROP TABLE IF EXISTS asset;
+DROP TABLE IF EXISTS assetawsmeta;
 DROP TABLE IF EXISTS assetowners;
 DROP TABLE IF EXISTS risk;
 DROP TABLE IF EXISTS rra;
@@ -65,6 +66,20 @@ CREATE TABLE assetowners (
 	operator TEXT NOT NULL,
 	UNIQUE (team, operator)
 );
+CREATE TABLE assetawsmeta (
+	assetawsmetaid SERIAL PRIMARY KEY,
+	accountid TEXT NOT NULL,
+	accountname TEXT NOT NULL,
+	region TEXT NOT NULL,
+	instancetype TEXT NOT NULL,
+	instanceid TEXT NOT NULL,
+	public_ip INET,
+	private_ip INET,
+	private_dns TEXT,
+	public_dns TEXT,
+	attributes JSON,
+	lastupdated TIMESTAMP WITH TIME ZONE NOT NULL
+);
 CREATE TABLE asset (
 	assetid SERIAL PRIMARY KEY,
 	assettype TEXT NOT NULL,
@@ -72,6 +87,7 @@ CREATE TABLE asset (
 	website TEXT,
 	sysgroupid INTEGER REFERENCES sysgroup (sysgroupid),
 	ownerid INTEGER REFERENCES assetowners (ownerid),
+	assetawsmetaid INTEGER REFERENCES assetawsmeta (assetawsmetaid),
 	v2boverride TEXT,
 	comment TEXT,
 	dynamic BOOLEAN NOT NULL,
