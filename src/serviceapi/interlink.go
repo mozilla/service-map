@@ -27,6 +27,7 @@ const (
 	WEBSITE_LINK_SYSGROUP
 	HOST_OWNERSHIP
 	OWNER_ADD
+	ASSOCIATE_AWS_PRIVATEDNS
 )
 
 // Defines a rule in the interlink system
@@ -355,6 +356,27 @@ func interlinkSysGroupServiceLink(op opContext) error {
 	return nil
 }
 
+func interlinkAssociateAWSPrivateDNS(op opContext) error {
+	var v int
+	// Just run it once if the rule is present in the rule set
+	err := op.QueryRow(`SELECT 1 FROM interlinks WHERE
+		ruletype = $1`, ASSOCIATE_AWS_PRIVATEDNS).Scan(&v)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		} else {
+			return err
+		}
+	}
+	_, err = op.Exec(`UPDATE asset x
+		SET assetawsmetaid = (SELECT assetawsmetaid FROM assetawsmeta y
+		WHERE x.hostname = y.private_dns)`)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Run interlink rules
 func interlinkRunRules() error {
 	op := opContext{}
@@ -418,6 +440,14 @@ func interlinkRunRules() error {
 	}
 	// Run system group to service linkage
 	err = interlinkSysGroupServiceLink(op)
+	if err != nil {
+		e := op.rollback()
+		if e != nil {
+			panic(e)
+		}
+		return err
+	}
+	err = interlinkAssociateAWSPrivateDNS(op)
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -512,6 +542,10 @@ func interlinkLoadRules() error {
 			nr.srcWebsiteMatch = tokens[2]
 			nr.destSysGroupMatch = tokens[5]
 			valid = true
+		} else if len(tokens) == 3 && tokens[0] == "associate" && tokens[1] == "aws" &&
+			tokens[2] == "privatedns" {
+			nr.ruletype = ASSOCIATE_AWS_PRIVATEDNS
+			valid = true
 		}
 		if !valid {
 			return fmt.Errorf("syntax error in interlink rules")
@@ -602,6 +636,16 @@ func interlinkLoadRules() error {
 				destteammatch)
 				VALUES ($1, $2, $3)`, x.ruletype, x.destOwnerMatch.Operator,
 				x.destOwnerMatch.Team)
+			if err != nil {
+				e := op.rollback()
+				if e != nil {
+					panic(e)
+				}
+				return err
+			}
+		case ASSOCIATE_AWS_PRIVATEDNS:
+			_, err = op.Exec(`INSERT INTO interlinks (ruletype)
+				VALUES ($1)`, x.ruletype)
 			if err != nil {
 				e := op.rollback()
 				if e != nil {
