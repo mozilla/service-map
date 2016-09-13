@@ -599,34 +599,44 @@ func dynAssetManager() {
 		var assetid int
 		err = rows.Scan(&assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		logf("removing asset %v", assetid)
 		_, err = op.Exec(`DELETE FROM compscore
 				WHERE assetid = $1`, assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM vulnscore
 				WHERE assetid = $1`, assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM vulnstatus
 				WHERE assetid = $1`, assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM httpobsscore
 				WHERE assetid = $1`, assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM asset
 				WHERE assetid = $1`, assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
+	}
+	err = rows.Err()
+	if err != nil {
+		panic(err)
 	}
 
 	// Drop any AWS instance metadata that we have not seen since configured
@@ -651,13 +661,19 @@ func dynAssetManager() {
 		_, err = op.Exec(`UPDATE asset SET assetawsmetaid = NULL
 			WHERE assetawsmetaid = $1`, metaid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM assetawsmeta WHERE
 			assetawsmetaid = $1`, metaid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
+	}
+	err = rows.Err()
+	if err != nil {
+		panic(err)
 	}
 }
 
