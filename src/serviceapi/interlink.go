@@ -374,6 +374,17 @@ func interlinkAssociateAWSPrivateDNS(op opContext) error {
 	if err != nil {
 		return err
 	}
+	slist := strings.Split(cfg.Interlink.AWSStripDNSSuffixList, " ")
+	for _, x := range slist {
+		xv := "%" + x
+		_, err = op.Exec(`UPDATE asset x
+		SET assetawsmetaid = (SELECT assetawsmetaid FROM assetawsmeta y
+		WHERE x.hostname = substring(y.private_dns from '[^\.]*')
+		AND y.private_dns LIKE $1)`, xv)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

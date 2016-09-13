@@ -102,8 +102,9 @@ type Config struct {
 		Database string
 	}
 	Interlink struct {
-		RulePath string
-		RunEvery string
+		RulePath              string
+		RunEvery              string
+		AWSStripDNSSuffixList string
 	}
 	RRA struct {
 		ESHost string
