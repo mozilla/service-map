@@ -125,6 +125,9 @@ type Config struct {
 		ScoringBatchSize int
 		ScoreEvery       string
 	}
+	AWSMeta struct {
+		MetaFile string
+	}
 }
 
 func (c *Config) validate() error {
@@ -748,6 +751,14 @@ func main() {
 		for {
 			importRRA()
 			time.Sleep(15 * time.Minute)
+		}
+	}()
+	// Spawn AWS metadata import process
+	go func() {
+		logf("spawning aws metadata import routine")
+		for {
+			importAWSMeta()
+			time.Sleep(15 * time.Second)
 		}
 	}()
 	// Spawn compliance host import process
