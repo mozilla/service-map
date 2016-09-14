@@ -153,6 +153,7 @@ CREATE TABLE interlinks (
 	ruleid SERIAL PRIMARY KEY,
 	ruletype INTEGER NOT NULL,
 	srchostmatch TEXT,
+	srcawssqlmatch TEXT,
 	srcsysgroupmatch TEXT,
 	destsysgroupmatch TEXT,
 	destservicematch TEXT,

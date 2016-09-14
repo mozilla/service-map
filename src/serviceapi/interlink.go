@@ -28,6 +28,7 @@ const (
 	HOST_OWNERSHIP
 	OWNER_ADD
 	ASSOCIATE_AWS_PRIVATEDNS
+	HOST_AWSSQL_LINK_SYSGROUP
 )
 
 // Defines a rule in the interlink system
@@ -37,6 +38,7 @@ type interlinkRule struct {
 
 	srcHostMatch     string
 	srcSysGroupMatch string
+	srcAWSSQLMatch   string
 
 	destServiceMatch  string
 	destSysGroupMatch string
@@ -302,6 +304,49 @@ func interlinkHostSysGroupLink(op opContext) error {
 	return nil
 }
 
+// Link hosts with system groups using available AWS metadata
+func interlinkHostAWSSQLSysGroupLink(op opContext) error {
+	rows, err := op.Query(`SELECT srcawssqlmatch, destsysgroupmatch FROM interlinks
+		WHERE ruletype = $1`, HOST_AWSSQL_LINK_SYSGROUP)
+	if err != nil {
+		return err
+	}
+	type linkResSet struct {
+		srcawssm string
+		dstsgm   string
+	}
+	var resset []linkResSet
+	for rows.Next() {
+		nr := linkResSet{}
+		err = rows.Scan(&nr.srcawssm, &nr.dstsgm)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		resset = append(resset, nr)
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	for _, r := range resset {
+		buf := `UPDATE asset x
+			SET sysgroupid = (SELECT sysgroupid FROM sysgroup
+			WHERE name ~* $1 LIMIT 1)
+			FROM assetawsmeta y
+			WHERE x.assettype = 'host' AND
+			x.assetawsmetaid = y.assetawsmetaid AND
+			%v`
+		qs := fmt.Sprintf(buf, r.srcawssm)
+		_, err = op.Exec(qs, r.dstsgm)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Link system groups with supported services based on group and service name
 func interlinkSysGroupServiceLink(op opContext) error {
 	rows, err := op.Query(`SELECT sysgroupid, rraid FROM interlinks
@@ -431,6 +476,15 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	// Run host awssqlmatch to system group linkage
+	err = interlinkHostAWSSQLSysGroupLink(op)
+	if err != nil {
+		e := op.rollback()
+		if e != nil {
+			panic(e)
+		}
+		return err
+	}
 	// Run host to owner linkage
 	err = interlinkHostOwnerLink(op)
 	if err != nil {
@@ -537,6 +591,25 @@ func interlinkLoadRules() error {
 			nr.destSysGroupMatch = tokens[5]
 			valid = true
 		} else if len(tokens) >= 6 && tokens[0] == "host" &&
+			tokens[1] == "awssqlmatch" {
+			// We can have a variable number of arguments in the source match component
+			// here, so we need to isolate them.
+			var lel int
+			for i := 0; i < len(tokens); i++ {
+				if len(tokens)-i > 2 && tokens[i] == "link" &&
+					tokens[i+1] == "sysgroup" {
+					lel = i
+					break
+				}
+			}
+			if lel != 0 {
+				mstr := strings.Join(tokens[2:lel], " ")
+				nr.ruletype = HOST_AWSSQL_LINK_SYSGROUP
+				nr.srcAWSSQLMatch = mstr
+				nr.destSysGroupMatch = tokens[lel+2]
+				valid = true
+			}
+		} else if len(tokens) >= 6 && tokens[0] == "host" &&
 			tokens[1] == "matches" && tokens[3] == "ownership" {
 			nr.ruletype = HOST_OWNERSHIP
 			nr.srcHostMatch = tokens[2]
@@ -601,6 +674,17 @@ func interlinkLoadRules() error {
 			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srchostmatch,
 				destsysgroupmatch) VALUES ($1, $2, $3)`, x.ruletype,
 				x.srcHostMatch, x.destSysGroupMatch)
+			if err != nil {
+				e := op.rollback()
+				if e != nil {
+					panic(e)
+				}
+				return err
+			}
+		case HOST_AWSSQL_LINK_SYSGROUP:
+			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srcawssqlmatch,
+				destsysgroupmatch) VALUES ($1, $2, $3)`, x.ruletype,
+				x.srcAWSSQLMatch, x.destSysGroupMatch)
 			if err != nil {
 				e := op.rollback()
 				if e != nil {
