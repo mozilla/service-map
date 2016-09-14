@@ -48,10 +48,24 @@ type IndicatorParams struct {
 
 // Describes indicator information
 type Indicator struct {
-	Host      string `json:"host,omitempty"`
-	Class     string `json:"class"`
+	// Common attributes amongst all classes
+	Host string `json:"host,omitempty"` // Hostname of system
+
+	Class string `json:"class"` // Indicator class
+
+	// Used for "vuln" class indicators
 	CheckType string `json:"checktype"`
 	Status    bool   `json:"status"`
+
+	// Used for "migagent" class indicators
+	MIG IndicatorMIG `json:"mig"`
+}
+
+type IndicatorMIG struct {
+	MIGHostname string      `json:"hostname"`
+	MIGVersion  string      `json:"version"`
+	Tags        interface{} `json:"tags"`
+	Environment interface{} `json:"environment"`
 }
 
 // The response to an indicator request
