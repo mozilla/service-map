@@ -27,7 +27,7 @@ func processAWSInstanceMeta(mi slib.AWSInstanceMeta) error {
 	_, err = op.Exec(`INSERT INTO assetawsmeta
 		(accountid, accountname, region, instancetype,
 		instanceid, public_ip, private_ip, private_dns,
-		public_dns, attributes, lastupdated)
+		public_dns, tags, lastupdated)
 		SELECT $1, $2, $3, $4,
 		$5, $6, $7, $8,
 		$9, $10, now()
@@ -51,7 +51,7 @@ func processAWSInstanceMeta(mi slib.AWSInstanceMeta) error {
 		private_ip = $5,
 		private_dns = $6,
 		public_dns = $7,
-		attributes = $8,
+		tags = $8,
 		lastupdated = now()
 		WHERE accountid = $9 AND
 		instanceid = $10`, mi.AWSAccountName,

@@ -77,7 +77,7 @@ CREATE TABLE assetawsmeta (
 	private_ip INET,
 	private_dns TEXT,
 	public_dns TEXT,
-	attributes JSON,
+	tags JSON,
 	lastupdated TIMESTAMP WITH TIME ZONE NOT NULL
 );
 CREATE TABLE asset (
