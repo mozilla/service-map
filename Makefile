@@ -1,4 +1,4 @@
-TARGETS = servicelib serviceapi
+TARGETS = servicelib serviceapi migindicators
 GO = GOPATH=$(shell pwd):$(shell go env GOROOT)/bin go
 
 all: $(TARGETS)
@@ -13,12 +13,16 @@ depends:
 	$(GO) get -u github.com/pborman/uuid
 	$(GO) get -u github.com/jvehent/gozdef
 	$(GO) get -u github.com/ameihm0912/http-observatory-go
+	$(GO) get -u mig.ninja/mig
 
 servicelib:
 	$(GO) install servicelib
 
 serviceapi:
 	$(GO) install serviceapi
+
+migindicators:
+	$(GO) install migindicators
 
 clean:
 	rm -f bin/*

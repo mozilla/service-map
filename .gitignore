@@ -1,6 +1,7 @@
 src/code.google.com
 src/github.com
 src/gopkg.in
+src/mig.ninja
 bin/
 pkg/
 python/pyservicelib/build
