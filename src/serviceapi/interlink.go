@@ -27,7 +27,7 @@ const (
 	WEBSITE_LINK_SYSGROUP
 	HOST_OWNERSHIP
 	OWNER_ADD
-	ASSOCIATE_AWS_PRIVATEDNS
+	ASSOCIATE_AWS
 	HOST_AWSSQL_LINK_SYSGROUP
 )
 
@@ -401,11 +401,11 @@ func interlinkSysGroupServiceLink(op opContext) error {
 	return nil
 }
 
-func interlinkAssociateAWSPrivateDNS(op opContext) error {
+func interlinkAssociateAWS(op opContext) error {
 	var v int
 	// Just run it once if the rule is present in the rule set
 	err := op.QueryRow(`SELECT 1 FROM interlinks WHERE
-		ruletype = $1`, ASSOCIATE_AWS_PRIVATEDNS).Scan(&v)
+		ruletype = $1`, ASSOCIATE_AWS).Scan(&v)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil
@@ -523,7 +523,7 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
-	err = interlinkAssociateAWSPrivateDNS(op)
+	err = interlinkAssociateAWS(op)
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -639,7 +639,7 @@ func interlinkLoadRules() error {
 			valid = true
 		} else if len(tokens) == 3 && tokens[0] == "associate" && tokens[1] == "aws" &&
 			tokens[2] == "privatedns" {
-			nr.ruletype = ASSOCIATE_AWS_PRIVATEDNS
+			nr.ruletype = ASSOCIATE_AWS
 			valid = true
 		}
 		if !valid {
@@ -749,7 +749,7 @@ func interlinkLoadRules() error {
 				}
 				return err
 			}
-		case ASSOCIATE_AWS_PRIVATEDNS:
+		case ASSOCIATE_AWS:
 			_, err = op.Exec(`INSERT INTO interlinks (ruletype)
 				VALUES ($1)`, x.ruletype)
 			if err != nil {
