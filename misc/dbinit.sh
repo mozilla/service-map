@@ -7,6 +7,7 @@ $psql << EOF
 DROP TABLE IF EXISTS importcomphostcfg;
 DROP TABLE IF EXISTS vulnscore;
 DROP TABLE IF EXISTS vulnstatus;
+DROP TABLE IF EXISTS migstatus;
 DROP TABLE IF EXISTS compscore;
 DROP TABLE IF EXISTS httpobsscore;
 DROP TABLE IF EXISTS rra_sysgroup;
@@ -145,6 +146,14 @@ CREATE TABLE vulnstatus (
 	status BOOLEAN NOT NULL
 );
 CREATE INDEX ON vulnstatus (assetid);
+CREATE TABLE migstatus (
+	statusid SERIAL PRIMARY KEY,
+	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+	assetid INTEGER REFERENCES asset (assetid),
+	version TEXT NOT NULL,
+	env JSON,
+	tags JSON
+);
 CREATE TABLE importcomphostcfg (
 	exid SERIAL PRIMARY KEY,
 	hostmatch TEXT NOT NULL UNIQUE

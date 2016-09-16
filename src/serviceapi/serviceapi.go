@@ -622,6 +622,12 @@ func dynAssetManager() {
 			rows.Close()
 			panic(err)
 		}
+		_, err = op.Exec(`DELETE FROM migstatus
+				WHERE assetid = $1`, assetid)
+		if err != nil {
+			rows.Close()
+			panic(err)
+		}
 		_, err = op.Exec(`DELETE FROM httpobsscore
 				WHERE assetid = $1`, assetid)
 		if err != nil {
