@@ -415,7 +415,12 @@ func interlinkAssociateAWSPrivateDNS(op opContext) error {
 	}
 	_, err = op.Exec(`UPDATE asset x
 		SET assetawsmetaid = (SELECT assetawsmetaid FROM assetawsmeta y
-		WHERE x.hostname = y.private_dns)`)
+		WHERE x.hostname = y.private_dns) WHERE
+		assetid IN (
+			SELECT assetid FROM asset a
+			JOIN assetawsmeta b ON
+			a.hostname = b.private_dns
+		)`)
 	if err != nil {
 		return err
 	}
@@ -425,7 +430,13 @@ func interlinkAssociateAWSPrivateDNS(op opContext) error {
 		_, err = op.Exec(`UPDATE asset x
 		SET assetawsmetaid = (SELECT assetawsmetaid FROM assetawsmeta y
 		WHERE x.hostname = substring(y.private_dns from '[^\.]*')
-		AND y.private_dns LIKE $1)`, xv)
+		AND y.private_dns LIKE $1) WHERE
+		assetid IN (
+			SELECT assetid FROM asset a
+			JOIN assetawsmeta b ON
+			a.hostname = substring(b.private_dns from '[^\.]*') AND
+			b.private_dns LIKE $2
+		)`, xv, xv)
 		if err != nil {
 			return err
 		}
