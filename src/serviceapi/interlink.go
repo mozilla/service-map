@@ -401,6 +401,8 @@ func interlinkSysGroupServiceLink(op opContext) error {
 	return nil
 }
 
+// Perform linkages between various tables that provide us with
+// AWS related metadata
 func interlinkAssociateAWS(op opContext) error {
 	var v int
 	// Just run it once if the rule is present in the rule set
@@ -413,6 +415,8 @@ func interlinkAssociateAWS(op opContext) error {
 			return err
 		}
 	}
+
+	// Try private DNS association
 	_, err = op.Exec(`UPDATE asset x
 		SET assetawsmetaid = (SELECT assetawsmetaid FROM assetawsmeta y
 		WHERE x.hostname = y.private_dns) WHERE
@@ -440,6 +444,30 @@ func interlinkAssociateAWS(op opContext) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// MIG AWS metadata instance association
+	_, err = op.Exec(`UPDATE asset x
+		SET assetawsmetaid = (
+			SELECT assetawsmetaid FROM assetawsmeta y
+			JOIN migstatus z ON
+			y.instanceid = z.env#>>'{aws, instanceid}' AND
+			x.assetid = z.assetid
+			WHERE z.timestamp = (
+				SELECT MAX(timestamp) FROM
+				migstatus WHERE assetid = x.assetid
+			)
+		) WHERE
+		assetid IN (
+			SELECT a.assetid FROM asset a
+			JOIN migstatus b ON
+			a.assetid = b.assetid
+			JOIN assetawsmeta c ON
+			c.instanceid = b.env#>>'{aws, instanceid}'
+			WHERE b.timestamp > now() - interval '168 hours'
+		)`)
+	if err != nil {
+		return err
 	}
 	return nil
 }
