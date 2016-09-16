@@ -1,5 +1,6 @@
 src/code.google.com
 src/github.com
+src/gopkg.in
 bin/
 pkg/
 python/pyservicelib/build
