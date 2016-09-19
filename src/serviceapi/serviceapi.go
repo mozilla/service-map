@@ -102,8 +102,9 @@ type Config struct {
 		Database string
 	}
 	Interlink struct {
-		RulePath string
-		RunEvery string
+		RulePath              string
+		RunEvery              string
+		AWSStripDNSSuffixList string
 	}
 	RRA struct {
 		ESHost string
@@ -124,6 +125,10 @@ type Config struct {
 		Index            string
 		ScoringBatchSize int
 		ScoreEvery       string
+	}
+	AWSMeta struct {
+		MetaFile string
+		Lifetime string
 	}
 }
 
@@ -584,6 +589,7 @@ func dynAssetManager() {
 	}()
 	op := opContext{}
 	op.newContext(dbconn, false, "dynassetmanager")
+	// Remove any assets which we have not seen evidence of in the past 7 days
 	cutoff := time.Now().UTC().Add(-(168 * time.Hour))
 	rows, err := op.Query(`SELECT assetid FROM asset
 			WHERE dynamic = true AND lastused < $1`, cutoff)
@@ -594,33 +600,87 @@ func dynAssetManager() {
 		var assetid int
 		err = rows.Scan(&assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
+		logf("removing asset %v", assetid)
 		_, err = op.Exec(`DELETE FROM compscore
 				WHERE assetid = $1`, assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM vulnscore
 				WHERE assetid = $1`, assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM vulnstatus
 				WHERE assetid = $1`, assetid)
 		if err != nil {
+			rows.Close()
+			panic(err)
+		}
+		_, err = op.Exec(`DELETE FROM migstatus
+				WHERE assetid = $1`, assetid)
+		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM httpobsscore
 				WHERE assetid = $1`, assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		_, err = op.Exec(`DELETE FROM asset
 				WHERE assetid = $1`, assetid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
+	}
+	err = rows.Err()
+	if err != nil {
+		panic(err)
+	}
+
+	// Drop any AWS instance metadata that we have not seen since configured
+	// cutoff time
+	dur, err := time.ParseDuration(cfg.AWSMeta.Lifetime)
+	if err != nil {
+		panic(err)
+	}
+	cutoff = time.Now().UTC().Add(-1 * dur)
+	rows, err = op.Query(`SELECT assetawsmetaid FROM assetawsmeta
+		WHERE lastupdated < $1`, cutoff)
+	if err != nil {
+		panic(err)
+	}
+	for rows.Next() {
+		var metaid int
+		err = rows.Scan(&metaid)
+		if err != nil {
+			panic(err)
+		}
+		logf("removing assetawsmetaid %v", metaid)
+		_, err = op.Exec(`UPDATE asset SET assetawsmetaid = NULL
+			WHERE assetawsmetaid = $1`, metaid)
+		if err != nil {
+			rows.Close()
+			panic(err)
+		}
+		_, err = op.Exec(`DELETE FROM assetawsmeta WHERE
+			assetawsmetaid = $1`, metaid)
+		if err != nil {
+			rows.Close()
+			panic(err)
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		panic(err)
 	}
 }
 
@@ -748,6 +808,14 @@ func main() {
 		for {
 			importRRA()
 			time.Sleep(15 * time.Minute)
+		}
+	}()
+	// Spawn AWS metadata import process
+	go func() {
+		logf("spawning aws metadata import routine")
+		for {
+			importAWSMeta()
+			time.Sleep(15 * time.Second)
 		}
 	}()
 	// Spawn compliance host import process
