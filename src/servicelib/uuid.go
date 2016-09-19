@@ -8,7 +8,7 @@
 package servicelib
 
 import (
-	"code.google.com/p/go-uuid/uuid"
+	"github.com/pborman/uuid"
 )
 
 func NewUUID() string {
