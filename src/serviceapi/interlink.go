@@ -665,8 +665,7 @@ func interlinkLoadRules() error {
 			nr.srcWebsiteMatch = tokens[2]
 			nr.destSysGroupMatch = tokens[5]
 			valid = true
-		} else if len(tokens) == 3 && tokens[0] == "associate" && tokens[1] == "aws" &&
-			tokens[2] == "privatedns" {
+		} else if len(tokens) == 2 && tokens[0] == "associate" && tokens[1] == "aws" {
 			nr.ruletype = ASSOCIATE_AWS
 			valid = true
 		}
