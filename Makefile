@@ -14,6 +14,7 @@ depends:
 	$(GO) get -u github.com/jvehent/gozdef
 	$(GO) get -u github.com/ameihm0912/http-observatory-go
 	$(GO) get -u mig.ninja/mig
+	$(GO) get -u mig.ninja/mig/client
 
 servicelib:
 	$(GO) install servicelib
