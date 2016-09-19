@@ -8,7 +8,6 @@
 package main
 
 import (
-	"code.google.com/p/gcfg"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -16,6 +15,7 @@ import (
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
+	"gopkg.in/gcfg.v1"
 	"net/http"
 	"os"
 	"os/signal"
