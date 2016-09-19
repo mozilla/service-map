@@ -600,7 +600,7 @@ func interlinkLoadRules() error {
 		}
 
 		var nr interlinkRule
-		if len(tokens) < 3 {
+		if len(tokens) < 2 {
 			return fmt.Errorf("interlink rule without enough arguments")
 		}
 		valid := false
