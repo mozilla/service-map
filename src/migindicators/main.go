@@ -91,6 +91,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+	cconf, err = client.ReadEnvConfiguration(cconf)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
 
 	cli, err := client.NewClient(cconf, "migindicators")
 	if err != nil {
