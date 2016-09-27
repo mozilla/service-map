@@ -67,6 +67,14 @@ func riskComplianceScenario(op opContext, rs *slib.RRAServiceRisk,
 		}
 	}
 
+	// Cap the maximum possible probability for compliance scenarios
+	// off at 2.0; these events do not include a likelihood indicator
+	// we will use directly but they are not considered to ever raise
+	// probability to "high" or greater
+	if scr > 2.0 {
+		scr = 2.0
+	}
+
 	newscen := slib.RiskScenario{
 		Name:        "Compliance scenario for " + desc,
 		Impact:      src.Impact,
