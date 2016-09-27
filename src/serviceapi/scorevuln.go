@@ -10,7 +10,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jvehent/gozdef"
+	"github.com/ameihm0912/gozdef"
 	elastigo "github.com/mattbaird/elastigo/lib"
 	"strings"
 	"time"
@@ -114,6 +114,8 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 	var maxcnt, highcnt, medcnt, lowcnt int
 	var vi []gozdef.VulnEvent
 
+	highlike := 1
+
 	if res.Hits.Len() == 0 {
 		// If we didn't get any results, it could be because the host is not being
 		// assessed, or there are no known issues. We want to insert an entry indicating
@@ -130,6 +132,26 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 
 	// Count issues on the host
 	for _, x := range vi {
+		var tl int
+		// We want the highest likelihood indicator value from the set
+		if x.Vuln.LikelihoodIndicator != "" {
+			switch strings.ToLower(x.Vuln.LikelihoodIndicator) {
+			case "maximum":
+				tl = 4
+			case "high":
+				tl = 3
+			case "medium":
+				tl = 2
+			case "low":
+				tl = 1
+			default:
+				logf("warning: vulnscore: entry for %v (%v) has invalid likelihood indicator",
+					h, x.Vuln.VulnID)
+			}
+		}
+		if tl > highlike {
+			highlike = tl
+		}
 		// First try the impact label, if that is not successful try the CVSS score
 		if x.Vuln.ImpactLabel != "" {
 			switch strings.ToLower(x.Vuln.ImpactLabel) {
@@ -165,14 +187,15 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 
 skipanalyze:
 	_, err = op.Exec(`INSERT INTO vulnscore
-		(timestamp, assetid, maxcount, highcount, mediumcount, lowcount)
+		(timestamp, assetid, maxcount, highcount, mediumcount, lowcount,
+		likelihoodindicator)
 		VALUES
 		(now(),
 		(SELECT assetid FROM asset
 		WHERE lower(hostname) = lower($1)
 		AND assettype = 'host'
 		AND assetid = $2),
-		$3, $4, $5, $6)`, h, hid, maxcnt, highcnt, medcnt, lowcnt)
+		$3, $4, $5, $6, $7)`, h, hid, maxcnt, highcnt, medcnt, lowcnt, highlike)
 	if err != nil {
 		return err
 	}
