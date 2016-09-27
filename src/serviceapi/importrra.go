@@ -13,7 +13,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	elastigo "github.com/mattbaird/elastigo/lib"
 	slib "servicelib"
 	"strings"
 	"time"
@@ -169,79 +168,6 @@ type rraESData struct {
 	raw json.RawMessage
 }
 
-func requestRRAs() (ret []rraESData, err error) {
-	logf("importrra: refreshing rras")
-
-	conn := elastigo.NewConn()
-	defer conn.Close()
-	conn.Domain = cfg.RRA.ESHost
-
-	template := `{
-		"from": %v,
-		"size": 10,
-		"sort": [
-		{ "details.metadata.service": "asc" }
-		],
-		"query": {
-			"bool": {
-				"must": [
-					{
-					"term": {
-						"category": "rra_data"
-					}},
-					{
-					"range": {
-						"utctimestamp": {
-							"gt": "now-7d"
-						}
-					}}
-				]
-			}
-		}
-	}`
-	for i := 0; ; i += 10 {
-		tempbuf := fmt.Sprintf(template, i)
-		res, err := conn.Search(cfg.RRA.Index, "rra_state", nil, tempbuf)
-		if err != nil {
-			return ret, err
-		}
-		if res.Hits.Len() == 0 {
-			break
-		}
-		for _, x := range res.Hits.Hits {
-			var nrra rraESData
-			err = json.Unmarshal(*x.Source, &nrra.rra)
-			if err != nil {
-				return ret, err
-			}
-			// Also store the entire message as a RawMessage, temporary
-			// storage so we can place the entire RRA document in a
-			// JSON column in the database.
-			err = json.Unmarshal(*x.Source, &nrra.raw)
-			if err != nil {
-				return ret, err
-			}
-			err = nrra.rra.validate()
-			if err != nil {
-				// If the RRA failed validation, it has some
-				// sort of formatting issue, just log it and
-				// continue; try to include the service name
-				// if we can
-				sname := "unknown service"
-				if nrra.rra.Details.Metadata.Service != "" {
-					sname = nrra.rra.Details.Metadata.Service
-				}
-				logf("warning in rra import routine: skipping \"%v\", %v", sname, err)
-				continue
-			}
-			ret = append(ret, nrra)
-		}
-	}
-	logf("importrra: fetched %v rras", len(ret))
-
-	return
-}
-
 func dbUpdateRRAs(rraList []rraESData) error {
 	op := opContext{}
 	op.newContext(dbconn, false, "importrra")
@@ -355,21 +281,4 @@ func dbUpdateRRAs(rraList []rraESData) error {
 		}
 	}
 	return nil
-}
-
-// Entry point for RRA import routine
-func importRRA() {
-	defer func() {
-		if e := recover(); e != nil {
-			logf("error in rra import routine: %v", e)
-		}
-	}()
-	rralist, err := requestRRAs()
-	if err != nil {
-		panic(err)
-	}
-	err = dbUpdateRRAs(rralist)
-	if err != nil {
-		panic(err)
-	}
 }
