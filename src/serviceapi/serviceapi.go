@@ -106,10 +106,6 @@ type Config struct {
 		RunEvery              string
 		AWSStripDNSSuffixList string
 	}
-	RRA struct {
-		ESHost string
-		Index  string
-	}
 	HTTPObs struct {
 		ScoringBatchSize int
 		ScoreEvery       string
@@ -800,14 +796,6 @@ func main() {
 		for {
 			scoreHTTPObs()
 			time.Sleep(5 * time.Second)
-		}
-	}()
-	// Spawn the RRA import process
-	go func() {
-		logf("spawning rra import routine")
-		for {
-			importRRA()
-			time.Sleep(15 * time.Minute)
 		}
 	}()
 	// Spawn AWS metadata import process
