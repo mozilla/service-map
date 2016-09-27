@@ -162,14 +162,14 @@ func riskHTTPObsScenario(op opContext, rs *slib.RRAServiceRisk,
 			}
 			havecnt++
 			var uval int
+			// If the site scores 75 or higher, treat is as LOW.
+			// probability. The observatory does not provide a likelihood
+			// indicator directly. If the score is below 75, treat
+			// it as MEDIUM.
 			if y.HTTPObs.Score >= 75 {
 				uval = 1
-			} else if y.HTTPObs.Score >= 50 {
-				uval = 2
-			} else if y.HTTPObs.Score >= 24 {
-				uval = 3
 			} else {
-				uval = 4
+				uval = 2
 			}
 			if float64(uval) >= highest {
 				highest = float64(uval)
