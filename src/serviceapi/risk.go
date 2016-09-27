@@ -86,12 +86,9 @@ func riskComplianceScenario(op opContext, rs *slib.RRAServiceRisk,
 
 func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 	src slib.RRAAttribute, desc string) error {
-	// The score here will range from 1 to 4, and will be set to the
-	// score associated with the highest vulnerability impact value
-	// identified on the hosts in scope. For example, a single maximum
-	// impact vulnerability will result in a probability score of 4.0.
-	//
-	// This could probably be changed to be a little more lenient.
+	// Utilize the likelihood indicator set with the vulnerabilty score
+	// as the probability for the calculation; this will range from
+	// 1 to 4.
 	datacount := 0
 	hostcount := 0
 	highest := 1.0
@@ -102,18 +99,8 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 				continue
 			}
 			datacount++
-			// If we have already seen a max impact issue, just break
-			if highest == 4.0 {
-				break
-			}
-			if y.VulnStatus.Medium > 0 && highest < 2.0 {
-				highest = 2.0
-			}
-			if y.VulnStatus.High > 0 && highest < 3.0 {
-				highest = 3.0
-			}
-			if y.VulnStatus.Maximum > 0 && highest < 4.0 {
-				highest = 4.0
+			if float64(y.VulnStatus.LikelihoodIndicator) > highest {
+				highest = float64(y.VulnStatus.LikelihoodIndicator)
 			}
 		}
 	}
