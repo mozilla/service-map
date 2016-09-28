@@ -218,9 +218,17 @@ func riskRRAScenario(op opContext, rs *slib.RRAServiceRisk, src slib.RRAAttribut
 		NoData:   true,
 	}
 	if src.Impact != 0 && src.Probability != 0 {
-		newscen.Probability = src.Probability
+		// Cap the maximum probability we will use on the RRA at 2.0 (MEDIUM).
+		// Some older RRAs (and some new ones) don't have correct probability
+		// values set; once these are revisted we might be able to remove the
+		// cap but for now set it to 2.
+		if src.Probability > 2 {
+			newscen.Probability = 2
+		} else {
+			newscen.Probability = src.Probability
+		}
 		newscen.Impact = src.Impact
-		newscen.Score = src.Impact * src.Probability
+		newscen.Score = newscen.Impact * newscen.Probability
 		newscen.Coverage = "complete"
 		newscen.NoData = false
 	}
