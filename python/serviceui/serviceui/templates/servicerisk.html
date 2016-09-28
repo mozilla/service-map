@@ -71,6 +71,106 @@
     return 0;
   }
 
+  function populateDetailsScenarios(riskel) {
+    $('#detscenarios tbody').empty();
+    var d = {'RRA': {}, 'Observatory': {}, 'Compliance': {}, 'Vulnerability': {}};
+    for (i = 0; i < riskel.scenarios.length; i++) {
+      var lk = '';
+      var ak = '';
+      if (riskel.scenarios[i].name.includes('RRA')) {
+        lk = 'RRA';
+      } else if (riskel.scenarios[i].name.includes('Compliance')) {
+        lk = 'Compliance';
+      } else if (riskel.scenarios[i].name.includes('Vulnerability')) {
+        lk = 'Vulnerability';
+      } else if (riskel.scenarios[i].name.includes('httpobs')) {
+        lk = 'Observatory';
+      } else {
+        continue;
+      }
+
+      if (riskel.scenarios[i].name.includes('reputation')) {
+        ak = 'Reputation';
+      } else if (riskel.scenarios[i].name.includes('financial')) {
+        ak = 'Financial';
+      } else if (riskel.scenarios[i].name.includes('productivity')) {
+        ak = 'Productivity';
+      } else {
+        continue;
+      }
+
+      var rv = [];
+
+      switch(riskel.scenarios[i].impact) {
+        case 0:
+          rv.push('UNKNOWN');
+          break;
+        case 1:
+          rv.push('LOW');
+          break;
+        case 2:
+          rv.push('MEDIUM');
+          break;
+        case 3:
+          rv.push('HIGH');
+          break;
+        case 4:
+          rv.push('MAXIMUM');
+          break;
+      }
+
+      var prob = riskel.scenarios[i].probability;
+      if (prob >= 3.0) {
+        rv.push('HIGH');
+      } else if (prob >= 2.0) {
+        rv.push('MEDIUM');
+      } else if (prob >= 1.0) {
+        rv.push('LOW');
+      } else {
+        rv.push('UNKNOWN');
+      }
+
+      var score = riskel.scenarios[i].score;
+      if (score >= 12.0) {
+        rv.push('MAXIMUM');
+      } else if (score >= 8.0) {
+        rv.push('HIGH');
+      } else if (score >= 4.0) {
+        rv.push('MEDIUM');
+      } else if (score > 0) {
+        rv.push('LOW');
+      } else {
+        rv.push('UNKNOWN');
+      }
+
+      d[lk][ak] = rv;
+    }
+    for (var kv in d) {
+      for (var kv2 in d[kv]) {
+        nr = $('<tr></tr>');
+        nr.append('<td>' + kv + '</td>');
+        nr.append('<td>' + kv2 + '</td>');
+        nr.append('<td>' + d[kv][kv2][0] + '</td>');
+        nr.append('<td>' + d[kv][kv2][1] + '</td>');
+        nr.append('<td>' + d[kv][kv2][2] + '</td>');
+        $('#detscenarios tbody').append(nr);
+      }
+    }
+  };
+
+  var mapClickHandler = function(e, data) {
+    var n = data.nodes;
+    var riskel = null;
+    for (i = 0; i < riskdata.length; i++) {
+      if (riskdata[i].rra.name == n[0].id) {
+        riskel = riskdata[i];
+        break;
+      }
+    }
+    populateDetailsScenarios(riskel);
+    $('#riskdetails').modal('show');
+  };
+
   $(document).ready(function() {
     rt = $('#riskstable > tbody');
     for (i = 0; i < riskdata.length; i++) {
@@ -101,7 +201,8 @@
         {"val":0, "color":"#eee"},
         {"val":1, "color":"#f00"},
       ]
-    });
+    })
+    .bind('treemapclick', mapClickHandler);
 
     $('#selectrisk option').click(function () {
       var t = $(this).text();
@@ -145,5 +246,30 @@
     <tbody>
     </tbody>
   </table>
+</div>
+<div id="riskdetails" class="modal fade" role="dialog">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="model-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3 id="riskdetailsLabel">Risk details</h3>
+      </div>
+      <div class="modal-body">
+        <p>
+        Scenarios
+        </p>
+        <p>
+          <table id="detscenarios" width="100%">
+            <thead><tr><td>Source</td><td>Attribute</td><td>Impact</td><td>Probability</td><td>Risk</td></tr></thead>
+            <tbody>
+            </tbody>
+          </table>
+        </p>
+      </div>
+      <div class="modal-footer">
+         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
