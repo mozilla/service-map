@@ -10,7 +10,7 @@ package servicelib
 // Search types and various encapsulation used in certain API responses
 
 import (
-	"github.com/jvehent/gozdef"
+	"github.com/ameihm0912/gozdef"
 )
 
 // Parameters used for a search request.

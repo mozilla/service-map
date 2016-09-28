@@ -47,8 +47,8 @@ func riskComplianceScenario(op opContext, rs *slib.RRAServiceRisk,
 			}
 		}
 	}
-	// If totalcnt is zero, we didn't have any data points.
-	if totalcnt == 0 {
+	// If totalcnt is zero, or the Impact value is 0, we didn't have any data points.
+	if totalcnt == 0 || src.Impact == 0 {
 		ndp := slib.RiskScenario{
 			Name:     "Compliance scenario for " + desc,
 			NoData:   true,
@@ -65,6 +65,14 @@ func riskComplianceScenario(op opContext, rs *slib.RRAServiceRisk,
 			scr += stepv * float64(y.CompStatus.MediumFail)
 			scr += stepv * float64(y.CompStatus.LowFail)
 		}
+	}
+
+	// Cap the maximum possible probability for compliance scenarios
+	// off at 2.0; these events do not include a likelihood indicator
+	// we will use directly but they are not considered to ever raise
+	// probability to "high" or greater
+	if scr > 2.0 {
+		scr = 2.0
 	}
 
 	newscen := slib.RiskScenario{
@@ -86,12 +94,9 @@ func riskComplianceScenario(op opContext, rs *slib.RRAServiceRisk,
 
 func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 	src slib.RRAAttribute, desc string) error {
-	// The score here will range from 1 to 4, and will be set to the
-	// score associated with the highest vulnerability impact value
-	// identified on the hosts in scope. For example, a single maximum
-	// impact vulnerability will result in a probability score of 4.0.
-	//
-	// This could probably be changed to be a little more lenient.
+	// Utilize the likelihood indicator set with the vulnerabilty score
+	// as the probability for the calculation; this will range from
+	// 1 to 4.
 	datacount := 0
 	hostcount := 0
 	highest := 1.0
@@ -102,22 +107,12 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 				continue
 			}
 			datacount++
-			// If we have already seen a max impact issue, just break
-			if highest == 4.0 {
-				break
-			}
-			if y.VulnStatus.Medium > 0 && highest < 2.0 {
-				highest = 2.0
-			}
-			if y.VulnStatus.High > 0 && highest < 3.0 {
-				highest = 3.0
-			}
-			if y.VulnStatus.Maximum > 0 && highest < 4.0 {
-				highest = 4.0
+			if float64(y.VulnStatus.LikelihoodIndicator) > highest {
+				highest = float64(y.VulnStatus.LikelihoodIndicator)
 			}
 		}
 	}
-	if datacount == 0 {
+	if datacount == 0 || src.Impact == 0 {
 		newscan := slib.RiskScenario{
 			Name:     "Vulnerability scenario for " + desc,
 			Coverage: "none",
@@ -167,14 +162,14 @@ func riskHTTPObsScenario(op opContext, rs *slib.RRAServiceRisk,
 			}
 			havecnt++
 			var uval int
+			// If the site scores 75 or higher, treat is as LOW.
+			// probability. The observatory does not provide a likelihood
+			// indicator directly. If the score is below 75, treat
+			// it as MEDIUM.
 			if y.HTTPObs.Score >= 75 {
 				uval = 1
-			} else if y.HTTPObs.Score >= 50 {
-				uval = 2
-			} else if y.HTTPObs.Score >= 24 {
-				uval = 3
 			} else {
-				uval = 4
+				uval = 2
 			}
 			if float64(uval) >= highest {
 				highest = float64(uval)
@@ -223,9 +218,17 @@ func riskRRAScenario(op opContext, rs *slib.RRAServiceRisk, src slib.RRAAttribut
 		NoData:   true,
 	}
 	if src.Impact != 0 && src.Probability != 0 {
-		newscen.Probability = src.Probability
+		// Cap the maximum probability we will use on the RRA at 2.0 (MEDIUM).
+		// Some older RRAs (and some new ones) don't have correct probability
+		// values set; once these are revisted we might be able to remove the
+		// cap but for now set it to 2.
+		if src.Probability > 2 {
+			newscen.Probability = 2
+		} else {
+			newscen.Probability = src.Probability
+		}
 		newscen.Impact = src.Impact
-		newscen.Score = src.Impact * src.Probability
+		newscen.Score = newscen.Impact * newscen.Probability
 		newscen.Coverage = "complete"
 		newscen.NoData = false
 	}
@@ -308,7 +311,7 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 }
 
 // Determine which attributes (e.g., conf, integ, avail) from the RRA
-// we want to use was impact inputs for the risk scenarios.
+// we want to use as impact inputs for the risk scenarios.
 func riskFindHighestImpact(rs *slib.RRAServiceRisk) error {
 	rs.UsedRRAAttrib.Reputation.Impact,
 		rs.UsedRRAAttrib.Reputation.Probability = rs.RRA.HighestRiskReputation()

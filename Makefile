@@ -11,7 +11,7 @@ depends:
 	$(GO) get -u github.com/gorilla/context
 	$(GO) get -u github.com/gorilla/mux
 	$(GO) get -u github.com/pborman/uuid
-	$(GO) get -u github.com/jvehent/gozdef
+	$(GO) get -u github.com/ameihm0912/gozdef
 	$(GO) get -u github.com/ameihm0912/http-observatory-go
 	$(GO) get -u mig.ninja/mig
 	$(GO) get -u mig.ninja/mig/client

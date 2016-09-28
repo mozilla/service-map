@@ -124,7 +124,8 @@ CREATE TABLE vulnscore (
 	maxcount INTEGER DEFAULT 0 NOT NULL,
 	highcount INTEGER DEFAULT 0 NOT NULL,
 	mediumcount INTEGER DEFAULT 0 NOT NULL,
-	lowcount INTEGER DEFAULT 0 NOT NULL
+	lowcount INTEGER DEFAULT 0 NOT NULL,
+	likelihoodindicator INTEGER DEFAULT 0 NOT NULL
 );
 CREATE INDEX ON vulnscore (assetid, timestamp DESC);
 CREATE TABLE httpobsscore (

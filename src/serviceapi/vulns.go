@@ -10,7 +10,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jvehent/gozdef"
+	"github.com/ameihm0912/gozdef"
 	elastigo "github.com/mattbaird/elastigo/lib"
 	"net/http"
 	slib "servicelib"
