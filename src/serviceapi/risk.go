@@ -47,8 +47,8 @@ func riskComplianceScenario(op opContext, rs *slib.RRAServiceRisk,
 			}
 		}
 	}
-	// If totalcnt is zero, we didn't have any data points.
-	if totalcnt == 0 {
+	// If totalcnt is zero, or the Impact value is 0, we didn't have any data points.
+	if totalcnt == 0 || src.Impact == 0 {
 		ndp := slib.RiskScenario{
 			Name:     "Compliance scenario for " + desc,
 			NoData:   true,
@@ -112,7 +112,7 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 			}
 		}
 	}
-	if datacount == 0 {
+	if datacount == 0 || src.Impact == 0 {
 		newscan := slib.RiskScenario{
 			Name:     "Vulnerability scenario for " + desc,
 			Coverage: "none",
