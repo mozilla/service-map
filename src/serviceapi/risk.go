@@ -311,7 +311,7 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 }
 
 // Determine which attributes (e.g., conf, integ, avail) from the RRA
-// we want to use was impact inputs for the risk scenarios.
+// we want to use as impact inputs for the risk scenarios.
 func riskFindHighestImpact(rs *slib.RRAServiceRisk) error {
 	rs.UsedRRAAttrib.Reputation.Impact,
 		rs.UsedRRAAttrib.Reputation.Probability = rs.RRA.HighestRiskReputation()
