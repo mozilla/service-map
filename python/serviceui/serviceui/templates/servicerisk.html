@@ -74,9 +74,15 @@
   function populateDetailsScenarios(riskel) {
     $('#detscenarios tbody').empty();
     var d = {'RRA': {}, 'Observatory': {}, 'Compliance': {}, 'Vulnerability': {}};
+    var validscenarios = 0;
     for (i = 0; i < riskel.scenarios.length; i++) {
       var lk = '';
       var ak = '';
+
+      if (!riskel.scenarios[i].nodata) {
+        validscenarios++;
+      }
+
       if (riskel.scenarios[i].name.includes('RRA')) {
         lk = 'RRA';
       } else if (riskel.scenarios[i].name.includes('Compliance')) {
@@ -103,45 +109,48 @@
 
       switch(riskel.scenarios[i].impact) {
         case 0:
-          rv.push('UNKNOWN');
+          rv.push('unknown');
           break;
         case 1:
-          rv.push('LOW');
+          rv.push('low');
           break;
         case 2:
-          rv.push('MEDIUM');
+          rv.push('medium');
           break;
         case 3:
-          rv.push('HIGH');
+          rv.push('high');
           break;
         case 4:
-          rv.push('MAXIMUM');
+          rv.push('maximum');
           break;
       }
+      rv.push(Number((riskel.scenarios[i].impact).toFixed(2)));
 
       var prob = riskel.scenarios[i].probability;
       if (prob >= 3.0) {
-        rv.push('HIGH');
+        rv.push('high');
       } else if (prob >= 2.0) {
-        rv.push('MEDIUM');
+        rv.push('medium');
       } else if (prob >= 1.0) {
-        rv.push('LOW');
+        rv.push('low');
       } else {
-        rv.push('UNKNOWN');
+        rv.push('unknown');
       }
+      rv.push(Number((riskel.scenarios[i].probability).toFixed(2)));
 
       var score = riskel.scenarios[i].score;
       if (score >= 12.0) {
-        rv.push('MAXIMUM');
+        rv.push('maximum');
       } else if (score >= 8.0) {
-        rv.push('HIGH');
+        rv.push('high');
       } else if (score >= 4.0) {
-        rv.push('MEDIUM');
+        rv.push('medium');
       } else if (score > 0) {
-        rv.push('LOW');
+        rv.push('low');
       } else {
-        rv.push('UNKNOWN');
+        rv.push('unknown');
       }
+      rv.push(Number((riskel.scenarios[i].score).toFixed(2)));
 
       d[lk][ak] = rv;
     }
@@ -150,12 +159,26 @@
         nr = $('<tr></tr>');
         nr.append('<td>' + kv + '</td>');
         nr.append('<td>' + kv2 + '</td>');
-        nr.append('<td>' + d[kv][kv2][0] + '</td>');
-        nr.append('<td>' + d[kv][kv2][1] + '</td>');
-        nr.append('<td>' + d[kv][kv2][2] + '</td>');
+        nr.append('<td><span name="rlabel">' + d[kv][kv2][0] + '</span> (' + d[kv][kv2][1] + ')</td>');
+        nr.append('<td><span name="rlabel">' + d[kv][kv2][2] + '</span> (' + d[kv][kv2][3] + ')</td>');
+        nr.append('<td><span name="rlabel">' + d[kv][kv2][4] + '</span> (' + d[kv][kv2][5] + ')</td>');
         $('#detscenarios tbody').append(nr);
       }
     }
+
+    nr = $('<tr></tr>')
+    nr.append('<td colspan=4>Considered scenarios</td><td>' + validscenarios + '</td>')
+    $('#detscenarios tbody').append(nr);
+
+    nr = $('<tr></tr>')
+    nr.append('<td colspan=4>Median scenario risk</td><td><span name="rlabel">'
+      + riskel.risk.median_label + '</span> (' + Number((riskel.risk.median).toFixed(2)) + ')</td>')
+    $('#detscenarios tbody').append(nr);
+
+    nr = $('<tr></tr>')
+    nr.append('<td colspan=4>Maximum scenario risk</td><td><span name="rlabel">'
+      + riskel.risk.worst_case_label + '</span> (' + Number((riskel.risk.worst_case).toFixed(2)) + ')</td>')
+    $('#detscenarios tbody').append(nr);
   };
 
   var mapClickHandler = function(e, data) {
@@ -168,6 +191,7 @@
       }
     }
     populateDetailsScenarios(riskel);
+    trColor();
     $('#riskdetails').modal('show');
   };
 
@@ -256,10 +280,10 @@
       </div>
       <div class="modal-body">
         <p>
-        Scenarios
+        <h4>Scenarios</h4>
         </p>
         <p>
-          <table id="detscenarios" width="100%">
+          <table id="detscenarios" class="suTable" cellspacing="0" width="100%">
             <thead><tr><td>Source</td><td>Attribute</td><td>Impact</td><td>Probability</td><td>Risk</td></tr></thead>
             <tbody>
             </tbody>
