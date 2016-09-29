@@ -139,11 +139,11 @@
       rv.push(Number((riskel.scenarios[i].probability).toFixed(2)));
 
       var score = riskel.scenarios[i].score;
-      if (score >= 12.0) {
+      if (score >= 13.0) {
         rv.push('maximum');
-      } else if (score >= 8.0) {
+      } else if (score >= 9.0) {
         rv.push('high');
-      } else if (score >= 4.0) {
+      } else if (score >= 5.0) {
         rv.push('medium');
       } else if (score > 0) {
         rv.push('low');
