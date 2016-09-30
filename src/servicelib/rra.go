@@ -149,6 +149,7 @@ const (
 )
 
 type RRAAttribute struct {
+	Attribute   string  `json:"attribute"`
 	Impact      float64 `json:"impact"`
 	Probability float64 `json:"probability"`
 }
@@ -158,11 +159,15 @@ type RRAAttribute struct {
 type RRAServiceRisk struct {
 	RRA RRAService `json:"rra"` // The RRA we are describing
 
-	UsedRRAAttrib struct {
-		Reputation   RRAAttribute `json:"reputation"`
-		Productivity RRAAttribute `json:"productivity"`
-		Financial    RRAAttribute `json:"financial"`
-	} `json:"used_rra_attributes"`
+	// The attribute from the RRA we use as the basis for risk calculations
+	// (business impact) for the service. For example, this could be "reputation",
+	// "productivity", or "financial" depending on which attribute in the RRA
+	// yields the highest defined risk.
+	//
+	// Previous versions of this would generate scenarios across all attributes
+	// in the RRA. This behavior is not necessarily desirable as it can end up
+	// devaluing high impact attributes when we consider the entire set combined.
+	UsedRRAAttrib RRAAttribute
 
 	Risk struct {
 		WorstCase      float64 `json:"worst_case"`
@@ -224,7 +229,10 @@ func ImpactValueFromLabel(l string) (float64, error) {
 	case "low":
 		return ImpactLowValue, nil
 	case "unknown":
-		return ImpactUnknownValue, nil
+		// XXX Return low here if the value is set to unknown to handle older
+		// format RRAs and still use the data in risk calculation; returning
+		// valid data here is important for riskFindHighestImpact()
+		return ImpactLowValue, nil
 	}
 	return 0, fmt.Errorf("invalid impact label %v", l)
 }
