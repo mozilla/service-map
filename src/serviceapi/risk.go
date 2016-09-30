@@ -10,6 +10,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"github.com/lib/pq"
 	"github.com/montanaflynn/stats"
 	slib "servicelib"
@@ -278,18 +279,8 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 	// Note the highest business impact value that was determined from
 	// the RRA. This can be used as an indication of the business impact
 	// for the service.
-	impv := 0.0
-	if rs.UsedRRAAttrib.Reputation.Impact > impv {
-		impv = rs.UsedRRAAttrib.Reputation.Impact
-	}
-	if rs.UsedRRAAttrib.Productivity.Impact > impv {
-		impv = rs.UsedRRAAttrib.Productivity.Impact
-	}
-	if rs.UsedRRAAttrib.Financial.Impact > impv {
-		impv = rs.UsedRRAAttrib.Financial.Impact
-	}
-	rs.Risk.Impact = impv
-	rs.Risk.ImpactLabel, err = slib.ImpactLabelFromValue(impv)
+	rs.Risk.Impact = rs.UsedRRAAttrib.Impact
+	rs.Risk.ImpactLabel, err = slib.ImpactLabelFromValue(rs.Risk.Impact)
 	if err != nil {
 		return err
 	}
@@ -330,15 +321,53 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 	return nil
 }
 
-// Determine which attributes (e.g., conf, integ, avail) from the RRA
-// we want to use as impact inputs for the risk scenarios.
+// Determine which attributes (e.g., reputation, financial, productivity +
+// conf, integ, avail) from the RRA we want to use as impact inputs for the
+// risk scenarios.
 func riskFindHighestImpact(rs *slib.RRAServiceRisk) error {
-	rs.UsedRRAAttrib.Reputation.Impact,
-		rs.UsedRRAAttrib.Reputation.Probability = rs.RRA.HighestRiskReputation()
-	rs.UsedRRAAttrib.Productivity.Impact,
-		rs.UsedRRAAttrib.Productivity.Probability = rs.RRA.HighestRiskProductivity()
-	rs.UsedRRAAttrib.Financial.Impact,
-		rs.UsedRRAAttrib.Financial.Probability = rs.RRA.HighestRiskFinancial()
+	var (
+		repimp, repprob   float64
+		prodimp, prodprob float64
+		finimp, finprob   float64
+		userisk           float64
+		selectattr        string
+	)
+	repimp, repprob = rs.RRA.HighestRiskReputation()
+	prodimp, prodprob = rs.RRA.HighestRiskProductivity()
+	finimp, finprob = rs.RRA.HighestRiskFinancial()
+
+	riskrep := repimp * repprob
+	riskprod := prodimp * prodprob
+	riskfin := finimp * finprob
+
+	if riskrep > userisk {
+		userisk = riskrep
+		selectattr = "reputation"
+	}
+	if riskprod > userisk {
+		userisk = riskprod
+		selectattr = "productivity"
+	}
+	if riskfin > userisk {
+		userisk = riskfin
+		selectattr = "financial"
+	}
+
+	rs.UsedRRAAttrib.Attribute = selectattr
+	switch selectattr {
+	case "reputation":
+		rs.UsedRRAAttrib.Impact = repimp
+		rs.UsedRRAAttrib.Probability = repprob
+	case "productivity":
+		rs.UsedRRAAttrib.Impact = prodimp
+		rs.UsedRRAAttrib.Probability = prodprob
+	case "financial":
+		rs.UsedRRAAttrib.Impact = finimp
+		rs.UsedRRAAttrib.Probability = finprob
+	default:
+		return fmt.Errorf("riskFindHighestImpact found no valid attributes")
+	}
+
 	return nil
 }
 
@@ -350,51 +379,19 @@ func riskCalculation(op opContext, rs *slib.RRAServiceRisk) error {
 	if err != nil {
 		return err
 	}
-	err = riskRRAScenario(op, rs, rs.UsedRRAAttrib.Reputation, "reputation")
+	err = riskRRAScenario(op, rs, rs.UsedRRAAttrib, rs.UsedRRAAttrib.Attribute)
 	if err != nil {
 		return err
 	}
-	err = riskRRAScenario(op, rs, rs.UsedRRAAttrib.Productivity, "productivity")
+	err = riskComplianceScenario(op, rs, rs.UsedRRAAttrib, rs.UsedRRAAttrib.Attribute)
 	if err != nil {
 		return err
 	}
-	err = riskRRAScenario(op, rs, rs.UsedRRAAttrib.Financial, "financial")
+	err = riskVulnerabilityScenario(op, rs, rs.UsedRRAAttrib, rs.UsedRRAAttrib.Attribute)
 	if err != nil {
 		return err
 	}
-	err = riskComplianceScenario(op, rs, rs.UsedRRAAttrib.Reputation, "reputation")
-	if err != nil {
-		return err
-	}
-	err = riskComplianceScenario(op, rs, rs.UsedRRAAttrib.Productivity, "productivity")
-	if err != nil {
-		return err
-	}
-	err = riskComplianceScenario(op, rs, rs.UsedRRAAttrib.Financial, "financial")
-	if err != nil {
-		return err
-	}
-	err = riskVulnerabilityScenario(op, rs, rs.UsedRRAAttrib.Reputation, "reputation")
-	if err != nil {
-		return err
-	}
-	err = riskVulnerabilityScenario(op, rs, rs.UsedRRAAttrib.Productivity, "productivity")
-	if err != nil {
-		return err
-	}
-	err = riskVulnerabilityScenario(op, rs, rs.UsedRRAAttrib.Financial, "financial")
-	if err != nil {
-		return err
-	}
-	err = riskHTTPObsScenario(op, rs, rs.UsedRRAAttrib.Reputation, "reputation")
-	if err != nil {
-		return err
-	}
-	err = riskHTTPObsScenario(op, rs, rs.UsedRRAAttrib.Productivity, "productivity")
-	if err != nil {
-		return err
-	}
-	err = riskHTTPObsScenario(op, rs, rs.UsedRRAAttrib.Financial, "financial")
+	err = riskHTTPObsScenario(op, rs, rs.UsedRRAAttrib, rs.UsedRRAAttrib.Attribute)
 	if err != nil {
 		return err
 	}
