@@ -9,6 +9,36 @@
   {% endfor %}
   ];
 
+  // Utility function to wrap text in a Canvas
+  // http: //www.html5canvastutorials.com/tutorials/html5-canvas-wrap-text-tutorial/
+  function wrapText(context, text, x, y, maxWidth, lineHeight) {
+     var cars = text.split("\n");
+
+     for (var ii = 0; ii < cars.length; ii++) {
+
+         var line = "";
+         var words = cars[ii].split(" ");
+
+         for (var n = 0; n < words.length; n++) {
+             var testLine = line + words[n] + " ";
+             var metrics = context.measureText(testLine);
+             var testWidth = metrics.width;
+
+             if (testWidth > maxWidth) {
+                 context.fillText(line, x, y);
+                 line = words[n] + " ";
+                 y += lineHeight;
+             }
+             else {
+                 line = testLine;
+             }
+         }
+
+         context.fillText(line, x, y);
+         y += lineHeight;
+     }
+  }
+
   // Process riskdata and return object suitable for treemap
   function maketreedata() {
     var treedata = {id: "root", children: []};
@@ -221,10 +251,50 @@
       "sizeOption": 0,
       "colorOption": 0,
       "labelsEnabled": true,
+      "colorResolution": 5,
+      "naColor": "#fffff",
       "colorStops": [
-        {"val":0, "color":"#eee"},
-        {"val":1, "color":"#f00"},
-      ]
+        {"val":1, "color":"#d04437"},
+        {"val":0.7, "color":"#ffd351"},
+        {"val":0.5, "color":"#4a6785"},
+        {"val":0.2, "color":"#cccccc"},
+        {"val":0, "color":"#ffffff"}
+      ],
+      leafNodeBodyGradient: function(ctx,rect,rgb) {
+        var r1 = Math.min(rect[2],rect[3])*0.1;
+        var r2 = Math.max(rect[2],rect[3]);
+        var x = rect[0]+rect[2]*0.5;
+        var y = rect[1]+rect[3]*0.5;
+        var gradient = ctx.createRadialGradient(x,y,r1,x,y,r2);
+
+        gradient.addColorStop(0,TreemapUtils.lighterColor(TreemapUtils.rgb2hex(rgb),0.1));
+        gradient.addColorStop(1,TreemapUtils.darkerColor(TreemapUtils.rgb2hex(rgb),0.05));
+        return gradient;
+      },
+      leafNodeBodyLabeller: function(ctx,rect,rgb,id) {
+        ctx.rect(rect[0],rect[1],rect[2],rect[3]);
+        x=rect[0]+2;
+        y=rect[1]+10;
+	w=rect[2];
+	h=rect[3];
+        ctx.clip();
+        if (TreemapUtils.avgRgb(rgb) <= 200) {
+            ctx.fillStyle = '#fff';
+        } else {
+            ctx.fillStyle = '#888';
+        }
+        ctx.font = '0.625em Segoe UI, Tahoma, sans-serif';
+	// Maximum line len for readability is 2x the node width
+	var avgtxt_len = ctx.measureText("a");
+	// Maximum amount of text is a littler over twice the length of the node (so 2 lines in a node)
+	// (for readability)
+	var txt = id.substring(0, Math.trunc(w/avgtxt_len.width)*2);
+	// Indicate we've cut the text
+	if (txt.length < id.length)
+            txt = txt + "..."
+	// Line height needs to be a little higher than the font size set above. This will wrap text in the node.
+	wrapText(ctx, txt, x, y, w, 12);
+      }
     })
     .bind('treemapclick', mapClickHandler);
 
