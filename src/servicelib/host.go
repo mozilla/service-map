@@ -23,6 +23,13 @@ type Host struct {
 	VulnStatus VulnerabilityStatus `json:"vulnerabilities"`
 }
 
+type VulnerabilityTrend struct {
+	DaysWithMaximum int `json:"dayswithmaximum"`
+	DaysWithHigh    int `json:"dayswithhigh"`
+	DaysWithMedium  int `json:"dayswithmedium"`
+	DaysWithLow     int `json:"dayswithlow"`
+}
+
 type VulnerabilityStatus struct {
 	Coverage bool `json:"coverage"` // True if we have assessment coverage
 
@@ -31,6 +38,8 @@ type VulnerabilityStatus struct {
 	Medium              int `json:"medium"`
 	Low                 int `json:"low"`
 	LikelihoodIndicator int `json:"likelihood_indicator"`
+
+	Last90Days VulnerabilityTrend `json:"last90days"`
 }
 
 func (v *VulnerabilityStatus) Reset() {

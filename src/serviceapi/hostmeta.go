@@ -132,5 +132,44 @@ func hostAddVuln(op opContext, h *slib.Host) error {
 			return err
 		}
 	}
+	err = hostAddVulnLast90(op, h, tstamp)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Add counts for a given host representing the number of days the host was
+// known to have vulnerabilities of a given impact, within the last 90
+// days but before tstamp
+func hostAddVulnLast90(op opContext, h *slib.Host, tstamp time.Time) error {
+	err := op.QueryRow(`WITH summary AS (
+			SELECT date_trunc('day', timestamp) as day,
+			sum(maxcount) as maxcount,
+			sum(highcount) as highcount,
+			sum(mediumcount) as mediumcount,
+			sum(lowcount) as lowcount
+			FROM vulnscore
+			WHERE assetid = $1 AND
+			timestamp > now() - interval '90 days' AND
+			timestamp < $2
+			GROUP BY day
+		)
+		SELECT
+		sum(case when maxcount > 0 then 1 else 0 end) as maxdays,
+		sum(case when highcount > 0 then 1 else 0 end) as highdays,
+		sum(case when mediumcount > 0 then 1 else 0 end) as mediumdays,
+		sum(case when lowcount > 0 then 1 else 0 end) as lowdays
+		FROM summary`, h.ID, tstamp).Scan(&h.VulnStatus.Last90Days.DaysWithMaximum,
+		&h.VulnStatus.Last90Days.DaysWithHigh,
+		&h.VulnStatus.Last90Days.DaysWithMedium,
+		&h.VulnStatus.Last90Days.DaysWithLow)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		} else {
+			return err
+		}
+	}
 	return nil
 }
