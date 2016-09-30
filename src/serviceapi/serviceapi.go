@@ -97,6 +97,9 @@ type Config struct {
 		Cert           string
 		RiskCacheEvery string
 	}
+	Risk struct {
+		VulnMaxHighGracePeriod int
+	}
 	Database struct {
 		Hostname string
 		Database string

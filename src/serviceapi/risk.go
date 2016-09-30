@@ -100,6 +100,7 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 	datacount := 0
 	hostcount := 0
 	highest := 1.0
+	probincrease := 0.0
 	for _, x := range rs.RRA.SupportGrps {
 		for _, y := range x.Host {
 			hostcount++
@@ -109,6 +110,18 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 			datacount++
 			if float64(y.VulnStatus.LikelihoodIndicator) > highest {
 				highest = float64(y.VulnStatus.LikelihoodIndicator)
+			}
+
+			// If the host currently has known high or maximum impact issues,
+			// take a look at the number of days max or high impact issues
+			// have been known to exist for this host. If it meets or exceeds the
+			// vuln_maxhigh_graceperiod configuration option in days, the
+			// probability will be increased by 1.
+			if y.VulnStatus.Maximum > 0 || y.VulnStatus.High > 0 {
+				if y.VulnStatus.Last90Days.DaysWithMaximum >= cfg.Risk.VulnMaxHighGracePeriod ||
+					y.VulnStatus.Last90Days.DaysWithHigh >= cfg.Risk.VulnMaxHighGracePeriod {
+					probincrease = 1.0
+				}
 			}
 		}
 	}
@@ -125,6 +138,13 @@ func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
 	if datacount != hostcount {
 		coverage = "partial"
 	}
+
+	// Apply the probability increase if we aren't already at 4.0; assume it can be
+	// a max increase of one for now.
+	if highest <= 3.0 {
+		highest += probincrease
+	}
+
 	// Set coverage to unknown as currently it is not possible to tell
 	// if all hosts are being assessed; we can't go by there being no
 	// known issues on the asset.
