@@ -254,11 +254,14 @@
       "colorResolution": 5,
       "naColor": "#fffff",
       "colorStops": [
-        {"val":1, "color":"#d04437"},
-        {"val":0.75, "color":"#ffd351"},
-        {"val":0.5, "color":"#4a6785"},
-        {"val":0.25, "color":"#cccccc"},
-        {"val":0, "color":"#ffffff"}
+        {"val":1, "color":"#a53329"},
+        {"val":0.75, "color":"#a53329"},
+        {"val":0.74, "color":"#e0b945"},
+        {"val":0.5, "color":"#e0b945"},
+        {"val":0.49, "color":"#4a6785"},
+        {"val":0.25, "color":"#4a6785"},
+        {"val":0.24, "color":"#afafaf"},
+        {"val":0, "color":"#cccccc"}
       ],
       leafNodeBodyGradient: function(ctx,rect,rgb) {
         var r1 = Math.min(rect[2],rect[3])*0.1;
@@ -267,8 +270,8 @@
         var y = rect[1]+rect[3]*0.5;
         var gradient = ctx.createRadialGradient(x,y,r1,x,y,r2);
 
-        gradient.addColorStop(0,TreemapUtils.lighterColor(TreemapUtils.rgb2hex(rgb),0.1));
-        gradient.addColorStop(1,TreemapUtils.darkerColor(TreemapUtils.rgb2hex(rgb),0.05));
+        gradient.addColorStop(0,TreemapUtils.lighterColor(TreemapUtils.rgb2hex(rgb),0.05));
+        gradient.addColorStop(1,TreemapUtils.darkerColor(TreemapUtils.rgb2hex(rgb),0.1));
         return gradient;
       },
       leafNodeBodyLabeller: function(ctx,rect,rgb,id) {
