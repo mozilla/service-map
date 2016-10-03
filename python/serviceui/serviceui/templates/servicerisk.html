@@ -251,17 +251,30 @@
       "sizeOption": 0,
       "colorOption": 0,
       "labelsEnabled": true,
-      "colorResolution": 8,
+      "colorResolution": 16,
       "naColor": "#fffff",
       "colorStops": [
-        {"val":1, "color":"#a53329"},
-        {"val":0.8125, "color":"#a53329"},
-        {"val":0.8124, "color":"#e0b945"},
-        {"val":0.5625, "color":"#e0b945"},
-        {"val":0.5624, "color":"#4a6785"},
+        {"val":0, "color":"#cccccc"},
+
+        {"val":0.0625, "color":"#afafaf"},
+        {"val":0.1250, "color":"#afafaf"},
+        {"val":0.1875, "color":"#afafaf"},
+        {"val":0.2500, "color":"#afafaf"},
+
         {"val":0.3125, "color":"#4a6785"},
-        {"val":0.3124, "color":"#afafaf"},
-        {"val":0, "color":"#cccccc"}
+        {"val":0.3750, "color":"#4a6785"},
+        {"val":0.4375, "color":"#4a6785"},
+        {"val":0.5000, "color":"#4a6785"},
+
+        {"val":0.5625, "color":"#e0b945"},
+        {"val":0.6250, "color":"#e0b945"},
+        {"val":0.6875, "color":"#e0b945"},
+        {"val":0.7500, "color":"#e0b945"},
+
+        {"val":0.8125, "color":"#a53329"},
+        {"val":0.8750, "color":"#a53329"},
+        {"val":0.9375, "color":"#a53329"},
+        {"val":1, "color":"#a53329"}
       ],
       leafNodeBodyGradient: function(ctx,rect,rgb) {
         var r1 = Math.min(rect[2],rect[3])*0.1;
