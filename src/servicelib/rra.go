@@ -66,16 +66,19 @@ func (r *RRAService) HighestRiskReputation() (float64, float64) {
 	rskav := repavi * repavp
 	rskcf := repcfi * repcfp
 	rskit := repiti * repitp
-	var candi, candp *float64
+	var candr, candi, candp *float64
 	candi = &repavi
 	candp = &repavp
-	if rskcf > rskav {
+	candr = &rskav
+	if rskcf > *candr {
 		candi = &repcfi
 		candp = &repcfp
+		candr = &rskcf
 	}
-	if rskit > rskcf {
+	if rskit > *candr {
 		candi = &repiti
 		candp = &repitp
+		candr = &rskit
 	}
 	return *candi, *candp
 }
@@ -91,16 +94,19 @@ func (r *RRAService) HighestRiskProductivity() (float64, float64) {
 	rskav := prdavi * prdavp
 	rskcf := prdcfi * prdcfp
 	rskit := prditi * prditp
-	var candi, candp *float64
+	var candr, candi, candp *float64
 	candi = &prdavi
 	candp = &prdavp
-	if rskcf > rskav {
+	candr = &rskav
+	if rskcf > *candr {
 		candi = &prdcfi
 		candp = &prdcfp
+		candr = &rskcf
 	}
-	if rskit > rskcf {
+	if rskit > *candr {
 		candi = &prditi
 		candp = &prditp
+		candr = &rskit
 	}
 	return *candi, *candp
 }
@@ -116,16 +122,19 @@ func (r *RRAService) HighestRiskFinancial() (float64, float64) {
 	rskav := finavi * finavp
 	rskcf := fincfi * fincfp
 	rskit := finiti * finitp
-	var candi, candp *float64
+	var candr, candi, candp *float64
 	candi = &finavi
 	candp = &finavp
-	if rskcf > rskav {
+	candr = &rskav
+	if rskcf > *candr {
 		candi = &fincfi
 		candp = &fincfp
+		candr = &rskcf
 	}
-	if rskit > rskcf {
+	if rskit > *candr {
 		candi = &finiti
 		candp = &finitp
+		candr = &rskit
 	}
 	return *candi, *candp
 }
