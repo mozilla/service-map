@@ -230,7 +230,7 @@ func serviceLookup(op opContext, s *slib.Service) error {
 	}
 	for rows.Next() {
 		var ns slib.RRAService
-		rows.Scan(&ns.Name, &ns.ID, &ns.AvailRepImpact, &ns.AvailPrdImpact,
+		err = rows.Scan(&ns.Name, &ns.ID, &ns.AvailRepImpact, &ns.AvailPrdImpact,
 			&ns.AvailFinImpact, &ns.ConfiRepImpact, &ns.ConfiPrdImpact,
 			&ns.ConfiFinImpact, &ns.IntegRepImpact, &ns.IntegPrdImpact,
 			&ns.IntegFinImpact,
@@ -238,6 +238,10 @@ func serviceLookup(op opContext, s *slib.Service) error {
 			&ns.ConfiRepProb, &ns.ConfiPrdProb, &ns.ConfiFinProb,
 			&ns.IntegRepProb, &ns.IntegPrdProb, &ns.IntegFinProb,
 			&ns.DefData)
+		if err != nil {
+			rows.Close()
+			return err
+		}
 		s.Services = append(s.Services, ns)
 	}
 	err = rows.Err()
@@ -661,6 +665,7 @@ func dynAssetManager() {
 		var metaid int
 		err = rows.Scan(&metaid)
 		if err != nil {
+			rows.Close()
 			panic(err)
 		}
 		logf("removing assetawsmetaid %v", metaid)
