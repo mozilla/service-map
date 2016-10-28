@@ -48,14 +48,17 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 		err = rows.Scan(&h.ID, &h.Hostname, &h.Comment, &h.LastUsed,
 			&h.SysGroupID, &h.Dynamic)
 		if err != nil {
+			rows.Close()
 			return err
 		}
 		err = hostAddComp(op, &h)
 		if err != nil {
+			rows.Close()
 			return err
 		}
 		err = hostAddVuln(op, &h)
 		if err != nil {
+			rows.Close()
 			return err
 		}
 		s.Host = append(s.Host, h)
@@ -74,10 +77,12 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 		err = rows.Scan(&h.ID, &h.Website, &h.Comment, &h.LastUsed,
 			&h.SysGroupID, &h.Dynamic)
 		if err != nil {
+			rows.Close()
 			return err
 		}
 		err = siteAddHTTPObs(op, &h)
 		if err != nil {
+			rows.Close()
 			return err
 		}
 		s.Website = append(s.Website, h)
