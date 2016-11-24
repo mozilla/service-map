@@ -295,7 +295,7 @@ func searchUsingHost(op opContext, hn string) (slib.Service, error) {
 		FROM asset
 		LEFT OUTER JOIN sysgroup ON (sysgroup.sysgroupid = asset.sysgroupid)
 		LEFT OUTER JOIN assetowners ON (assetowners.ownerid = asset.ownerid)
-		WHERE hostname = $1 AND assettype = 'host'`,
+		WHERE lower(hostname) = lower($1) AND assettype = 'host'`,
 		hn).Scan(&sgid, &sgname, &owoper, &owteam, &v2bover)
 	if err != nil {
 		if err == sql.ErrNoRows {
