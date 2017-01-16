@@ -14,7 +14,7 @@ import (
 	"regexp"
 )
 
-var esRequestMax = 1000000
+var esRequestMax = 10000
 
 func requestComplianceHosts() ([]string, error) {
 	type fieldResponse struct {

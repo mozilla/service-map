@@ -81,7 +81,7 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 
 	logf("scorevuln: processing %v", h)
 	template := `{
-		"size": 1000000,
+		"size": 10000,
 		"query": {
 			"bool": {
 				"must": [
