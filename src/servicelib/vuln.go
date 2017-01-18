@@ -29,8 +29,17 @@ type VulnAsset struct {
 }
 
 type VulnVuln struct {
-	CVSS string `json:"cvss"`
-	Risk string `json:"risk"`
-	Name string `json:"name"`
-	CVE  string `json:"cve"`
+	CVSS                string `json:"cvss"`
+	Risk                string `json:"risk"`
+	Name                string `json:"name"`
+	CVE                 string `json:"cve"`
+	LikelihoodIndicator string `json:"likelihood_indicator"`
+}
+
+func (v *VulnVuln) Normalize() error {
+	if v.Risk == "critical" {
+		v.Risk = "maximum"
+	}
+	v.LikelihoodIndicator = v.Risk
+	return nil
 }

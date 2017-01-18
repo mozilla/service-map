@@ -62,6 +62,12 @@ func getTargetVulns(target string) (ret slib.Vuln, err error) {
 	if err != nil {
 		return ret, err
 	}
+	for i := range ret.Vulns {
+		err = ret.Vulns[i].Normalize()
+		if err != nil {
+			return ret, err
+		}
+	}
 	return ret, nil
 }
 
