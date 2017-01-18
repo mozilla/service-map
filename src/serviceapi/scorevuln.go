@@ -10,8 +10,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/ameihm0912/gozdef"
 	elastigo "github.com/mattbaird/elastigo/lib"
+	slib "servicelib"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -91,11 +92,6 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 					}
 				},
 				{
-					"term": {
-						"status": "open"
-					}
-				},
-				{
 					"range": {
 						"utctimestamp": {
 							"gt": "now-2d"
@@ -113,7 +109,7 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 	}
 
 	var maxcnt, highcnt, medcnt, lowcnt int
-	var vi []gozdef.VulnEvent
+	var vi slib.Vuln
 
 	highlike := 1
 
@@ -125,18 +121,23 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 		// when we perform risk calculation.
 		goto skipanalyze
 	}
-	for _, x := range res.Hits.Hits {
-		var nvi gozdef.VulnEvent
-		err = json.Unmarshal(*x.Source, &nvi)
-		vi = append(vi, nvi)
+	err = json.Unmarshal(*res.Hits.Hits[0].Source, &vi)
+	if err != nil {
+		return err
+	}
+	for i := range vi.Vulns {
+		err = vi.Vulns[i].Normalize()
+		if err != nil {
+			return err
+		}
 	}
 
 	// Count issues on the host
-	for _, x := range vi {
+	for _, x := range vi.Vulns {
 		var tl int
 		// We want the highest likelihood indicator value from the set
-		if x.Vuln.LikelihoodIndicator != "" {
-			switch strings.ToLower(x.Vuln.LikelihoodIndicator) {
+		if x.LikelihoodIndicator != "" {
+			switch strings.ToLower(x.LikelihoodIndicator) {
 			case "maximum":
 				tl = 4
 			case "high":
@@ -146,16 +147,16 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 			case "low":
 				tl = 1
 			default:
-				logf("warning: vulnscore: entry for %v (%v) has invalid likelihood indicator",
-					h, x.Vuln.VulnID)
+				logf("warning: vulnscore: entry for %v has invalid likelihood indicator",
+					h)
 			}
 		}
 		if tl > highlike {
 			highlike = tl
 		}
 		// First try the impact label, if that is not successful try the CVSS score
-		if x.Vuln.ImpactLabel != "" {
-			switch strings.ToLower(x.Vuln.ImpactLabel) {
+		if x.Risk != "" {
+			switch strings.ToLower(x.Risk) {
 			case "maximum":
 				maxcnt++
 			case "high":
@@ -167,22 +168,25 @@ func scoreVulnScoreHost(hid int, h string) (err error) {
 			case "low":
 				lowcnt++
 			default:
-				logf("warning: vulnscore: entry for %v (%v) has invalid impact label",
-					h, x.Vuln.VulnID)
+				logf("warning: vulnscore: entry for %v has invalid impact label",
+					h)
 			}
-		} else if x.Vuln.CVSS > 0 {
-			if x.Vuln.CVSS > 9.0 {
-				maxcnt++
-			} else if x.Vuln.CVSS > 7.0 {
-				highcnt++
-			} else if x.Vuln.CVSS > 5.0 {
-				medcnt++
-			} else {
-				lowcnt++
+		} else if x.CVSS != "" {
+			cvssf, err := strconv.ParseFloat(x.CVSS, 64)
+			if err != nil {
+				if cvssf > 9.0 {
+					maxcnt++
+				} else if cvssf > 7.0 {
+					highcnt++
+				} else if cvssf > 5.0 {
+					medcnt++
+				} else {
+					lowcnt++
+				}
 			}
 		} else {
-			logf("warning: vulnscore: entry for %v (%v) has no usable information",
-				h, x.Vuln.VulnID)
+			logf("warning: vulnscore: entry for %v has no usable information",
+				h)
 		}
 	}
 
