@@ -20,9 +20,11 @@ def get_vulns(targets):
             err = 'Request error: response {}'.format(r.status_code)
             raise search.SLIBException(err)
         buf = json.loads(r.text)
-        for x in buf['vulnerabilities']['vulnerabilities']:
-            nv = x
-            nv['hostname'] = buf['vulnerabilities']['asset']['hostname']
-            nv['utctimestamp'] = buf['vulnerabilities']['utctimestamp']
-            ret['vulns'].append(nv)
+        if buf['vulnerabilities']['vulnerabilities'] != None and \
+            len(buf['vulnerabilities']['vulnerabilities']) > 0:
+            for x in buf['vulnerabilities']['vulnerabilities']:
+                nv = x
+                nv['hostname'] = buf['vulnerabilities']['asset']['hostname']
+                nv['utctimestamp'] = buf['vulnerabilities']['utctimestamp']
+                ret['vulns'].append(nv)
     return ret
