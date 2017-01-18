@@ -4,7 +4,7 @@
 <script>
   var vdetails = [
     {% for v in vulns.vulns %}
-    { "cvss": {{ v.vuln.cvss|tojson|safe }}, "proof": {{ v.vuln.proof|tojson|safe }},
+    { "cvss": {{ v.cvss|tojson|safe }},
     "timestamp": {{ v.utctimestamp|tojson|safe }} },
     {% endfor %}
   ]
@@ -49,7 +49,6 @@
   function rowformat(d) {
     return '<table cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;">' +
       '<tr><td class="suHeader">CVSS base score:</td><td>' + d['cvss'] + '</td></tr>' + 
-      '<tr><td class="suHeader">Proof:</td><td>' + d['proof'] + '</td></tr>' +
       '<tr><td class="suHeader">Last updated:</td><td>' + d['timestamp'] + '</td></tr>' +
       '</table>';
   }
@@ -62,8 +61,8 @@
       <tr>
         <td></td>
         <td>Target</td>
-        <td>ID</td>
         <td>Title</td>
+        <td>CVE</td>
         <td>Impact</td>
       </tr>
     </thead>
@@ -71,10 +70,10 @@
     {% for v in vulns.vulns %}
     <tr data-rowid="{{ loop.index - 1 }}">
       <td class="details-control">+</td>
-      <td>{{ v.asset.hostname }}</td>
-      <td>{{ v.vuln.vulnid }}</td>
-      <td>{{ v.vuln.title }}</td>
-      <td><span name="rlabel">{{ v.vuln.impact_label }}</span></td>
+      <td>{{ v.hostname }}</td>
+      <td>{{ v.name }}</td>
+      <td>{{ v.cve }}</td>
+      <td><span name="rlabel">{{ v.risk }}</span></td>
     </tr>
     {% endfor %}
     </tbody>
