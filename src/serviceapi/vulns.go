@@ -10,25 +10,21 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/ameihm0912/gozdef"
 	elastigo "github.com/mattbaird/elastigo/lib"
 	"net/http"
 	slib "servicelib"
 )
 
-func getTargetVulns(target string) ([]gozdef.VulnEvent, error) {
-	ret := make([]gozdef.VulnEvent, 0)
-
+func getTargetVulns(target string) (ret slib.Vuln, err error) {
 	conn := elastigo.NewConn()
 	defer conn.Close()
 	conn.Domain = cfg.Vulnerabilities.ESHost
 
+	// We'll expect one document for the host, but query for more so we can
+	// potentially generate a notice if duplicate documents for the same host
+	// are in the index.
 	template := `{
-		"from": %v,
 		"size": 10,
-		"sort": [
-		{ "_id": "asc" }
-		],
 		"query": {
 			"bool": {
 				"must": [
@@ -39,12 +35,7 @@ func getTargetVulns(target string) ([]gozdef.VulnEvent, error) {
 				},
 				{
 					"term": {
-						"status": "open"
-					}
-				},
-				{
-					"term": {
-						"sourcename": "production"
+						"sourcename": "scanapi"
 					}
 				},
 				{
@@ -58,26 +49,25 @@ func getTargetVulns(target string) ([]gozdef.VulnEvent, error) {
 			}
 		}
 	}`
-	for i := 0; ; i += 10 {
-		tempbuf := fmt.Sprintf(template, i, target)
-		res, err := conn.Search(cfg.Vulnerabilities.Index, "vulnerability_state",
-			nil, tempbuf)
+	tempbuf := fmt.Sprintf(template, target)
+	res, err := conn.Search(cfg.Vulnerabilities.Index, "vulnerability_state",
+		nil, tempbuf)
+	if err != nil {
+		return ret, err
+	}
+	if res.Hits.Len() == 0 {
+		return ret, nil
+	}
+	err = json.Unmarshal(*res.Hits.Hits[0].Source, &ret)
+	if err != nil {
+		return ret, err
+	}
+	for i := range ret.Vulns {
+		err = ret.Vulns[i].Normalize()
 		if err != nil {
 			return ret, err
 		}
-		if res.Hits.Len() == 0 {
-			break
-		}
-		for _, x := range res.Hits.Hits {
-			var nv gozdef.VulnEvent
-			err = json.Unmarshal(*x.Source, &nv)
-			if err != nil {
-				return ret, err
-			}
-			ret = append(ret, nv)
-		}
 	}
-
 	return ret, nil
 }
 

@@ -49,30 +49,47 @@ func requestComplianceHosts() ([]string, error) {
 		}
 	}`
 	tempbuf := fmt.Sprintf(template, esRequestMax)
-	res, err := conn.Search(cfg.Compliance.Index, "last_known_state", nil, tempbuf)
-	if err != nil {
-		return ret, err
-	}
-	for _, x := range res.Hits.Hits {
-		var nfr fieldResponse
-		err = json.Unmarshal(*x.Fields, &nfr)
+	args := make(map[string]interface{})
+	args["scroll"] = "2m"
+	scrolling := false
+	var (
+		res elastigo.SearchResult
+		err error
+	)
+	for {
+		if !scrolling {
+			res, err = conn.Search(cfg.Compliance.Index, "last_known_state", args, tempbuf)
+			scrolling = true
+		} else {
+			res, err = conn.Scroll(args, res.ScrollId)
+		}
 		if err != nil {
 			return ret, err
 		}
-		if len(nfr.Hostname) == 0 {
-			continue
+		if len(res.Hits.Hits) == 0 {
+			break
 		}
-		found := false
-		for _, y := range ret {
-			if y == nfr.Hostname[0] {
-				found = true
-				break
+		for _, x := range res.Hits.Hits {
+			var nfr fieldResponse
+			err = json.Unmarshal(*x.Fields, &nfr)
+			if err != nil {
+				return ret, err
 			}
+			if len(nfr.Hostname) == 0 {
+				continue
+			}
+			found := false
+			for _, y := range ret {
+				if y == nfr.Hostname[0] {
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
+			ret = append(ret, nfr.Hostname[0])
 		}
-		if found {
-			continue
-		}
-		ret = append(ret, nfr.Hostname[0])
 	}
 	logf("importcomphosts: fetched %v candidates", len(ret))
 

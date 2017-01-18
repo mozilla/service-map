@@ -9,10 +9,6 @@ package servicelib
 
 // Search types and various encapsulation used in certain API responses
 
-import (
-	"github.com/ameihm0912/gozdef"
-)
-
 // Parameters used for a search request.
 type SearchParams struct {
 	Searches []Search `json:"search"` // Slice of searches to conduct for this request
@@ -102,7 +98,7 @@ type SearchMatchResponse struct {
 
 // Response to vulnerabilities request for a target
 type VulnsTargetResponse struct {
-	Vulnerabilities []gozdef.VulnEvent `json:"vulnerabilities"`
+	Vulnerabilities Vuln `json:"vulnerabilities"`
 }
 
 // Response to /risks request, includes all known RRAs
