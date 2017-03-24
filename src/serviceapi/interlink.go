@@ -356,7 +356,8 @@ func interlinkSysGroupServiceLink(op opContext) error {
 			SELECT MAX(lastupdated) FROM rra r
 			WHERE r.service = rra.service LIMIT 1
 		)
-		WHERE ruletype = $1`, SYSGROUP_LINK_SERVICE)
+		WHERE ruletype = $1
+		GROUP BY sysgroupid, rraid`, SYSGROUP_LINK_SERVICE)
 	if err != nil {
 		return err
 	}
