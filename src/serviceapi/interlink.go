@@ -351,7 +351,11 @@ func interlinkHostAWSSQLSysGroupLink(op opContext) error {
 func interlinkSysGroupServiceLink(op opContext) error {
 	rows, err := op.Query(`SELECT sysgroupid, rraid FROM interlinks
 		JOIN sysgroup ON sysgroup.name ~* srcsysgroupmatch
-		JOIN rra ON rra.service ~* destservicematch
+		JOIN rra ON rra.service ~* destservicematch AND
+		rra.lastupdated = (
+			SELECT MAX(lastupdated) FROM rra r
+			WHERE r.service = rra.service LIMIT 1
+		)
 		WHERE ruletype = $1`, SYSGROUP_LINK_SERVICE)
 	if err != nil {
 		return err
