@@ -607,7 +607,7 @@ func rraCleanup() {
 		panic(err)
 	}
 	_, err = op.Exec(`DELETE FROM rra WHERE
-		lastupdated < $1)`, cutoff)
+		lastupdated < $1`, cutoff)
 	if err != nil {
 		op.rollback()
 		panic(err)
