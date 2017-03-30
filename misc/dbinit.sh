@@ -51,6 +51,8 @@ CREATE TABLE risk (
 	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 	risk JSON NOT NULL
 );
+CREATE INDEX ON risk (rraid);
+CREATE INDEX ON risk (timestamp);
 CREATE TABLE sysgroup (
 	sysgroupid SERIAL PRIMARY KEY,
 	name TEXT NOT NULL,
