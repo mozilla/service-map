@@ -482,9 +482,18 @@ func interlinkRunRules() error {
 	op := opContext{}
 	op.newContext(dbconn, true, "interlink")
 
+	var ts time.Time
+	stim := func() {
+		ts = time.Now()
+	}
+	etim := func(n string) {
+		logf("interlink %v took %v", n, time.Now().Sub(ts))
+	}
+
 	logf("interlink: processing")
 
 	// Run system group adds
+	stim()
 	err := interlinkRunSysGroupAdd(op)
 	if err != nil {
 		e := op.rollback()
@@ -493,7 +502,9 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	etim("SysGroupAdd")
 	// Run website adds
+	stim()
 	err = interlinkRunWebsiteAdd(op)
 	if err != nil {
 		e := op.rollback()
@@ -502,7 +513,9 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	etim("WebsiteAdd")
 	// Run owner adds
+	stim()
 	err = interlinkRunOwnerAdd(op)
 	if err != nil {
 		e := op.rollback()
@@ -511,7 +524,9 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	etim("OwnerAdd")
 	// Run host to system group linkage
+	stim()
 	err = interlinkHostSysGroupLink(op)
 	if err != nil {
 		e := op.rollback()
@@ -520,7 +535,9 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	etim("HostSysGroupLink")
 	// Run host awssqlmatch to system group linkage
+	stim()
 	err = interlinkHostAWSSQLSysGroupLink(op)
 	if err != nil {
 		e := op.rollback()
@@ -529,7 +546,9 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	etim("HostAWSSQLSysGroupLink")
 	// Run host to owner linkage
+	stim()
 	err = interlinkHostOwnerLink(op)
 	if err != nil {
 		e := op.rollback()
@@ -538,7 +557,9 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	etim("HostOwnerLink")
 	// Run website to system group linkage
+	stim()
 	err = interlinkWebsiteSysGroupLink(op)
 	if err != nil {
 		e := op.rollback()
@@ -547,7 +568,9 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	etim("WebsiteSysGroupLink")
 	// Run system group to service linkage
+	stim()
 	err = interlinkSysGroupServiceLink(op)
 	if err != nil {
 		e := op.rollback()
@@ -556,6 +579,8 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	etim("SysGroupServiceLink")
+	stim()
 	err = interlinkAssociateAWS(op)
 	if err != nil {
 		e := op.rollback()
@@ -564,6 +589,7 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
+	etim("AssociateAWS")
 	err = op.commit()
 	if err != nil {
 		panic(err)
