@@ -582,6 +582,42 @@ func serviceIndicator(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(rw, string(buf))
 }
 
+// Periodically prune old RRAs
+func rraCleanup() {
+	defer func() {
+		if e := recover(); e != nil {
+			logf("error in rra cleanup: %v", e)
+		}
+	}()
+	op := opContext{}
+	op.newContext(dbconn, true, "rracleanup")
+	cutoff := time.Now().UTC().Add(-(168 * time.Hour))
+	_, err := op.Exec(`DELETE FROM rra_sysgroup WHERE
+		rraid IN (SELECT rraid FROM rra WHERE 
+		lastupdated < $1)`, cutoff)
+	if err != nil {
+		op.rollback()
+		panic(err)
+	}
+	_, err = op.Exec(`DELETE FROM risk WHERE
+		rraid IN (SELECT rraid FROM rra WHERE
+		lastupdated < $1)`, cutoff)
+	if err != nil {
+		op.rollback()
+		panic(err)
+	}
+	_, err = op.Exec(`DELETE FROM rra WHERE
+		lastupdated < $1)`, cutoff)
+	if err != nil {
+		op.rollback()
+		panic(err)
+	}
+	err = op.commit()
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Periodically prune dynamic assets from the database that have not been seen
 // within a given period.
 func dynAssetManager() {
@@ -828,6 +864,14 @@ func main() {
 		for {
 			time.Sleep(1 * time.Minute)
 			dynAssetManager()
+		}
+	}()
+	// Spawn RRA cleanup routine
+	go func() {
+		logf("spawning rra cleanup routine")
+		for {
+			time.Sleep(1 * time.Minute)
+			rraCleanup()
 		}
 	}()
 	go func() {
