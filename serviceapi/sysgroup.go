@@ -92,7 +92,7 @@ func sysGroupAddMeta(op opContext, s *slib.SystemGroup) error {
 }
 
 // API entry point to retrieve a given system group
-func serviceGetSysGroup(rw http.ResponseWriter, req *http.Request) {
+func serviceGetAssetGroup(rw http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 
 	sgid := req.FormValue("id")
@@ -131,7 +131,7 @@ func serviceGetSysGroup(rw http.ResponseWriter, req *http.Request) {
 }
 
 // API entry point to retrieve all system groups
-func serviceSysGroups(rw http.ResponseWriter, req *http.Request) {
+func serviceAssetGroups(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
 

@@ -111,26 +111,6 @@ type Config struct {
 		RunEvery              string
 		AWSStripDNSSuffixList string
 	}
-	HTTPObs struct {
-		ScoringBatchSize int
-		ScoreEvery       string
-	}
-	Vulnerabilities struct {
-		ESHost           string
-		Index            string
-		ScoringBatchSize int
-		ScoreEvery       string
-	}
-	Compliance struct {
-		ESHost           string
-		Index            string
-		ScoringBatchSize int
-		ScoreEvery       string
-	}
-	AWSMeta struct {
-		MetaFile string
-		Lifetime string
-	}
 }
 
 func (c *Config) validate() error {
@@ -645,76 +625,8 @@ func dynAssetManager() {
 			panic(err)
 		}
 		logf("removing asset %v", assetid)
-		_, err = op.Exec(`DELETE FROM compscore
-				WHERE assetid = $1`, assetid)
-		if err != nil {
-			rows.Close()
-			panic(err)
-		}
-		_, err = op.Exec(`DELETE FROM vulnscore
-				WHERE assetid = $1`, assetid)
-		if err != nil {
-			rows.Close()
-			panic(err)
-		}
-		_, err = op.Exec(`DELETE FROM vulnstatus
-				WHERE assetid = $1`, assetid)
-		if err != nil {
-			rows.Close()
-			panic(err)
-		}
-		_, err = op.Exec(`DELETE FROM migstatus
-				WHERE assetid = $1`, assetid)
-		if err != nil {
-			rows.Close()
-			panic(err)
-		}
-		_, err = op.Exec(`DELETE FROM httpobsscore
-				WHERE assetid = $1`, assetid)
-		if err != nil {
-			rows.Close()
-			panic(err)
-		}
 		_, err = op.Exec(`DELETE FROM asset
 				WHERE assetid = $1`, assetid)
-		if err != nil {
-			rows.Close()
-			panic(err)
-		}
-	}
-	err = rows.Err()
-	if err != nil {
-		panic(err)
-	}
-
-	// Drop any AWS instance metadata that we have not seen since configured
-	// cutoff time
-	dur, err := time.ParseDuration(cfg.AWSMeta.Lifetime)
-	if err != nil {
-		panic(err)
-	}
-	cutoff = time.Now().UTC().Add(-1 * dur)
-	rows, err = op.Query(`SELECT assetawsmetaid FROM assetawsmeta
-		WHERE lastupdated < $1`, cutoff)
-	if err != nil {
-		panic(err)
-	}
-	for rows.Next() {
-		var metaid int
-		err = rows.Scan(&metaid)
-		if err != nil {
-			rows.Close()
-			panic(err)
-		}
-		logf("removing assetawsmetaid %v", metaid)
-		_, err = op.Exec(`UPDATE asset SET assetawsmetaid = NULL
-			WHERE assetawsmetaid = $1`, metaid)
-		if err != nil {
-			rows.Close()
-			panic(err)
-		}
-		_, err = op.Exec(`DELETE FROM assetawsmeta WHERE
-			assetawsmetaid = $1`, metaid)
 		if err != nil {
 			rows.Close()
 			panic(err)
@@ -822,9 +734,9 @@ func main() {
 			time.Sleep(5 * time.Second)
 		}
 	}()
-	// Spawn dynamic host manager
+	// Spawn asset manager
 	go func() {
-		logf("spawning dynamic asset manager")
+		logf("spawning asset manager")
 		for {
 			time.Sleep(1 * time.Minute)
 			dynAssetManager()
@@ -856,12 +768,9 @@ func main() {
 
 	r := mux.NewRouter()
 	s := r.PathPrefix("/api/v1").Subrouter()
-	s.HandleFunc("/search", serviceNewSearch).Methods("POST")
-	s.HandleFunc("/search/results/id", serviceGetSearchID).Methods("GET")
-	s.HandleFunc("/search/match", serviceSearchMatch).Methods("GET")
 	s.HandleFunc("/indicator", serviceIndicator).Methods("POST")
-	s.HandleFunc("/sysgroups", serviceSysGroups).Methods("GET")
-	s.HandleFunc("/sysgroup/id", serviceGetSysGroup).Methods("GET")
+	s.HandleFunc("/assetgroups", serviceAssetGroups).Methods("GET")
+	s.HandleFunc("/assetgroup/id", serviceGetAssetGroup).Methods("GET")
 	s.HandleFunc("/rras", serviceRRAs).Methods("GET")
 	s.HandleFunc("/risks", serviceRisks).Methods("GET")
 	s.HandleFunc("/rra/id", serviceGetRRA).Methods("GET")
@@ -871,10 +780,9 @@ func main() {
 	s.HandleFunc("/legacy/vulnauto", serviceVulnAuto).Methods("GET")
 	s.HandleFunc("/owners", serviceOwners).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
-	listenAddr := cfg.General.Listen
-	err = http.ListenAndServeTLS(listenAddr, cfg.General.Cert, cfg.General.Key, nil)
+	err = http.ListenAndServe(cfg.General.Listen, nil)
 	if err != nil {
-		logf("http.ListenAndServeTLS: %v", err)
+		logf("http.ListenAndServe: %v", err)
 		doExit(1)
 	}
 
