@@ -9,8 +9,8 @@ package main
 
 import (
 	"encoding/json"
+	slib "github.com/mozilla/service-map/servicelib"
 	"io/ioutil"
-	slib "servicelib"
 )
 
 // Handles peridically importing AWS instance metadata and associating it

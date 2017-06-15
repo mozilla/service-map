@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	elastigo "github.com/mattbaird/elastigo/lib"
-	slib "servicelib"
+	slib "github.com/mozilla/service-map/servicelib"
 	"strconv"
 	"strings"
 	"time"

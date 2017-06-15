@@ -13,7 +13,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	slib "servicelib"
+	slib "github.com/mozilla/service-map/servicelib"
 	"strings"
 	"time"
 )

@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"github.com/lib/pq"
 	"github.com/montanaflynn/stats"
-	slib "servicelib"
+	slib "github.com/mozilla/service-map/servicelib"
 	"strconv"
 	"time"
 )

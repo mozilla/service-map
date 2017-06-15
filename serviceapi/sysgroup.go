@@ -11,8 +11,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	slib "github.com/mozilla/service-map/servicelib"
 	"net/http"
-	slib "servicelib"
 )
 
 // Return SystemGroup for system group specified by sgid

@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 	elastigo "github.com/mattbaird/elastigo/lib"
+	slib "github.com/mozilla/service-map/servicelib"
 	"net/http"
-	slib "servicelib"
 )
 
 func getTargetVulns(target string) (ret slib.Vuln, err error) {

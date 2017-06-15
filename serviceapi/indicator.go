@@ -10,7 +10,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	slib "servicelib"
+	slib "github.com/mozilla/service-map/servicelib"
 )
 
 // Validate an indicator and update the database

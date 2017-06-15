@@ -9,7 +9,7 @@ package main
 
 import (
 	"database/sql"
-	slib "servicelib"
+	slib "github.com/mozilla/service-map/servicelib"
 	"strings"
 	"time"
 )
