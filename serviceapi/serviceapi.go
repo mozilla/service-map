@@ -810,35 +810,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Spawn the compliance scoring process
-	go func() {
-		logf("spawning compliance scoring routine")
-		for {
-			scoreCompliance()
-			time.Sleep(5 * time.Second)
-		}
-	}()
-	// Spawn the vulnerability scoring process
-	go func() {
-		logf("spawning vulnerability scoring routine")
-		for {
-			scoreVuln()
-			time.Sleep(5 * time.Second)
-		}
-	}()
 	// Spawn risk cache process
 	go func() {
 		logf("spawning risk cache routine")
 		for {
 			riskCache()
-			time.Sleep(5 * time.Second)
-		}
-	}()
-	// Spawn the http observatory scoring process
-	go func() {
-		logf("spawning http observatory scoring routine")
-		for {
-			scoreHTTPObs()
 			time.Sleep(5 * time.Second)
 		}
 	}()
