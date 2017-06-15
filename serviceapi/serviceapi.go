@@ -842,22 +842,6 @@ func main() {
 			time.Sleep(5 * time.Second)
 		}
 	}()
-	// Spawn AWS metadata import process
-	go func() {
-		logf("spawning aws metadata import routine")
-		for {
-			importAWSMeta()
-			time.Sleep(15 * time.Second)
-		}
-	}()
-	// Spawn compliance host import process
-	go func() {
-		logf("spawning compliance host import routine")
-		for {
-			importCompHosts()
-			time.Sleep(60 * time.Minute)
-		}
-	}()
 	// Spawn dynamic host manager
 	go func() {
 		logf("spawning dynamic asset manager")
