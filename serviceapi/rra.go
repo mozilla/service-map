@@ -226,7 +226,8 @@ func serviceUpdateRRA(rw http.ResponseWriter, req *http.Request) {
 		rra.AvailRepProb, rra.AvailPrdProb, rra.AvailFinProb,
 		rra.ConfiRepProb, rra.ConfiPrdProb, rra.ConfiFinProb,
 		rra.IntegRepProb, rra.IntegPrdProb, rra.IntegFinProb,
-		rra.DefData, rra.LastUpdated, buf)
+		rra.DefData, rra.LastUpdated, buf,
+		rra.Name, rra.LastUpdated)
 	if err != nil {
 		op.logf(err.Error())
 		http.Error(rw, "error processing rra", 500)
