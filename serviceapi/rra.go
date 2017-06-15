@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	slib "github.com/mozilla/service-map/servicelib"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 )
@@ -165,63 +166,72 @@ func serviceGetRRARisk(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
-// Read incoming RRA and update database as required. This can result in a
-// new RRA being added, or an existing RRA being updated.
+// Endpoint used to update RRAs in the database (RRA submission to serviceapi
+// from rra2json.
 func serviceUpdateRRA(rw http.ResponseWriter, req *http.Request) {
-	req.ParseMultipartForm(10000000)
-
-	rawrra := req.FormValue("rra")
-	if rawrra == "" {
-		logf("no rra parameter in update request")
-		http.Error(rw, "no rra parameter in update request", 500)
-		return
+	var (
+		buf    []byte
+		err    error
+		rawrra slib.RawRRA
+	)
+	buf, err = ioutil.ReadAll(req.Body)
+	if err != nil {
+		http.Error(rw, err.Error(), 500)
 	}
 
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
 
-	// XXX Use the same import function we use in the RRA importer for now.
-	// This can be cleaned up once the RRA importer is removed and the POST
-	// functionality for RRAs is being used exclusively.
-	var (
-		nrra    rraESData
-		rraList []rraESData
-	)
-	err := json.Unmarshal([]byte(rawrra), &nrra.rra)
-	if err != nil {
-		logf(err.Error())
-		http.Error(rw, err.Error(), 500)
-		return
-	}
-	err = json.Unmarshal([]byte(rawrra), &nrra.raw)
-	if err != nil {
-		logf(err.Error())
-		http.Error(rw, err.Error(), 500)
-		return
-	}
-	err = nrra.rra.validate()
-	if err != nil {
-		logf(err.Error())
-		http.Error(rw, err.Error(), 500)
-		return
-	}
-	rraList = append(rraList, nrra)
-
-	err = dbUpdateRRAs(rraList)
+	// First, unmarshal into a RawRRA and validate the incoming document
+	err = json.Unmarshal(buf, &rawrra)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "rra document malformed", 400)
+		return
+	}
+	err = rawrra.Validate()
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, "rra document malformed", 400)
 		return
 	}
 
-	ur := slib.RRAUpdateResponse{OK: true}
-	buf, err := json.Marshal(&ur)
+	// Convert the incoming RRA into an RRA type, and insert it into the
+	// database if required
+	rra := rawrra.ToRRA()
+	_, err = op.Exec(`INSERT INTO rra
+		(service,
+		impact_availrep, impact_availprd, impact_availfin,
+		impact_confirep, impact_confiprd, impact_confifin,
+		impact_integrep, impact_integprd, impact_integfin,
+		prob_availrep, prob_availprd, prob_availfin,
+		prob_confirep, prob_confiprd, prob_confifin,
+		prob_integrep, prob_integprd, prob_integfin,
+		datadefault, lastupdated, timestamp, raw)
+		SELECT $1,
+		$2, $3, $4,
+		$5, $6, $7,
+		$8, $9, $10,
+		$11, $12, $13,
+		$14, $15, $16,
+		$17, $18, $19,
+		$20, $21, now(), $22
+		WHERE NOT EXISTS (
+			SELECT 1 FROM rra WHERE service = $23 AND
+			lastupdated = $24
+		)`, rra.Name,
+		rra.AvailRepImpact, rra.AvailPrdImpact, rra.AvailFinImpact,
+		rra.ConfiRepImpact, rra.ConfiPrdImpact, rra.ConfiFinImpact,
+		rra.IntegRepImpact, rra.IntegPrdImpact, rra.IntegFinImpact,
+		rra.AvailRepProb, rra.AvailPrdProb, rra.AvailFinProb,
+		rra.ConfiRepProb, rra.ConfiPrdProb, rra.ConfiFinProb,
+		rra.IntegRepProb, rra.IntegPrdProb, rra.IntegFinProb,
+		rra.DefData, rra.LastUpdated, buf)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error processing rra", 500)
 		return
 	}
-	fmt.Fprintf(rw, string(buf))
 }
 
 // API entry point to retrieve specific RRA details

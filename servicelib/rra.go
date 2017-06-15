@@ -11,12 +11,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Describes an RRA.
-type RRAService struct {
-	Name string `json:"name,omitempty"`
-	ID   int    `json:"id,omitempty"`
+type RRA struct {
+	Name        string    `json:"name,omitempty"`
+	ID          int       `json:"id,omitempty"`
+	LastUpdated time.Time `json:"lastupdated,omitempty"`
 
 	/* Attribute impact scores */
 	AvailRepImpact string `json:"availability_reputation_impact,omitempty"`
@@ -308,4 +310,178 @@ func NormalLabelFromValue(v float64) string {
 		return "medium"
 	}
 	return "low"
+}
+
+// RawRRA defines a structure as we expect to see from a tool submitting
+// an RRA to serviceapi (e.g., rra2json). The RRA document itself contains
+// a large number of fields, but in this case we just reference the ones we
+// need to exist and normalize for risk calculations.
+type RawRRA struct {
+	Details      RawRRADetails `json:"details"`
+	LastModified time.Time     `json:"lastmodified"`
+}
+
+// XXX TEMP
+type RRAService RRA
+
+// Convert a RawRRA to an RRA
+func (r *RawRRA) ToRRA() (ret RRA) {
+	ret.Name = r.Details.Metadata.Service
+	ret.DefData = r.Details.Data.Default
+	ret.LastUpdated = r.LastModified
+
+	ret.AvailRepImpact = r.Details.Risk.Availability.Reputation.Impact
+	ret.AvailPrdImpact = r.Details.Risk.Availability.Productivity.Impact
+	ret.AvailFinImpact = r.Details.Risk.Availability.Finances.Impact
+	ret.IntegRepImpact = r.Details.Risk.Integrity.Reputation.Impact
+	ret.IntegPrdImpact = r.Details.Risk.Integrity.Productivity.Impact
+	ret.IntegFinImpact = r.Details.Risk.Integrity.Finances.Impact
+	ret.ConfiRepImpact = r.Details.Risk.Confidentiality.Reputation.Impact
+	ret.ConfiPrdImpact = r.Details.Risk.Confidentiality.Productivity.Impact
+	ret.ConfiFinImpact = r.Details.Risk.Confidentiality.Finances.Impact
+
+	ret.AvailRepProb = r.Details.Risk.Availability.Reputation.Probability
+	ret.AvailPrdProb = r.Details.Risk.Availability.Productivity.Probability
+	ret.AvailFinProb = r.Details.Risk.Availability.Finances.Probability
+	ret.IntegRepProb = r.Details.Risk.Integrity.Reputation.Probability
+	ret.IntegPrdProb = r.Details.Risk.Integrity.Productivity.Probability
+	ret.IntegFinProb = r.Details.Risk.Integrity.Finances.Probability
+	ret.ConfiRepProb = r.Details.Risk.Confidentiality.Reputation.Probability
+	ret.ConfiPrdProb = r.Details.Risk.Confidentiality.Productivity.Probability
+	ret.ConfiFinProb = r.Details.Risk.Confidentiality.Finances.Probability
+
+	return
+}
+
+func (r *RawRRA) Validate() error {
+	return r.Details.validate()
+}
+
+type RawRRADetails struct {
+	Metadata RawRRAMetadata `json:"metadata"`
+	Risk     RawRRARisk     `json:"risk"`
+	Data     RawRRAData     `json:"data"`
+}
+
+func (r *RawRRADetails) validate() error {
+	err := r.Metadata.validate()
+	if err != nil {
+		return err
+	}
+	err = r.Risk.validate(r.Metadata.Service)
+	if err != nil {
+		return err
+	}
+	err = r.Data.validate(r.Metadata.Service)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type RawRRAMetadata struct {
+	Service string `json:"service"`
+}
+
+func (r *RawRRAMetadata) validate() error {
+	if r.Service == "" {
+		return fmt.Errorf("rra has no service name")
+	}
+	// Do some sanitization of the service name if neccessary
+	r.Service = strings.Replace(r.Service, "\n", " ", -1)
+	r.Service = strings.TrimSpace(r.Service)
+	return nil
+}
+
+type RawRRAData struct {
+	Default string `json:"default"`
+}
+
+func (r *RawRRAData) validate(s string) error {
+	if r.Default == "" {
+		return fmt.Errorf("rra has no default data classification")
+	}
+	// Sanitize the data classification
+	// XXX This should likely be checked against a list of known valid
+	// strings, and we just reject importing an RRA that has a data
+	// classification value we don't know about.
+	r.Default = strings.ToLower(r.Default)
+	// Convert from some older classification values
+	switch r.Default {
+	case "internal":
+		r.Default = "confidential internal"
+	case "restricted":
+		r.Default = "confidential restricted"
+	case "secret":
+		r.Default = "confidential secret"
+	}
+	return nil
+}
+
+type RawRRARisk struct {
+	Confidentiality RawRRARiskAttr `json:"confidentiality"`
+	Integrity       RawRRARiskAttr `json:"integrity"`
+	Availability    RawRRARiskAttr `json:"availability"`
+}
+
+func (r *RawRRARisk) validate(s string) error {
+	err := r.Confidentiality.validate(s)
+	if err != nil {
+		return err
+	}
+	err = r.Integrity.validate(s)
+	if err != nil {
+		return err
+	}
+	err = r.Availability.validate(s)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type RawRRARiskAttr struct {
+	Reputation   RawRRAMeasure `json:"reputation"`
+	Finances     RawRRAMeasure `json:"finances"`
+	Productivity RawRRAMeasure `json:"productivity"`
+}
+
+func (r *RawRRARiskAttr) validate(s string) error {
+	err := r.Reputation.validate(s)
+	if err != nil {
+		return err
+	}
+	err = r.Finances.validate(s)
+	if err != nil {
+		return err
+	}
+	err = r.Productivity.validate(s)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type RawRRAMeasure struct {
+	Impact      string `json:"impact"`
+	Probability string `json:"probability"`
+}
+
+func (r *RawRRAMeasure) validate(s string) (err error) {
+	r.Impact, err = SanitizeImpactLabel(r.Impact)
+	if err != nil {
+		return err
+	}
+	// XXX If the probability value is unset, just default it to unknown
+	// here and continue. We can proceed without this value, if we at least
+	// have the impact. Without this though certain calculation datapoints
+	// may not be possible.
+	if r.Probability == "" {
+		r.Probability = "unknown"
+	}
+	r.Probability, err = SanitizeImpactLabel(r.Probability)
+	if err != nil {
+		return err
+	}
+	return nil
 }
