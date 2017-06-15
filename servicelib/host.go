@@ -7,71 +7,10 @@
 
 package servicelib
 
-import (
-	"time"
-)
-
-type Host struct {
-	ID         int       `json:"id"`
-	SysGroupID int       `json:"sysgroupid"`
-	Hostname   string    `json:"hostname"`
-	Comment    string    `json:"comment"`
-	Dynamic    bool      `json:"dynamic"`
-	LastUsed   time.Time `json:"lastused"`
-
-	CompStatus ComplianceStatus    `json:"compliance"`
-	VulnStatus VulnerabilityStatus `json:"vulnerabilities"`
-}
-
-type VulnerabilityTrend struct {
-	DaysWithMaximum int `json:"dayswithmaximum"`
-	DaysWithHigh    int `json:"dayswithhigh"`
-	DaysWithMedium  int `json:"dayswithmedium"`
-	DaysWithLow     int `json:"dayswithlow"`
-}
-
-type VulnerabilityStatus struct {
-	Coverage bool `json:"coverage"` // True if we have assessment coverage
-
-	Maximum             int `json:"maximum"`
-	High                int `json:"high"`
-	Medium              int `json:"medium"`
-	Low                 int `json:"low"`
-	LikelihoodIndicator int `json:"likelihood_indicator"`
-
-	Last90Days VulnerabilityTrend `json:"last90days"`
-}
-
-func (v *VulnerabilityStatus) Reset() {
-	v.Maximum = 0
-	v.High = 0
-	v.Medium = 0
-	v.Low = 0
-}
-
-type ComplianceStatus struct {
-	HighFail   int `json:"highfail"`
-	HighPass   int `json:"highpass"`
-	MediumFail int `json:"mediumfail"`
-	MediumPass int `json:"mediumpass"`
-	LowFail    int `json:"lowfail"`
-	LowPass    int `json:"lowpass"`
-
-	Details []ComplianceDetails `json:"details"`
-}
-
-type ComplianceDetails struct {
-	CheckRef  string    `json:"checkref"`
-	Status    bool      `json:"status"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
-func (c *ComplianceStatus) Reset() {
-	c.HighFail = 0
-	c.HighPass = 0
-	c.MediumFail = 0
-	c.MediumPass = 0
-	c.LowFail = 0
-	c.LowPass = 0
-	c.Details = make([]ComplianceDetails, 0)
+// Describes an asset
+type Asset struct {
+	ID   int    `json:"id"`                         // Asset ID
+	Type string `json:"asset_type,omitempty"`       // Asset type (e.g., hostname, website, etc)
+	Name string `json:"asset_identifier,omitempty"` // Asset name
+	Zone string `json:"zone,omitempty"`             // Asset zone
 }

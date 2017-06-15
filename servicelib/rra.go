@@ -44,8 +44,8 @@ type RRA struct {
 
 	DefData string `json:"default_data_classification,omitempty"`
 
-	// Supporting system groups
-	SupportGrps []SystemGroup `json:"supporting_system_groups,omitempty"`
+	// Supporting asset groups
+	SupportGrps []AssetGroup `json:"supporting_asset_groups,omitempty"`
 
 	RawRRA json.RawMessage `json:"rra_details,omitempty"` // The raw RRA as described in ES
 }
@@ -167,7 +167,7 @@ type RRAAttribute struct {
 
 // Describes calculated risk for a service, based on an RRA and known
 // data points
-type RRAServiceRisk struct {
+type Risk struct {
 	RRA RRAService `json:"rra"` // The RRA we are describing
 
 	// The attribute from the RRA we use as the basis for risk calculations
@@ -195,7 +195,7 @@ type RRAServiceRisk struct {
 	Scenarios []RiskScenario `json:"scenarios"` // Risk scenarios
 }
 
-func (r *RRAServiceRisk) Validate() error {
+func (r *Risk) Validate() error {
 	err := r.RRA.Validate()
 	if err != nil {
 		return err

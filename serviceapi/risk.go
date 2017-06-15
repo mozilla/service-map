@@ -18,221 +18,8 @@ import (
 	"time"
 )
 
-// Calculate a risk scenario, uses compliance data as probability metric
-func riskComplianceScenario(op opContext, rs *slib.RRAServiceRisk,
-	src slib.RRAAttribute, desc string) error {
-	// Calculate our step value based on the number of compliance checks
-	// that have been executed for supporting hosts
-	//
-	// XXX We should filter compliance checks here that do not make sense
-	// for a the service (e.g., filter out MAXIMUM related checks for low
-	// requirement services, but this information isn't really captured
-	// anywhere right now
-	totalcnt := 0
-	coverage := "complete"
-	for _, x := range rs.RRA.SupportGrps {
-		for _, y := range x.Host {
-			var inc int
-			inc += y.CompStatus.HighFail
-			inc += y.CompStatus.HighPass
-			inc += y.CompStatus.MediumFail
-			inc += y.CompStatus.MediumPass
-			inc += y.CompStatus.LowFail
-			inc += y.CompStatus.LowPass
-			totalcnt += inc
-
-			// See if a host reported nothing, if so downgrade the
-			// coverage
-			if inc == 0 {
-				coverage = "partial"
-			}
-		}
-	}
-	// If totalcnt is zero, or the Impact value is 0, we didn't have any data points.
-	if totalcnt == 0 || src.Impact == 0 {
-		ndp := slib.RiskScenario{
-			Name:     "Compliance scenario for " + desc,
-			NoData:   true,
-			Coverage: "none",
-		}
-		rs.Scenarios = append(rs.Scenarios, ndp)
-		return nil
-	}
-	stepv := 3.0 / float64(totalcnt)
-	scr := 1.0
-	for _, x := range rs.RRA.SupportGrps {
-		for _, y := range x.Host {
-			scr += stepv * float64(y.CompStatus.HighFail)
-			scr += stepv * float64(y.CompStatus.MediumFail)
-			scr += stepv * float64(y.CompStatus.LowFail)
-		}
-	}
-
-	// Cap the maximum possible probability for compliance scenarios
-	// off at 2.0; these events do not include a likelihood indicator
-	// we will use directly but they are not considered to ever raise
-	// probability to "high" or greater
-	if scr > 2.0 {
-		scr = 2.0
-	}
-
-	newscen := slib.RiskScenario{
-		Name:        "Compliance scenario for " + desc,
-		Impact:      src.Impact,
-		Probability: scr,
-		Score:       src.Impact * scr,
-		Coverage:    coverage,
-		NoData:      false,
-	}
-	err := newscen.Validate()
-	if err != nil {
-		return err
-	}
-	rs.Scenarios = append(rs.Scenarios, newscen)
-
-	return nil
-}
-
-func riskVulnerabilityScenario(op opContext, rs *slib.RRAServiceRisk,
-	src slib.RRAAttribute, desc string) error {
-	// Utilize the likelihood indicator set with the vulnerabilty score
-	// as the probability for the calculation; this will range from
-	// 1 to 4.
-	datacount := 0
-	hostcount := 0
-	highest := 1.0
-	probincrease := 0.0
-	for _, x := range rs.RRA.SupportGrps {
-		for _, y := range x.Host {
-			hostcount++
-			if !y.VulnStatus.Coverage {
-				continue
-			}
-			datacount++
-			if float64(y.VulnStatus.LikelihoodIndicator) > highest {
-				highest = float64(y.VulnStatus.LikelihoodIndicator)
-			}
-
-			// If the host currently has known high or maximum impact issues,
-			// take a look at the number of days max or high impact issues
-			// have been known to exist for this host. If it meets or exceeds the
-			// vuln_maxhigh_graceperiod configuration option in days, the
-			// probability will be increased by 1.
-			if y.VulnStatus.Maximum > 0 || y.VulnStatus.High > 0 {
-				if y.VulnStatus.Last90Days.DaysWithMaximum >= cfg.Risk.VulnMaxHighGracePeriod ||
-					y.VulnStatus.Last90Days.DaysWithHigh >= cfg.Risk.VulnMaxHighGracePeriod {
-					probincrease = 1.0
-				}
-			}
-		}
-	}
-	if datacount == 0 || src.Impact == 0 {
-		newscan := slib.RiskScenario{
-			Name:     "Vulnerability scenario for " + desc,
-			Coverage: "none",
-			NoData:   true,
-		}
-		rs.Scenarios = append(rs.Scenarios, newscan)
-		return nil
-	}
-	coverage := "complete"
-	if datacount != hostcount {
-		coverage = "partial"
-	}
-
-	// Apply the probability increase if we aren't already at 4.0; assume it can be
-	// a max increase of one for now.
-	if highest <= 3.0 {
-		highest += probincrease
-	}
-
-	// Set coverage to unknown as currently it is not possible to tell
-	// if all hosts are being assessed; we can't go by there being no
-	// known issues on the asset.
-	newscen := slib.RiskScenario{
-		Name:        "Vulnerability scenario for " + desc,
-		Impact:      src.Impact,
-		Probability: highest,
-		Score:       highest * src.Impact,
-		Coverage:    coverage,
-		NoData:      false,
-	}
-	err := newscen.Validate()
-	if err != nil {
-		return err
-	}
-	rs.Scenarios = append(rs.Scenarios, newscen)
-
-	return nil
-}
-
-// Add scenarios based on available HTTP observatory metrics
-func riskHTTPObsScenario(op opContext, rs *slib.RRAServiceRisk,
-	src slib.RRAAttribute, desc string) error {
-	// The score here will range from 1 to 4, based on deriving the
-	// value from the 0 -> 100 score returned by the httpobs scanner
-	// and grader.
-	totalcnt := 0
-	havecnt := 0
-	highest := 0.0
-	for _, x := range rs.RRA.SupportGrps {
-		for _, y := range x.Website {
-			totalcnt++
-			if !y.HTTPObs.Coverage {
-				continue
-			}
-			havecnt++
-			var uval int
-			// If the site scores 75 or higher, treat is as LOW.
-			// probability. The observatory does not provide a likelihood
-			// indicator directly. If the score is below 75, treat
-			// it as MEDIUM.
-			if y.HTTPObs.Score >= 75 {
-				uval = 1
-			} else {
-				uval = 2
-			}
-			if float64(uval) >= highest {
-				highest = float64(uval)
-			}
-		}
-	}
-
-	if havecnt == 0 {
-		newscan := slib.RiskScenario{
-			Name:     "httpobs scenario for " + desc,
-			Coverage: "none",
-			NoData:   true,
-		}
-		rs.Scenarios = append(rs.Scenarios, newscan)
-		return nil
-	}
-	coverage := "complete"
-	if havecnt != totalcnt {
-		coverage = "partial"
-	}
-	// Set coverage to unknown as currently it is not possible to tell
-	// if all hosts are being assessed; we can't go by there being no
-	// known issues on the asset.
-	newscen := slib.RiskScenario{
-		Name:        "httpobs scenario for " + desc,
-		Impact:      src.Impact,
-		Probability: highest,
-		Score:       highest * src.Impact,
-		Coverage:    coverage,
-		NoData:      false,
-	}
-	err := newscen.Validate()
-	if err != nil {
-		return err
-	}
-	rs.Scenarios = append(rs.Scenarios, newscen)
-
-	return nil
-}
-
 // Calculate a risk scenario, uses information from the RRA
-func riskRRAScenario(op opContext, rs *slib.RRAServiceRisk, src slib.RRAAttribute, desc string) error {
+func riskRRAScenario(op opContext, rs *slib.Risk, src slib.RRAAttribute, desc string) error {
 	newscen := slib.RiskScenario{
 		Name:     "RRA derived risk for " + desc,
 		Coverage: "none",
@@ -262,7 +49,7 @@ func riskRRAScenario(op opContext, rs *slib.RRAServiceRisk, src slib.RRAAttribut
 }
 
 // Finalize calculation of the risk using available datapoints
-func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
+func riskFinalize(op opContext, rs *slib.Risk) error {
 	var (
 		rvals []float64
 		err   error
@@ -324,7 +111,7 @@ func riskFinalize(op opContext, rs *slib.RRAServiceRisk) error {
 // Determine which attributes (e.g., reputation, financial, productivity +
 // conf, integ, avail) from the RRA we want to use as impact inputs for the
 // risk scenarios.
-func riskFindHighestImpact(rs *slib.RRAServiceRisk) error {
+func riskFindHighestImpact(rs *slib.Risk) error {
 	var (
 		repimp, repprob   float64
 		prodimp, prodprob float64
@@ -373,25 +160,13 @@ func riskFindHighestImpact(rs *slib.RRAServiceRisk) error {
 
 // Risk calculation entry function, evaluates RRA in rs using any known
 // datapoints we have information for
-func riskCalculation(op opContext, rs *slib.RRAServiceRisk) error {
+func riskCalculation(op opContext, rs *slib.Risk) error {
 	// Determine our highest impact value
 	err := riskFindHighestImpact(rs)
 	if err != nil {
 		return err
 	}
 	err = riskRRAScenario(op, rs, rs.UsedRRAAttrib, rs.UsedRRAAttrib.Attribute)
-	if err != nil {
-		return err
-	}
-	err = riskComplianceScenario(op, rs, rs.UsedRRAAttrib, rs.UsedRRAAttrib.Attribute)
-	if err != nil {
-		return err
-	}
-	err = riskVulnerabilityScenario(op, rs, rs.UsedRRAAttrib, rs.UsedRRAAttrib.Attribute)
-	if err != nil {
-		return err
-	}
-	err = riskHTTPObsScenario(op, rs, rs.UsedRRAAttrib, rs.UsedRRAAttrib.Attribute)
 	if err != nil {
 		return err
 	}
@@ -402,9 +177,9 @@ func riskCalculation(op opContext, rs *slib.RRAServiceRisk) error {
 	return nil
 }
 
-// Given an RRA ID, return RRAServiceRisk representing calculated risk
+// Given an RRA ID, return Risk representing calculated risk
 // at the current time
-func riskForRRA(op opContext, useCache bool, rraid int) (ret slib.RRAServiceRisk, err error) {
+func riskForRRA(op opContext, useCache bool, rraid int) (ret slib.Risk, err error) {
 	// If the cache is desired, see if we have an entry in the cache for this RRA
 	// and how old it is. If it is less than 4 hours old just return this.
 	if useCache {
@@ -439,14 +214,6 @@ func riskForRRA(op opContext, useCache bool, rraid int) (ret slib.RRAServiceRisk
 	r, err := getRRA(op, strconv.Itoa(rraid))
 	if err != nil {
 		return ret, err
-	}
-	// Introduce system group metadata into the RRA which datapoints may
-	// use as part of processing.
-	for i := range r.SupportGrps {
-		err = sysGroupAddMeta(op, &r.SupportGrps[i])
-		if err != nil {
-			return ret, err
-		}
 	}
 
 	ret.RRA = r

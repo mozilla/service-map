@@ -49,21 +49,21 @@ func getRRA(op opContext, rraid string) (slib.RRAService, error) {
 }
 
 func rraResolveSupportGroups(op opContext, r *slib.RRAService) error {
-	r.SupportGrps = make([]slib.SystemGroup, 0)
-	rows, err := op.Query(`SELECT sysgroupid FROM
-		rra_sysgroup WHERE rraid = $1`,
+	r.SupportGrps = make([]slib.AssetGroup, 0)
+	rows, err := op.Query(`SELECT assetgroupid FROM
+		rra_assetgroup WHERE rraid = $1`,
 		r.ID)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
-		var sgid string
+		var sgid int
 		err = rows.Scan(&sgid)
 		if err != nil {
 			rows.Close()
 			return err
 		}
-		sg, err := getSysGroup(op, sgid)
+		sg, err := getAssetGroup(op, sgid)
 		if err != nil {
 			rows.Close()
 			return err
@@ -276,9 +276,9 @@ func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	srr := slib.RRAsResponse{}
-	srr.Results = make([]slib.RRAService, 0)
+	srr.RRAs = make([]slib.RRA, 0)
 	for rows.Next() {
-		var s slib.RRAService
+		var s slib.RRA
 		err = rows.Scan(&s.ID, &s.Name, &s.DefData)
 		if err != nil {
 			rows.Close()
@@ -286,7 +286,7 @@ func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 			http.Error(rw, err.Error(), 500)
 			return
 		}
-		srr.Results = append(srr.Results, s)
+		srr.RRAs = append(srr.RRAs, s)
 	}
 	err = rows.Err()
 	if err != nil {

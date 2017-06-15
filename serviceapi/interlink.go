@@ -197,34 +197,7 @@ func interlinkHostOwnerLink(op opContext) error {
 	return nil
 }
 
-// Execute any website add operations
 func interlinkRunWebsiteAdd(op opContext) error {
-	rows, err := op.Query(`SELECT destwebsitematch FROM interlinks
-		WHERE ruletype = $1`, WEBSITE_ADD)
-	if err != nil {
-		return err
-	}
-	var wsnames []string
-	for rows.Next() {
-		var nws string
-		err = rows.Scan(&nws)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		wsnames = append(wsnames, nws)
-	}
-	err = rows.Err()
-	if err != nil {
-		return err
-	}
-
-	for _, x := range wsnames {
-		err = updateWebsite(op, x, "interlink website", 100)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

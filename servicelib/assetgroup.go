@@ -7,10 +7,9 @@
 
 package servicelib
 
-type SystemGroup struct {
-	Name string `json:"name,omitempty"`
-	ID   int    `json:"id,omitempty"`
+type AssetGroup struct {
+	Name string `json:"name,omitempty"` // Group name
+	ID   int    `json:"id,omitempty"`   // Group ID
 
-	Host    []Host    `json:"hosts,omitempty"`
-	Website []Website `json:"websites,omitempty"`
+	Assets []Asset `json:"assets,omitempty"` // Assets which are part of the group
 }

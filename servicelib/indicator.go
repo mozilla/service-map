@@ -25,6 +25,7 @@ type RawIndicator struct {
 	Details     interface{} `json:"details,omitempty"`
 }
 
+// Validate indicator fields
 func (i *RawIndicator) Validate() error {
 	if i.Type == "" {
 		return errors.New("indicator asset type missing")
