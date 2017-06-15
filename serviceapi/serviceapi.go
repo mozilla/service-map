@@ -103,6 +103,8 @@ type Config struct {
 	Database struct {
 		Hostname string
 		Database string
+		User     string
+		Password string
 	}
 	Interlink struct {
 		RulePath              string
@@ -726,7 +728,9 @@ func dynAssetManager() {
 
 func dbInit() error {
 	var err error
-	connstr := fmt.Sprintf("dbname=%v host=%v", cfg.Database.Database, cfg.Database.Hostname)
+	connstr := fmt.Sprintf("dbname=%v host=%v user=%v password=%v",
+		cfg.Database.Database, cfg.Database.Hostname, cfg.Database.User,
+		cfg.Database.Password)
 	dbconn, err = sql.Open("postgres", connstr)
 	if err != nil {
 		return err
