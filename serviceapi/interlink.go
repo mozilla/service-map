@@ -30,7 +30,6 @@ const (
 
 // Defines a rule in the interlink system
 type interlinkRule struct {
-	ruleid   int
 	ruletype int
 
 	srcHostMatch       string
