@@ -10,8 +10,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	slib "github.com/mozilla/service-map/servicelib"
 	"net/http"
 )
+
+func getOwner(op opContext, oid int) (ret slib.Owner, err error) {
+	return
+}
 
 // API entry point to fetch raw owner map
 //

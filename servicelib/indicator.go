@@ -29,7 +29,7 @@ type RawIndicator struct {
 	Zone        string      `json:"zone,omitempty"`
 	Description string      `json:"description,omitempty"`
 	Timestamp   time.Time   `json:"timestamp_utc"`
-	EventSource string      `json:"event_source,omitempty"`
+	EventSource string      `json:"event_source_name,omitempty"`
 	Likelihood  string      `json:"likelihood_indicator,omitempty"`
 	Details     interface{} `json:"details,omitempty"`
 }
@@ -51,6 +51,7 @@ func (i *RawIndicator) Validate() error {
 	case "high":
 	case "medium":
 	case "low":
+	case "unknown":
 	default:
 		return errors.New("indicator has invalid likelihood value")
 	}
