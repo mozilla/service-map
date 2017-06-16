@@ -11,7 +11,6 @@ DROP TABLE IF EXISTS assetowners;
 DROP TABLE IF EXISTS risk;
 DROP TABLE IF EXISTS rra;
 DROP TABLE IF EXISTS assetgroup;
-DROP TABLE IF EXISTS interlinks;
 CREATE TABLE rra (
 	rraid SERIAL PRIMARY KEY,
 	service TEXT NOT NULL,
@@ -91,20 +90,6 @@ CREATE TABLE indicator (
 CREATE INDEX ON indicator (timestamp);
 CREATE INDEX ON indicator (assetid);
 CREATE INDEX ON indicator USING gin (details);
-CREATE TABLE interlinks (
-	ruleid SERIAL PRIMARY KEY,
-	ruletype INTEGER NOT NULL,
-	srchostmatch TEXT,
-	srcawssqlmatch TEXT,
-	srcassetgroupmatch TEXT,
-	destassetgroupmatch TEXT,
-	destservicematch TEXT,
-	srcwebsitematch TEXT,
-	destwebsitematch TEXT,
-	destoperatormatch TEXT,
-	destteammatch TEXT,
-	destv2boverride TEXT
-);
 EOF
 
 exit 0

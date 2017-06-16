@@ -11,8 +11,7 @@ package main
 
 import (
 	"bufio"
-	"database/sql"
-	"fmt"
+	"errors"
 	"os"
 	"strings"
 	"time"
@@ -20,15 +19,13 @@ import (
 
 const (
 	_ = iota
-	SYSGROUP_ADD
-	SYSGROUP_LINK_SERVICE
-	HOST_LINK_SYSGROUP
+	ASSETGROUP_ADD
+	ASSETGROUP_LINK_SERVICE
+	HOST_LINK_ASSETGROUP
 	WEBSITE_ADD
-	WEBSITE_LINK_SYSGROUP
+	WEBSITE_LINK_ASSETGROUP
 	HOST_OWNERSHIP
 	OWNER_ADD
-	ASSOCIATE_AWS
-	HOST_AWSSQL_LINK_SYSGROUP
 )
 
 // Defines a rule in the interlink system
@@ -36,12 +33,12 @@ type interlinkRule struct {
 	ruleid   int
 	ruletype int
 
-	srcHostMatch     string
-	srcSysGroupMatch string
-	srcAWSSQLMatch   string
+	srcHostMatch       string
+	srcAssetGroupMatch string
+	srcAWSSQLMatch     string
 
-	destServiceMatch  string
-	destSysGroupMatch string
+	destServiceMatch    string
+	destAssetGroupMatch string
 
 	srcWebsiteMatch  string
 	destWebsiteMatch string
@@ -51,7 +48,7 @@ type interlinkRule struct {
 		Team     string
 	}
 
-	destV2BOverride sql.NullString
+	destTriageOverride string
 }
 
 var interlinkLastLoad time.Time
@@ -61,34 +58,14 @@ var interlinkLastLoad time.Time
 // single query to be in flight at a time, and we need to drain the results
 // of select queries to make sure they do not overlap with other operations.
 
-// Execute any system group add operations
-func interlinkRunSysGroupAdd(op opContext) error {
-	rows, err := op.Query(`SELECT destsysgroupmatch FROM interlinks
-		WHERE ruletype = $1`, SYSGROUP_ADD)
-	if err != nil {
-		return err
-	}
-	var sgnames []string
-	for rows.Next() {
-		var nsg string
-		err = rows.Scan(&nsg)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		sgnames = append(sgnames, nsg)
-	}
-	err = rows.Err()
-	if err != nil {
-		return err
-	}
-
-	for _, s := range sgnames {
-		_, err := op.Exec(`INSERT INTO sysgroup
+// Execute any asset group add operations
+func interlinkRunAssetGroupAdd(op opContext, rules []interlinkRule) error {
+	for _, x := range rules {
+		_, err := op.Exec(`INSERT INTO assetgroup
 		(name) SELECT $1
 		WHERE NOT EXISTS (
-			SELECT 1 FROM sysgroup WHERE name = $2
-		)`, s, s)
+			SELECT 1 FROM assetgroup WHERE name = $2
+		)`, x.destAssetGroupMatch, x.destAssetGroupMatch)
 		if err != nil {
 			return err
 		}
@@ -97,38 +74,16 @@ func interlinkRunSysGroupAdd(op opContext) error {
 }
 
 // Execute any owner add operations
-func interlinkRunOwnerAdd(op opContext) error {
-	rows, err := op.Query(`SELECT destoperatormatch, destteammatch FROM interlinks
-		WHERE ruletype = $1`, OWNER_ADD)
-	if err != nil {
-		return err
-	}
-	type os struct {
-		operator string
-		team     string
-	}
-	var osl []os
-	for rows.Next() {
-		var nos os
-		err = rows.Scan(&nos.operator, &nos.team)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		osl = append(osl, nos)
-	}
-	err = rows.Err()
-	if err != nil {
-		return err
-	}
-
-	for _, o := range osl {
+func interlinkRunOwnerAdd(op opContext, rules []interlinkRule) error {
+	for _, o := range rules {
+		operator := o.destOwnerMatch.Operator
+		team := o.destOwnerMatch.Team
 		_, err := op.Exec(`INSERT INTO assetowners
 		(operator, team) SELECT $1, $2
 		WHERE NOT EXISTS (
 			SELECT 1 FROM assetowners WHERE operator = $3 AND
 			team = $4
-		)`, o.operator, o.team, o.operator, o.team)
+		)`, operator, team, operator, team)
 		if err != nil {
 			return err
 		}
@@ -137,58 +92,30 @@ func interlinkRunOwnerAdd(op opContext) error {
 }
 
 // Link hosts with owners based on host match and operator/team
-func interlinkHostOwnerLink(op opContext) error {
-	// Run the rules in reverse order here so rules specified earlier in the
-	// rule set take precedence
-	rows, err := op.Query(`SELECT srchostmatch, destoperatormatch,
-		destteammatch, destv2boverride FROM interlinks
-		WHERE ruletype = $1 ORDER BY ruleid DESC`, HOST_OWNERSHIP)
-	if err != nil {
-		return err
-	}
-	type os struct {
-		srchm    string
-		operator string
-		team     string
-		v2b      sql.NullString
-	}
-	var resset []os
-	for rows.Next() {
-		nr := os{}
-		err = rows.Scan(&nr.srchm, &nr.operator, &nr.team, &nr.v2b)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		resset = append(resset, nr)
-	}
-	err = rows.Err()
-	if err != nil {
-		return err
-	}
-
-	for _, r := range resset {
-		_, err = op.Exec(`UPDATE asset
+func interlinkHostOwnerLink(op opContext, rules []interlinkRule) error {
+	for _, r := range rules {
+		_, err := op.Exec(`UPDATE asset
 			SET ownerid = (SELECT ownerid FROM assetowners
-			WHERE operator = $1 AND team = $2 LIMIT 1) WHERE
-			hostname ~* $3 AND assettype = 'host'`, r.operator,
-			r.team, r.srchm)
+			WHERE operator = $1 AND team = $2) WHERE
+			name ~* $3 AND assettype = 'hostname'`,
+			r.destOwnerMatch.Operator, r.destOwnerMatch.Team,
+			r.srcHostMatch)
 		if err != nil {
 			return err
 		}
 		// If a V2B key override was set for this entry, apply it as well
-		if r.v2b.Valid && r.v2b.String != "" {
+		if r.destTriageOverride != "" {
 			_, err = op.Exec(`UPDATE asset
-			SET v2boverride = $1 WHERE
-			hostname ~* $2 AND assettype = 'host'`, r.v2b.String,
-				r.srchm)
+			SET triageoverride = $1 WHERE
+			name ~* $2 AND assettype = 'hostname'`,
+				r.destTriageOverride, r.srcHostMatch)
 			if err != nil {
 				return err
 			}
 		} else {
 			_, err = op.Exec(`UPDATE asset
-			SET v2boverride = NULL WHERE
-			hostname ~* $1 AND assettype = 'host'`, r.srchm)
+			SET triageoverride = NULL WHERE
+			name ~* $1 AND assettype = 'hostname'`, r.srcHostMatch)
 			if err != nil {
 				return err
 			}
@@ -197,41 +124,14 @@ func interlinkHostOwnerLink(op opContext) error {
 	return nil
 }
 
-func interlinkRunWebsiteAdd(op opContext) error {
-	return nil
-}
-
 // Link websites with system groups based on site match and system group name match
-func interlinkWebsiteSysGroupLink(op opContext) error {
-	rows, err := op.Query(`SELECT srcwebsitematch, destsysgroupmatch FROM interlinks
-		WHERE ruletype = $1`, WEBSITE_LINK_SYSGROUP)
-	if err != nil {
-		return err
-	}
-	type linkResSet struct {
-		srchm  string
-		dstsgm string
-	}
-	var resset []linkResSet
-	for rows.Next() {
-		nr := linkResSet{}
-		err = rows.Scan(&nr.srchm, &nr.dstsgm)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		resset = append(resset, nr)
-	}
-	err = rows.Err()
-	if err != nil {
-		return err
-	}
-
-	for _, r := range resset {
-		_, err = op.Exec(`UPDATE asset
-			SET sysgroupid = (SELECT sysgroupid FROM sysgroup
-			WHERE name ~* $1 LIMIT 1) WHERE
-			website ~* $2 AND assettype = 'website'`, r.dstsgm, r.srchm)
+func interlinkWebsiteAssetGroupLink(op opContext, rules []interlinkRule) error {
+	for _, r := range rules {
+		_, err := op.Exec(`UPDATE asset
+			SET assetgroupid = (SELECT assetgroupid FROM assetgroup
+			WHERE name = $1) WHERE
+			name ~* $2 AND assettype = 'website'`,
+			r.destAssetGroupMatch, r.srcWebsiteMatch)
 		if err != nil {
 			return err
 		}
@@ -240,79 +140,13 @@ func interlinkWebsiteSysGroupLink(op opContext) error {
 }
 
 // Link hosts with system groups based on host match and system group name match
-func interlinkHostSysGroupLink(op opContext) error {
-	rows, err := op.Query(`SELECT srchostmatch, destsysgroupmatch FROM interlinks
-		WHERE ruletype = $1`, HOST_LINK_SYSGROUP)
-	if err != nil {
-		return err
-	}
-	type linkResSet struct {
-		srchm  string
-		dstsgm string
-	}
-	var resset []linkResSet
-	for rows.Next() {
-		nr := linkResSet{}
-		err = rows.Scan(&nr.srchm, &nr.dstsgm)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		resset = append(resset, nr)
-	}
-	err = rows.Err()
-	if err != nil {
-		return err
-	}
-
-	for _, r := range resset {
-		_, err = op.Exec(`UPDATE asset
-			SET sysgroupid = (SELECT sysgroupid FROM sysgroup
-			WHERE name ~* $1 LIMIT 1) WHERE
-			hostname ~* $2 AND assettype = 'host'`, r.dstsgm, r.srchm)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Link hosts with system groups using available AWS metadata
-func interlinkHostAWSSQLSysGroupLink(op opContext) error {
-	rows, err := op.Query(`SELECT srcawssqlmatch, destsysgroupmatch FROM interlinks
-		WHERE ruletype = $1`, HOST_AWSSQL_LINK_SYSGROUP)
-	if err != nil {
-		return err
-	}
-	type linkResSet struct {
-		srcawssm string
-		dstsgm   string
-	}
-	var resset []linkResSet
-	for rows.Next() {
-		nr := linkResSet{}
-		err = rows.Scan(&nr.srcawssm, &nr.dstsgm)
-		if err != nil {
-			rows.Close()
-			return err
-		}
-		resset = append(resset, nr)
-	}
-	err = rows.Err()
-	if err != nil {
-		return err
-	}
-
-	for _, r := range resset {
-		buf := `UPDATE asset x
-			SET sysgroupid = (SELECT sysgroupid FROM sysgroup
-			WHERE name ~* $1 LIMIT 1)
-			FROM assetawsmeta y
-			WHERE x.assettype = 'host' AND
-			x.assetawsmetaid = y.assetawsmetaid AND
-			%v`
-		qs := fmt.Sprintf(buf, r.srcawssm)
-		_, err = op.Exec(qs, r.dstsgm)
+func interlinkHostAssetGroupLink(op opContext, rules []interlinkRule) error {
+	for _, r := range rules {
+		_, err := op.Exec(`UPDATE asset
+			SET assetgroupid = (SELECT assetgroupid FROM assetgroup
+			WHERE name = $1) WHERE
+			name ~* $2 AND assettype = 'hostname'`,
+			r.destAssetGroupMatch, r.srcHostMatch)
 		if err != nil {
 			return err
 		}
@@ -321,57 +155,19 @@ func interlinkHostAWSSQLSysGroupLink(op opContext) error {
 }
 
 // Link system groups with supported services based on group and service name
-func interlinkSysGroupServiceLink(op opContext) error {
-	rows, err := op.Query(`SELECT sysgroupid, rraid FROM interlinks
-		JOIN sysgroup ON sysgroup.name ~* srcsysgroupmatch
-		JOIN rra ON rra.service ~* destservicematch AND
-		rra.lastupdated = (
-			SELECT MAX(lastupdated) FROM rra r
-			WHERE r.service = rra.service LIMIT 1
-		)
-		WHERE ruletype = $1
-		GROUP BY sysgroupid, rraid`, SYSGROUP_LINK_SERVICE)
-	if err != nil {
-		return err
-	}
-	type linkResSet struct {
-		rraid int
-		sgid  int
-	}
-	var resset []linkResSet
-	for rows.Next() {
-		nr := linkResSet{}
-		err = rows.Scan(&nr.sgid, &nr.rraid)
+func interlinkAssetGroupServiceLink(op opContext, rules []interlinkRule) error {
+	for _, r := range rules {
+		_, err := op.Exec(`DELETE FROM rra_assetgroup
+			WHERE assetgroupid = (SELECT assetgroupid FROM assetgroup
+			WHERE name = $1)`, r.srcAssetGroupMatch)
 		if err != nil {
-			rows.Close()
 			return err
 		}
-		resset = append(resset, nr)
-	}
-	err = rows.Err()
-	if err != nil {
-		return err
-	}
-
-	var ftable []int
-	for _, r := range resset {
-		found := false
-		for _, x := range ftable {
-			if x == r.sgid {
-				found = true
-				break
-			}
-		}
-		if !found {
-			_, err = op.Exec(`DELETE FROM rra_sysgroup
-				WHERE sysgroupid = $1`, r.sgid)
-			if err != nil {
-				return err
-			}
-			ftable = append(ftable, r.sgid)
-		}
-		_, err = op.Exec(`INSERT INTO rra_sysgroup
-			VALUES ($1, $2)`, r.rraid, r.sgid)
+		_, err = op.Exec(`INSERT INTO rra_assetgroup (rraid, assetgroupid)
+			SELECT rraid, (
+				SELECT assetgroupid FROM assetgroup WHERE name = $1
+			) FROM rra WHERE service ~* $2`, r.srcAssetGroupMatch,
+			r.destServiceMatch)
 		if err != nil {
 			return err
 		}
@@ -379,79 +175,17 @@ func interlinkSysGroupServiceLink(op opContext) error {
 	return nil
 }
 
-// Perform linkages between various tables that provide us with
-// AWS related metadata
-func interlinkAssociateAWS(op opContext) error {
-	var v int
-	// Just run it once if the rule is present in the rule set
-	err := op.QueryRow(`SELECT 1 FROM interlinks WHERE
-		ruletype = $1`, ASSOCIATE_AWS).Scan(&v)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil
-		} else {
-			return err
+func getRulesType(rules []interlinkRule, ruletype int) (ret []interlinkRule) {
+	for _, x := range rules {
+		if x.ruletype == ruletype {
+			ret = append(ret, x)
 		}
 	}
-
-	// Try private DNS association
-	_, err = op.Exec(`UPDATE asset x
-		SET assetawsmetaid = (SELECT assetawsmetaid FROM assetawsmeta y
-		WHERE x.hostname = y.private_dns) WHERE
-		assetid IN (
-			SELECT assetid FROM asset a
-			JOIN assetawsmeta b ON
-			a.hostname = b.private_dns
-		)`)
-	if err != nil {
-		return err
-	}
-	slist := strings.Split(cfg.Interlink.AWSStripDNSSuffixList, " ")
-	for _, x := range slist {
-		xv := "%" + x
-		_, err = op.Exec(`UPDATE asset x
-		SET assetawsmetaid = (SELECT assetawsmetaid FROM assetawsmeta y
-		WHERE x.hostname = substring(y.private_dns from '[^\.]*')
-		AND y.private_dns LIKE $1) WHERE
-		assetid IN (
-			SELECT assetid FROM asset a
-			JOIN assetawsmeta b ON
-			a.hostname = substring(b.private_dns from '[^\.]*') AND
-			b.private_dns LIKE $2
-		)`, xv, xv)
-		if err != nil {
-			return err
-		}
-	}
-
-	// MIG AWS metadata instance association
-	_, err = op.Exec(`UPDATE asset x
-		SET assetawsmetaid = (
-			SELECT assetawsmetaid FROM assetawsmeta y
-			JOIN migstatus z ON
-			y.instanceid = z.env#>>'{aws, instanceid}' AND
-			x.assetid = z.assetid
-			WHERE z.timestamp = (
-				SELECT MAX(timestamp) FROM
-				migstatus WHERE assetid = x.assetid
-			)
-		) WHERE
-		assetid IN (
-			SELECT a.assetid FROM asset a
-			JOIN migstatus b ON
-			a.assetid = b.assetid
-			JOIN assetawsmeta c ON
-			c.instanceid = b.env#>>'{aws, instanceid}'
-			WHERE b.timestamp > now() - interval '168 hours'
-		)`)
-	if err != nil {
-		return err
-	}
-	return nil
+	return
 }
 
 // Run interlink rules
-func interlinkRunRules() error {
+func interlinkRunRules(rules []interlinkRule) error {
 	op := opContext{}
 	op.newContext(dbconn, true, "interlink")
 
@@ -467,7 +201,7 @@ func interlinkRunRules() error {
 
 	// Run system group adds
 	stim()
-	err := interlinkRunSysGroupAdd(op)
+	err := interlinkRunAssetGroupAdd(op, getRulesType(rules, ASSETGROUP_ADD))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -475,21 +209,10 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
-	etim("SysGroupAdd")
-	// Run website adds
-	stim()
-	err = interlinkRunWebsiteAdd(op)
-	if err != nil {
-		e := op.rollback()
-		if e != nil {
-			panic(e)
-		}
-		return err
-	}
-	etim("WebsiteAdd")
+	etim("AssetGroupAdd")
 	// Run owner adds
 	stim()
-	err = interlinkRunOwnerAdd(op)
+	err = interlinkRunOwnerAdd(op, getRulesType(rules, OWNER_ADD))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -500,7 +223,7 @@ func interlinkRunRules() error {
 	etim("OwnerAdd")
 	// Run host to system group linkage
 	stim()
-	err = interlinkHostSysGroupLink(op)
+	err = interlinkHostAssetGroupLink(op, getRulesType(rules, HOST_LINK_ASSETGROUP))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -508,21 +231,10 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
-	etim("HostSysGroupLink")
-	// Run host awssqlmatch to system group linkage
-	stim()
-	err = interlinkHostAWSSQLSysGroupLink(op)
-	if err != nil {
-		e := op.rollback()
-		if e != nil {
-			panic(e)
-		}
-		return err
-	}
-	etim("HostAWSSQLSysGroupLink")
+	etim("HostAssetGroupLink")
 	// Run host to owner linkage
 	stim()
-	err = interlinkHostOwnerLink(op)
+	err = interlinkHostOwnerLink(op, getRulesType(rules, HOST_OWNERSHIP))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -533,7 +245,7 @@ func interlinkRunRules() error {
 	etim("HostOwnerLink")
 	// Run website to system group linkage
 	stim()
-	err = interlinkWebsiteSysGroupLink(op)
+	err = interlinkWebsiteAssetGroupLink(op, getRulesType(rules, WEBSITE_LINK_ASSETGROUP))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -541,10 +253,10 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
-	etim("WebsiteSysGroupLink")
+	etim("WebsiteAssetGroupLink")
 	// Run system group to service linkage
 	stim()
-	err = interlinkSysGroupServiceLink(op)
+	err = interlinkAssetGroupServiceLink(op, getRulesType(rules, ASSETGROUP_LINK_SERVICE))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -552,17 +264,7 @@ func interlinkRunRules() error {
 		}
 		return err
 	}
-	etim("SysGroupServiceLink")
-	stim()
-	err = interlinkAssociateAWS(op)
-	if err != nil {
-		e := op.rollback()
-		if e != nil {
-			panic(e)
-		}
-		return err
-	}
-	etim("AssociateAWS")
+	etim("AssetGroupServiceLink")
 	err = op.commit()
 	if err != nil {
 		panic(err)
@@ -570,27 +272,16 @@ func interlinkRunRules() error {
 	return nil
 }
 
-// Load interlink rules from the file system and store them in the database
-func interlinkLoadRules() error {
-	ss, err := os.Stat(cfg.Interlink.RulePath)
-	if err != nil {
-		return err
-	}
-
-	// See if we need to load the rules
-	if !interlinkLastLoad.IsZero() {
-		if interlinkLastLoad.Equal(ss.ModTime()) {
-			return nil
-		}
-	}
+// Load interlink rules from the file system and return the rule set
+func interlinkLoadRules() ([]interlinkRule, error) {
+	var rules []interlinkRule
 
 	fd, err := os.Open(cfg.Interlink.RulePath)
 	if err != nil {
-		return err
+		return rules, err
 	}
 	defer fd.Close()
 
-	var rules []interlinkRule
 	scnr := bufio.NewScanner(fd)
 	for scnr.Scan() {
 		buf := scnr.Text()
@@ -605,12 +296,12 @@ func interlinkLoadRules() error {
 
 		var nr interlinkRule
 		if len(tokens) < 2 {
-			return fmt.Errorf("interlink rule without enough arguments")
+			return rules, errors.New("interlink rule without enough arguments")
 		}
 		valid := false
-		if len(tokens) == 3 && tokens[0] == "add" && tokens[1] == "sysgroup" {
-			nr.ruletype = SYSGROUP_ADD
-			nr.destSysGroupMatch = tokens[2]
+		if len(tokens) == 3 && tokens[0] == "add" && tokens[1] == "assetgroup" {
+			nr.ruletype = ASSETGROUP_ADD
+			nr.destAssetGroupMatch = tokens[2]
 			valid = true
 		} else if len(tokens) == 4 && tokens[0] == "add" && tokens[1] == "owner" {
 			nr.ruletype = OWNER_ADD
@@ -621,37 +312,18 @@ func interlinkLoadRules() error {
 			nr.ruletype = WEBSITE_ADD
 			nr.destWebsiteMatch = tokens[2]
 			valid = true
-		} else if len(tokens) == 6 && tokens[0] == "sysgroup" &&
+		} else if len(tokens) == 6 && tokens[0] == "assetgroup" &&
 			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "service" {
-			nr.ruletype = SYSGROUP_LINK_SERVICE
-			nr.srcSysGroupMatch = tokens[2]
+			nr.ruletype = ASSETGROUP_LINK_SERVICE
+			nr.srcAssetGroupMatch = tokens[2]
 			nr.destServiceMatch = tokens[5]
 			valid = true
 		} else if len(tokens) == 6 && tokens[0] == "host" &&
-			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "sysgroup" {
-			nr.ruletype = HOST_LINK_SYSGROUP
+			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "assetgroup" {
+			nr.ruletype = HOST_LINK_ASSETGROUP
 			nr.srcHostMatch = tokens[2]
-			nr.destSysGroupMatch = tokens[5]
+			nr.destAssetGroupMatch = tokens[5]
 			valid = true
-		} else if len(tokens) >= 6 && tokens[0] == "host" &&
-			tokens[1] == "awssqlmatch" {
-			// We can have a variable number of arguments in the source match component
-			// here, so we need to isolate them.
-			var lel int
-			for i := 0; i < len(tokens); i++ {
-				if len(tokens)-i > 2 && tokens[i] == "link" &&
-					tokens[i+1] == "sysgroup" {
-					lel = i
-					break
-				}
-			}
-			if lel != 0 {
-				mstr := strings.Join(tokens[2:lel], " ")
-				nr.ruletype = HOST_AWSSQL_LINK_SYSGROUP
-				nr.srcAWSSQLMatch = mstr
-				nr.destSysGroupMatch = tokens[lel+2]
-				valid = true
-			}
 		} else if len(tokens) >= 6 && tokens[0] == "host" &&
 			tokens[1] == "matches" && tokens[3] == "ownership" {
 			nr.ruletype = HOST_OWNERSHIP
@@ -659,162 +331,34 @@ func interlinkLoadRules() error {
 			nr.destOwnerMatch.Operator = tokens[4]
 			nr.destOwnerMatch.Team = tokens[5]
 			if len(tokens) == 7 {
-				nr.destV2BOverride.String = tokens[6]
-				nr.destV2BOverride.Valid = true
+				nr.destTriageOverride = tokens[6]
 			}
 			valid = true
 		} else if len(tokens) == 6 && tokens[0] == "website" &&
-			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "sysgroup" {
-			nr.ruletype = WEBSITE_LINK_SYSGROUP
+			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "assetgroup" {
+			nr.ruletype = WEBSITE_LINK_ASSETGROUP
 			nr.srcWebsiteMatch = tokens[2]
-			nr.destSysGroupMatch = tokens[5]
-			valid = true
-		} else if len(tokens) == 2 && tokens[0] == "associate" && tokens[1] == "aws" {
-			nr.ruletype = ASSOCIATE_AWS
+			nr.destAssetGroupMatch = tokens[5]
 			valid = true
 		}
 		if !valid {
-			return fmt.Errorf("syntax error in interlink rules")
+			return rules, errors.New("syntax error in interlink rules")
 		}
 		rules = append(rules, nr)
 	}
 
-	op := opContext{}
-	op.newContext(dbconn, true, "interlink")
-	_, err = op.Exec(`DELETE FROM interlinks`)
-	if err != nil {
-		e := op.rollback()
-		if e != nil {
-			panic(e)
-		}
-		return err
-	}
-	for _, x := range rules {
-		switch x.ruletype {
-		case SYSGROUP_ADD:
-			_, err = op.Exec(`INSERT INTO interlinks (ruletype, destsysgroupmatch)
-				VALUES ($1, $2)`, x.ruletype, x.destSysGroupMatch)
-			if err != nil {
-				e := op.rollback()
-				if e != nil {
-					panic(e)
-				}
-				return err
-			}
-		case SYSGROUP_LINK_SERVICE:
-			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srcsysgroupmatch,
-				destservicematch) VALUES ($1, $2, $3)`, x.ruletype,
-				x.srcSysGroupMatch, x.destServiceMatch)
-			if err != nil {
-				e := op.rollback()
-				if e != nil {
-					panic(e)
-				}
-				return err
-			}
-		case HOST_LINK_SYSGROUP:
-			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srchostmatch,
-				destsysgroupmatch) VALUES ($1, $2, $3)`, x.ruletype,
-				x.srcHostMatch, x.destSysGroupMatch)
-			if err != nil {
-				e := op.rollback()
-				if e != nil {
-					panic(e)
-				}
-				return err
-			}
-		case HOST_AWSSQL_LINK_SYSGROUP:
-			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srcawssqlmatch,
-				destsysgroupmatch) VALUES ($1, $2, $3)`, x.ruletype,
-				x.srcAWSSQLMatch, x.destSysGroupMatch)
-			if err != nil {
-				e := op.rollback()
-				if e != nil {
-					panic(e)
-				}
-				return err
-			}
-		case WEBSITE_ADD:
-			_, err = op.Exec(`INSERT INTO interlinks (ruletype, destwebsitematch)
-				VALUES ($1, $2)`, x.ruletype, x.destWebsiteMatch)
-			if err != nil {
-				e := op.rollback()
-				if e != nil {
-					panic(e)
-				}
-				return err
-			}
-		case WEBSITE_LINK_SYSGROUP:
-			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srcwebsitematch,
-				destsysgroupmatch) VALUES ($1, $2, $3)`, x.ruletype,
-				x.srcWebsiteMatch, x.destSysGroupMatch)
-			if err != nil {
-				e := op.rollback()
-				if e != nil {
-					panic(e)
-				}
-				return err
-			}
-		case HOST_OWNERSHIP:
-			_, err = op.Exec(`INSERT INTO interlinks (ruletype, srchostmatch,
-				destoperatormatch, destteammatch, destv2boverride)
-				VALUES ($1, $2, $3, $4, $5)`, x.ruletype, x.srcHostMatch,
-				x.destOwnerMatch.Operator, x.destOwnerMatch.Team,
-				x.destV2BOverride)
-			if err != nil {
-				e := op.rollback()
-				if e != nil {
-					panic(e)
-				}
-				return err
-			}
-		case OWNER_ADD:
-			_, err = op.Exec(`INSERT INTO interlinks (ruletype, destoperatormatch,
-				destteammatch)
-				VALUES ($1, $2, $3)`, x.ruletype, x.destOwnerMatch.Operator,
-				x.destOwnerMatch.Team)
-			if err != nil {
-				e := op.rollback()
-				if e != nil {
-					panic(e)
-				}
-				return err
-			}
-		case ASSOCIATE_AWS:
-			_, err = op.Exec(`INSERT INTO interlinks (ruletype)
-				VALUES ($1)`, x.ruletype)
-			if err != nil {
-				e := op.rollback()
-				if e != nil {
-					panic(e)
-				}
-				return err
-			}
-		}
-	}
-	err = op.commit()
-	if err != nil {
-		panic(err)
-	}
-
-	interlinkLastLoad = ss.ModTime()
 	logf("interlink: loaded %v rules", len(rules))
-
-	return nil
+	return rules, nil
 }
 
 func interlinkManager() {
-	defer func() {
-		if e := recover(); e != nil {
-			logf("error in interlink routine: %v", e)
-		}
-	}()
-	err := interlinkLoadRules()
+	rules, err := interlinkLoadRules()
 	if err != nil {
-		panic(err)
+		logf("error loading interlink rules: %v", err)
+		return
 	}
-	err = interlinkRunRules()
+	err = interlinkRunRules(rules)
 	if err != nil {
-		panic(err)
+		logf("error running interlink rules: %v", err)
 	}
 }
