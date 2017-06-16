@@ -14,38 +14,45 @@ import (
 )
 
 // API entry point to fetch raw owner map
+//
+// This is a legacy function that supports a few integrated tools, providing a
+// simple method to obtain asset ownership details.
 func serviceOwners(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
 
 	type respent struct {
-		hostname string
-		operator string
-		team     string
-		v2bkey   string
+		name      string
+		assettype string
+		zone      string
+		operator  string
+		team      string
+		triagekey string
 	}
 	var (
-		resplist    []respent
-		operator    sql.NullString
-		team        sql.NullString
-		v2boverride sql.NullString
+		resplist       []respent
+		operator       sql.NullString
+		team           sql.NullString
+		triageoverride sql.NullString
 	)
-	rows, err := op.Query(`SELECT hostname, operator, team, v2boverride
+	rows, err := op.Query(`SELECT name, assettype,
+		operator, team, triageoverride
 		FROM asset LEFT OUTER JOIN assetowners ON
 		(asset.ownerid = assetowners.ownerid)
-		WHERE assettype = 'host' ORDER BY hostname`)
+		ORDER BY name`)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving owner list", 500)
 		return
 	}
 	for rows.Next() {
 		x := respent{}
-		err = rows.Scan(&x.hostname, &operator, &team, &v2boverride)
+		err = rows.Scan(&x.name, &x.assettype, &x.zone,
+			&operator, &team, &triageoverride)
 		if err != nil {
 			rows.Close()
 			op.logf(err.Error())
-			http.Error(rw, err.Error(), 500)
+			http.Error(rw, "error retrieving owner list", 500)
 			return
 		}
 		if !operator.Valid {
@@ -58,23 +65,23 @@ func serviceOwners(rw http.ResponseWriter, req *http.Request) {
 		} else {
 			x.team = team.String
 		}
-		if !v2boverride.Valid {
-			x.v2bkey = x.operator + "-" + x.team
+		if !triageoverride.Valid {
+			x.triagekey = x.operator + "-" + x.team
 		} else {
-			x.v2bkey = v2boverride.String
+			x.triagekey = triageoverride.String
 		}
 		resplist = append(resplist, x)
 	}
 	err = rows.Err()
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving owner list", 500)
 		return
 	}
 
-	fmt.Fprintf(rw, "# host operator team v2bkey\n")
+	fmt.Fprintf(rw, "# name type zone operator team triagekey\n")
 	for _, x := range resplist {
-		fmt.Fprintf(rw, "%v %v %v %v\n", x.hostname, x.operator,
-			x.team, x.v2bkey)
+		fmt.Fprintf(rw, "%v %v %v %v %v %v\n", x.name, x.assettype,
+			x.zone, x.operator, x.team, x.triagekey)
 	}
 }

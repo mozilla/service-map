@@ -355,8 +355,6 @@ func main() {
 	s.HandleFunc("/rra/id", serviceGetRRA).Methods("GET")
 	s.HandleFunc("/rra/update", serviceUpdateRRA).Methods("POST")
 	s.HandleFunc("/rra/risk", serviceGetRRARisk).Methods("GET")
-	s.HandleFunc("/vulns/target", serviceGetVulnsTarget).Methods("GET")
-	s.HandleFunc("/legacy/vulnauto", serviceVulnAuto).Methods("GET")
 	s.HandleFunc("/owners", serviceOwners).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
 	err = http.ListenAndServe(cfg.General.Listen, nil)

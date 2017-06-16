@@ -13,6 +13,15 @@ import (
 	"time"
 )
 
+// Describes an indicator, as it present in the database and associated with an asset
+type Indicator struct {
+	ID          int         `json:"id"`
+	EventSource string      `json:"event_source,omitempty"`
+	Timestamp   time.Time   `json:"timestamp_utc"`
+	Likelihood  string      `json:"likelihood_indicator"`
+	Details     interface{} `json:"details,omitempty"`
+}
+
 // Describes an indicator as would be submitted to serviceapi
 type RawIndicator struct {
 	Type        string      `json:"asset_type,omitempty"`
