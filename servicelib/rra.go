@@ -16,9 +16,13 @@ import (
 
 // Describes an RRA.
 type RRA struct {
-	Name        string    `json:"name,omitempty"`
-	ID          int       `json:"id,omitempty"`
-	LastUpdated time.Time `json:"lastupdated,omitempty"`
+	Name        string          `json:"name,omitempty"`         // Service name
+	ID          int             `json:"id,omitempty"`           // RRA ID
+	LastUpdated time.Time       `json:"lastupdated,omitempty"`  // Last time RRA was updated (from RRA)
+	Groups      []AssetGroup    `json:"asset_groups,omitempty"` // Asset groups
+	RawRRA      json.RawMessage `json:"rra_details,omitempty"`  // The raw RRA as described in ES
+
+	DefData string `json:"default_data_classification,omitempty"` // Default data classification
 
 	/* Attribute impact scores */
 	AvailRepImpact string `json:"availability_reputation_impact,omitempty"`
@@ -41,13 +45,6 @@ type RRA struct {
 	ConfiRepProb string `json:"confidentiality_reputation_probability,omitempty"`
 	ConfiPrdProb string `json:"confidentiality_productivity_probability,omitempty"`
 	ConfiFinProb string `json:"confidentiality_financial_probability,omitempty"`
-
-	DefData string `json:"default_data_classification,omitempty"`
-
-	// Supporting asset groups
-	SupportGrps []AssetGroup `json:"supporting_asset_groups,omitempty"`
-
-	RawRRA json.RawMessage `json:"rra_details,omitempty"` // The raw RRA as described in ES
 }
 
 func (r *RRAService) Validate() error {

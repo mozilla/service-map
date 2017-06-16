@@ -8,8 +8,7 @@
 package servicelib
 
 type AssetGroup struct {
-	Name string `json:"name,omitempty"` // Group name
-	ID   int    `json:"id,omitempty"`   // Group ID
-
+	Name   string  `json:"name,omitempty"`   // Group name
+	ID     int     `json:"id,omitempty"`     // Group ID
 	Assets []Asset `json:"assets,omitempty"` // Assets which are part of the group
 }

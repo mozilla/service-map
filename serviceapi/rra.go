@@ -49,7 +49,7 @@ func getRRA(op opContext, rraid string) (slib.RRAService, error) {
 }
 
 func rraResolveSupportGroups(op opContext, r *slib.RRAService) error {
-	r.SupportGrps = make([]slib.AssetGroup, 0)
+	r.Groups = make([]slib.AssetGroup, 0)
 	rows, err := op.Query(`SELECT assetgroupid FROM
 		rra_assetgroup WHERE rraid = $1`,
 		r.ID)
@@ -71,7 +71,7 @@ func rraResolveSupportGroups(op opContext, r *slib.RRAService) error {
 		if sg.Name == "" {
 			continue
 		}
-		r.SupportGrps = append(r.SupportGrps, sg)
+		r.Groups = append(r.Groups, sg)
 	}
 	err = rows.Err()
 	if err != nil {
