@@ -41,7 +41,7 @@ func serviceOwners(rw http.ResponseWriter, req *http.Request) {
 		triageoverride sql.NullString
 	)
 	rows, err := op.Query(`SELECT name, assettype,
-		operator, team, triageoverride
+		zone, operator, team, triageoverride
 		FROM asset LEFT OUTER JOIN assetowners ON
 		(asset.ownerid = assetowners.ownerid)
 		ORDER BY name`)
