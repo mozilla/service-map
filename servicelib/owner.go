@@ -9,6 +9,7 @@ package servicelib
 
 // Describes the owner of an asset
 type Owner struct {
+	ID        int    `json:"id"`                  // Owner ID
 	Operator  string `json:"operator,omitempty"`  // The operator (e.g., group)
 	Team      string `json:"team,omitempty"`      // Team (e.g., team within the group)
 	TriageKey string `json:"triagekey,omitempty"` // Triage key, used for integrated escalation tools

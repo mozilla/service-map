@@ -18,6 +18,29 @@ func getOwner(op opContext, oid int) (ret slib.Owner, err error) {
 	return
 }
 
+// Return all owners from database
+func getOwners(op opContext) (ret []slib.Owner, err error) {
+	rows, err := op.Query(`SELECT ownerid, operator, team
+		FROM assetowners`)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var nown slib.Owner
+		err = rows.Scan(&nown.ID, &nown.Operator, &nown.Team)
+		if err != nil {
+			rows.Close()
+			return ret, err
+		}
+		ret = append(ret, nown)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+	return
+}
+
 // API entry point to fetch raw owner map
 //
 // This is a legacy function that supports a few integrated tools, providing a

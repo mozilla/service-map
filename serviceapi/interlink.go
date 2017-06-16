@@ -51,8 +51,6 @@ type interlinkRule struct {
 	destTriageOverride string
 }
 
-var interlinkLastLoad time.Time
-
 // XXX Note regarding these functions; the updates and changes occur in a
 // transaction. With the existing sql/pq implementation this requires a
 // single query to be in flight at a time, and we need to drain the results
@@ -66,6 +64,34 @@ func interlinkRunAssetGroupAdd(op opContext, rules []interlinkRule) error {
 		WHERE NOT EXISTS (
 			SELECT 1 FROM assetgroup WHERE name = $2
 		)`, x.destAssetGroupMatch, x.destAssetGroupMatch)
+		if err != nil {
+			return err
+		}
+	}
+	// Remove any asset groups no longer required
+	grps, err := getAssetGroups(op)
+	if err != nil {
+		return err
+	}
+	for _, x := range grps {
+		found := false
+		for _, y := range rules {
+			if x.Name == y.destAssetGroupMatch {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+		logf("interlink removing unused asset group %v", x.Name)
+		_, err = op.Exec(`UPDATE asset SET assetgroupid = NULL
+			WHERE assetgroupid = $1`, x.ID)
+		if err != nil {
+			return err
+		}
+		_, err = op.Exec(`DELETE FROM assetgroup WHERE
+			assetgroupid = $1`, x.ID)
 		if err != nil {
 			return err
 		}
@@ -88,13 +114,46 @@ func interlinkRunOwnerAdd(op opContext, rules []interlinkRule) error {
 			return err
 		}
 	}
+	// Remove any owners no longer required
+	own, err := getOwners(op)
+	if err != nil {
+		return err
+	}
+	for _, x := range own {
+		found := false
+		for _, y := range rules {
+			if x.Team == y.destOwnerMatch.Team &&
+				x.Operator == y.destOwnerMatch.Operator {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+		logf("interlink removing unused owner %v %v", x.Operator, x.Team)
+		_, err = op.Exec(`UPDATE asset SET ownerid = NULL
+			WHERE ownerid = $1`, x.ID)
+		if err != nil {
+			return err
+		}
+		_, err = op.Exec(`DELETE FROM assetowners WHERE
+			ownerid = $1`, x.ID)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-// Link hosts with owners based on host match and operator/team
+// Link hostname type assets with owners based on host match and operator/team
 func interlinkHostOwnerLink(op opContext, rules []interlinkRule) error {
+	_, err := op.Exec(`UPDATE asset SET ownerid = NULL`)
+	if err != nil {
+		return err
+	}
 	for _, r := range rules {
-		_, err := op.Exec(`UPDATE asset
+		_, err = op.Exec(`UPDATE asset
 			SET ownerid = (SELECT ownerid FROM assetowners
 			WHERE operator = $1 AND team = $2) WHERE
 			name ~* $3 AND assettype = 'hostname'`,
@@ -103,11 +162,11 @@ func interlinkHostOwnerLink(op opContext, rules []interlinkRule) error {
 		if err != nil {
 			return err
 		}
-		// If a V2B key override was set for this entry, apply it as well
+		// If a triage key override was set for this entry, apply it as well
 		if r.destTriageOverride != "" {
 			_, err = op.Exec(`UPDATE asset
-			SET triageoverride = $1 WHERE
-			name ~* $2 AND assettype = 'hostname'`,
+				SET triageoverride = $1 WHERE
+				name ~* $2 AND assettype = 'hostname'`,
 				r.destTriageOverride, r.srcHostMatch)
 			if err != nil {
 				return err
@@ -124,10 +183,14 @@ func interlinkHostOwnerLink(op opContext, rules []interlinkRule) error {
 	return nil
 }
 
-// Link websites with system groups based on site match and system group name match
+// Link websites with asset groups based on site match and system group name match
 func interlinkWebsiteAssetGroupLink(op opContext, rules []interlinkRule) error {
+	_, err := op.Exec(`UPDATE asset SET assetgroupid = NULL WHERE assettype = 'website'`)
+	if err != nil {
+		return err
+	}
 	for _, r := range rules {
-		_, err := op.Exec(`UPDATE asset
+		_, err = op.Exec(`UPDATE asset
 			SET assetgroupid = (SELECT assetgroupid FROM assetgroup
 			WHERE name = $1) WHERE
 			name ~* $2 AND assettype = 'website'`,
@@ -141,6 +204,10 @@ func interlinkWebsiteAssetGroupLink(op opContext, rules []interlinkRule) error {
 
 // Link hosts with system groups based on host match and system group name match
 func interlinkHostAssetGroupLink(op opContext, rules []interlinkRule) error {
+	_, err := op.Exec(`UPDATE asset SET assetgroupid = NULL WHERE assettype = 'hostname'`)
+	if err != nil {
+		return err
+	}
 	for _, r := range rules {
 		_, err := op.Exec(`UPDATE asset
 			SET assetgroupid = (SELECT assetgroupid FROM assetgroup
@@ -156,20 +223,43 @@ func interlinkHostAssetGroupLink(op opContext, rules []interlinkRule) error {
 
 // Link system groups with supported services based on group and service name
 func interlinkAssetGroupServiceLink(op opContext, rules []interlinkRule) error {
+	_, err := op.Exec(`DELETE FROM rra_assetgroup`)
+	if err != nil {
+		return err
+	}
 	for _, r := range rules {
-		_, err := op.Exec(`DELETE FROM rra_assetgroup
-			WHERE assetgroupid = (SELECT assetgroupid FROM assetgroup
-			WHERE name = $1)`, r.srcAssetGroupMatch)
-		if err != nil {
-			return err
-		}
-		_, err = op.Exec(`INSERT INTO rra_assetgroup (rraid, assetgroupid)
-			SELECT rraid, (
-				SELECT assetgroupid FROM assetgroup WHERE name = $1
-			) FROM rra WHERE service ~* $2`, r.srcAssetGroupMatch,
+		var rraids []int
+		rows, err := op.Query(`SELECT rraid FROM rra WHERE service ~* $1`,
 			r.destServiceMatch)
 		if err != nil {
 			return err
+		}
+		for rows.Next() {
+			var rraid int
+			err = rows.Scan(&rraid)
+			if err != nil {
+				rows.Close()
+				return err
+			}
+			rraids = append(rraids, rraid)
+		}
+		if err = rows.Err(); err != nil {
+			return err
+		}
+		for _, x := range rraids {
+			_, err = op.Exec(`INSERT INTO rra_assetgroup (rraid, assetgroupid)
+			SELECT $1, (
+				SELECT assetgroupid FROM assetgroup WHERE name = $2
+			) WHERE NOT EXISTS (
+				SELECT 1 FROM rra_assetgroup WHERE
+				rraid = $3 AND assetgroupid = (
+					SELECT assetgroupid FROM assetgroup
+					WHERE name = $4
+				)
+			)`, x, r.srcAssetGroupMatch, x, r.srcAssetGroupMatch)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
