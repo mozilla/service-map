@@ -17,38 +17,40 @@ import (
 	"strconv"
 )
 
-func getRRA(op opContext, rraid string) (slib.RRAService, error) {
-	var rr slib.RRAService
-
-	err := op.QueryRow(`SELECT rraid, service,
-		ari, api, afi, cri, cpi, cfi,
-		iri, ipi, ifi,
-		arp, app, afp, crp, cpp, cfp,
-		irp, ipp, ifp, datadefault, raw
-		FROM rra WHERE rraid = $1`, rraid).Scan(&rr.ID,
-		&rr.Name, &rr.AvailRepImpact, &rr.AvailPrdImpact,
-		&rr.AvailFinImpact, &rr.ConfiRepImpact, &rr.ConfiPrdImpact, &rr.ConfiFinImpact,
+// Get a fully populated RRA by ID; if the event the requested ID does
+// not exist, err will be nil and rr.Name will be the zero value
+func getRRA(op opContext, rraid string) (rr slib.RRA, err error) {
+	err = op.QueryRow(`SELECT rraid, service,
+		impact_availrep, impact_availprd, impact_availfin,
+		impact_confirep, impact_confiprd, impact_confifin,
+		impact_integrep, impact_integprd, impact_integfin,
+		prob_availrep, prob_availprd, prob_availfin,
+		prob_confirep, prob_confiprd, prob_confifin,
+		prob_integrep, prob_integprd, prob_integfin,
+		datadefault, raw, lastupdated
+		FROM rra WHERE rraid = $1`, rraid).Scan(&rr.ID, &rr.Name,
+		&rr.AvailRepImpact, &rr.AvailPrdImpact, &rr.AvailFinImpact,
+		&rr.ConfiRepImpact, &rr.ConfiPrdImpact, &rr.ConfiFinImpact,
 		&rr.IntegRepImpact, &rr.IntegPrdImpact, &rr.IntegFinImpact,
 		&rr.AvailRepProb, &rr.AvailPrdProb, &rr.AvailFinProb,
 		&rr.ConfiRepProb, &rr.ConfiPrdProb, &rr.ConfiFinProb,
 		&rr.IntegRepProb, &rr.IntegPrdProb, &rr.IntegFinProb,
-		&rr.DefData, &rr.RawRRA)
+		&rr.DefData, &rr.RawRRA, &rr.LastUpdated)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return rr, nil
 		} else {
-			return rr, err
+			return
 		}
 	}
 	err = rraResolveSupportGroups(op, &rr)
 	if err != nil {
-		return rr, err
+		return
 	}
-
-	return rr, nil
+	return
 }
 
-func rraResolveSupportGroups(op opContext, r *slib.RRAService) error {
+func rraResolveSupportGroups(op opContext, r *slib.RRA) error {
 	r.Groups = make([]slib.AssetGroup, 0)
 	rows, err := op.Query(`SELECT assetgroupid FROM
 		rra_assetgroup WHERE rraid = $1`,
@@ -235,55 +237,64 @@ func serviceUpdateRRA(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// API entry point to retrieve specific RRA details
+// API entry point to retrieve a specific RRA. All details including the
+// original RRA document are returned.
 func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
-
-	rraid := req.FormValue("id")
 
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
 
+	rraid := req.FormValue("id")
+	if rraid == "" {
+		err := fmt.Errorf("no rra id specified")
+		op.logf(err.Error())
+		http.Error(rw, err.Error(), 400)
+		return
+	}
+
 	r, err := getRRA(op, rraid)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving rra", 500)
 		return
 	}
 
 	buf, err := json.Marshal(&r)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving rra", 500)
 		return
 	}
 	fmt.Fprintf(rw, string(buf))
 }
 
-// API entry point to retrieve all RRAs
+// API entry point to retrieve a list of all RRAs. The response is a slice of
+// RRA types (RRAsResponse), note though we only populate a few elements inside
+// the RRA
 func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
 
-	rows, err := op.Query(`SELECT rraid, service, datadefault
-		FROM rra x WHERE lastmodified = (
-			SELECT MAX(lastmodified) FROM rra y WHERE
+	rows, err := op.Query(`SELECT rraid, service, lastupdated, datadefault
+		FROM rra x WHERE lastupdated = (
+			SELECT MAX(lastupdated) FROM rra y WHERE
 			x.service = y.service
 		)`)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving rra list", 500)
 		return
 	}
 	srr := slib.RRAsResponse{}
 	srr.RRAs = make([]slib.RRA, 0)
 	for rows.Next() {
 		var s slib.RRA
-		err = rows.Scan(&s.ID, &s.Name, &s.DefData)
+		err = rows.Scan(&s.ID, &s.Name, &s.LastUpdated, &s.DefData)
 		if err != nil {
 			rows.Close()
 			op.logf(err.Error())
-			http.Error(rw, err.Error(), 500)
+			http.Error(rw, "error retrieving rra list", 500)
 			return
 		}
 		srr.RRAs = append(srr.RRAs, s)
@@ -291,16 +302,15 @@ func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 	err = rows.Err()
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving rra list", 500)
 		return
 	}
 
 	buf, err := json.Marshal(&srr)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving rra list", 500)
 		return
 	}
-
 	fmt.Fprint(rw, string(buf))
 }
