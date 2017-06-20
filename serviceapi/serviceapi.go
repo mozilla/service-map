@@ -91,12 +91,7 @@ func (o *opContext) logf(s string, args ...interface{}) {
 type Config struct {
 	General struct {
 		Listen         string
-		Key            string
-		Cert           string
 		RiskCacheEvery string
-	}
-	Risk struct {
-		VulnMaxHighGracePeriod int
 	}
 	Database struct {
 		Hostname string
@@ -270,6 +265,24 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
+	}
+	// Import any configuration values set in the environment, and if set
+	// override config file
+	envvar := os.Getenv("PGHOST")
+	if envvar != "" {
+		cfg.Database.Hostname = envvar
+	}
+	envvar = os.Getenv("PGUSER")
+	if envvar != "" {
+		cfg.Database.User = envvar
+	}
+	envvar = os.Getenv("PGPASSWORD")
+	if envvar != "" {
+		cfg.Database.Password = envvar
+	}
+	// If the database name is not set, use the default
+	if cfg.Database.Database == "" {
+		cfg.Database.Database = "servicemap"
 	}
 	err = cfg.validate()
 	if err != nil {
