@@ -13,7 +13,7 @@ services:
     environment:
       - PGUSER={{ dbuser }}
       - PGHOST={{ dbhostname }}
-      - PGPPASSWORD={{ lookup('credstash', 'service-map:dbpass', region='us-west-2', application='service-map') }}
+      - PGPASSWORD={{ lookup('credstash', 'service-map:dbpass', region='us-west-2', application='service-map') }}
     ports:
       - "{{ serviceapi_port }}"
     working_dir: /home/serviceapi
