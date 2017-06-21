@@ -92,6 +92,7 @@ type Config struct {
 	General struct {
 		Listen         string
 		RiskCacheEvery string
+		DisableAPIAuth bool
 	}
 	Database struct {
 		Hostname string
@@ -251,15 +252,15 @@ func main() {
 
 	r := mux.NewRouter()
 	s := r.PathPrefix("/api/v1").Subrouter()
-	s.HandleFunc("/indicator", serviceIndicator).Methods("POST")
-	s.HandleFunc("/assetgroups", serviceAssetGroups).Methods("GET")
-	s.HandleFunc("/assetgroup/id", serviceGetAssetGroup).Methods("GET")
-	s.HandleFunc("/rras", serviceRRAs).Methods("GET")
-	s.HandleFunc("/risks", serviceRisks).Methods("GET")
-	s.HandleFunc("/rra/id", serviceGetRRA).Methods("GET")
-	s.HandleFunc("/rra/update", serviceUpdateRRA).Methods("POST")
-	s.HandleFunc("/rra/risk", serviceGetRRARisk).Methods("GET")
-	s.HandleFunc("/owners", serviceOwners).Methods("GET")
+	s.HandleFunc("/indicator", authenticate(serviceIndicator)).Methods("POST")
+	s.HandleFunc("/assetgroups", authenticate(serviceAssetGroups)).Methods("GET")
+	s.HandleFunc("/assetgroup/id", authenticate(serviceGetAssetGroup)).Methods("GET")
+	s.HandleFunc("/rras", authenticate(serviceRRAs)).Methods("GET")
+	s.HandleFunc("/risks", authenticate(serviceRisks)).Methods("GET")
+	s.HandleFunc("/rra/id", authenticate(serviceGetRRA)).Methods("GET")
+	s.HandleFunc("/rra/update", authenticate(serviceUpdateRRA)).Methods("POST")
+	s.HandleFunc("/rra/risk", authenticate(serviceGetRRARisk)).Methods("GET")
+	s.HandleFunc("/owners", authenticate(serviceOwners)).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
 	err = http.ListenAndServe(cfg.General.Listen, nil)
 	if err != nil {
@@ -268,4 +269,25 @@ func main() {
 	}
 
 	doExit(0)
+}
+
+// Generalized API authentication wrapper
+func authenticate(runfunc func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		if cfg.General.DisableAPIAuth {
+			runfunc(rw, r)
+			return
+		}
+		hdr := r.Header.Get("SERVICEAPIKEY")
+		if hdr == "" {
+			http.Error(rw, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		_, err := apiAuthenticate(hdr)
+		if err != nil {
+			http.Error(rw, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		runfunc(rw, r)
+	}
 }

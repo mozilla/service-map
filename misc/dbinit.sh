@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS assetowners;
 DROP TABLE IF EXISTS risk;
 DROP TABLE IF EXISTS rra;
 DROP TABLE IF EXISTS assetgroup;
+DROP TABLE IF EXISTS apikey;
 CREATE TABLE rra (
 	rraid SERIAL PRIMARY KEY,
 	service TEXT NOT NULL,
@@ -90,6 +91,13 @@ CREATE TABLE indicator (
 CREATE INDEX ON indicator (timestamp);
 CREATE INDEX ON indicator (assetid);
 CREATE INDEX ON indicator USING gin (details);
+CREATE TABLE apikey (
+	keyid SERIAL PRIMARY KEY,
+	name TEXT NOT NULL,
+	hash TEXT NOT NULL,
+	UNIQUE(name),
+	UNIQUE(hash)
+);
 EOF
 
 exit 0

@@ -8,6 +8,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	slib "github.com/mozilla/service-map/servicelib"
@@ -15,10 +16,18 @@ import (
 	"strconv"
 )
 
-// Return an AssetGroup given an asset group ID
+// Return an AssetGroup given an asset group ID, if the requested ID
+// does not exist, err will be nil and ret.Name will be the zero value
 func getAssetGroup(op opContext, agid int) (ret slib.AssetGroup, err error) {
 	err = op.QueryRow(`SELECT assetgroupid, name
 		FROM assetgroup WHERE assetgroupid = $1`, agid).Scan(&ret.ID, &ret.Name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return ret, nil
+		} else {
+			return
+		}
+	}
 	return
 }
 

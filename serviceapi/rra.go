@@ -17,7 +17,7 @@ import (
 	"strconv"
 )
 
-// Get a fully populated RRA by ID; if the event the requested ID does
+// Get a fully populated RRA by ID; in the event the requested ID does
 // not exist, err will be nil and rr.Name will be the zero value
 func getRRA(op opContext, rraid int) (rr slib.RRA, err error) {
 	err = op.QueryRow(`SELECT rraid, service,
@@ -50,6 +50,7 @@ func getRRA(op opContext, rraid int) (rr slib.RRA, err error) {
 	return
 }
 
+// For RRA r, add any asset group information for groups linked to the RRA
 func rraResolveSupportGroups(op opContext, r *slib.RRA) error {
 	r.Groups = make([]slib.AssetGroup, 0)
 	rows, err := op.Query(`SELECT assetgroupid FROM
@@ -71,6 +72,8 @@ func rraResolveSupportGroups(op opContext, r *slib.RRA) error {
 			return err
 		}
 		if sg.Name == "" {
+			// For some reason the group did not exist, this might happen
+			// if interlink removes it during the request
 			continue
 		}
 		r.Groups = append(r.Groups, sg)
@@ -89,12 +92,12 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 
 	rows, err := op.Query(`SELECT rraid FROM rra x
 		WHERE lastmodified = (
-			SELECT MAX(lastmodified) FROM rra y
+			SELECT MAX(lastupdated) FROM rra y
 			WHERE x.service = y.service
 		)`)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving risks", 500)
 		return
 	}
 	resp := slib.RisksResponse{}
@@ -104,14 +107,14 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			rows.Close()
 			op.logf(err.Error())
-			http.Error(rw, err.Error(), 500)
+			http.Error(rw, "error retrieving risks", 500)
 			return
 		}
 		rs, err := riskForRRA(op, true, rraid)
 		if err != nil {
 			rows.Close()
 			op.logf(err.Error())
-			http.Error(rw, err.Error(), 500)
+			http.Error(rw, "error retrieving risks", 500)
 			return
 		}
 		resp.Risks = append(resp.Risks, rs)
@@ -119,14 +122,14 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 	err = rows.Err()
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving risks", 500)
 		return
 	}
 
 	buf, err := json.Marshal(&resp)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving risks", 500)
 		return
 	}
 	fmt.Fprintf(rw, string(buf))
@@ -141,28 +144,27 @@ func serviceGetRRARisk(rw http.ResponseWriter, req *http.Request) {
 
 	rraid := req.FormValue("id")
 	if rraid == "" {
-		err := fmt.Errorf("no rra id specified")
-		op.logf(err.Error())
-		http.Error(rw, err.Error(), 400)
+		op.logf("invalid rra id")
+		http.Error(rw, "invalid rra id", 400)
 		return
 	}
 	r, err := strconv.Atoi(rraid)
 	if err != nil {
-		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		op.logf("invalid rra id")
+		http.Error(rw, "invalid rra id", 400)
 		return
 	}
 	rs, err := riskForRRA(op, true, r)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving risk", 500)
 		return
 	}
 
 	buf, err := json.Marshal(&rs)
 	if err != nil {
 		op.logf(err.Error())
-		http.Error(rw, err.Error(), 500)
+		http.Error(rw, "error retrieving risk", 500)
 		return
 	}
 	fmt.Fprintf(rw, string(buf))
@@ -179,6 +181,7 @@ func serviceUpdateRRA(rw http.ResponseWriter, req *http.Request) {
 	buf, err = ioutil.ReadAll(req.Body)
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
+		return
 	}
 
 	op := opContext{}
