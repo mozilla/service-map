@@ -19,7 +19,7 @@ import (
 
 // Get a fully populated RRA by ID; if the event the requested ID does
 // not exist, err will be nil and rr.Name will be the zero value
-func getRRA(op opContext, rraid string) (rr slib.RRA, err error) {
+func getRRA(op opContext, rraid int) (rr slib.RRA, err error) {
 	err = op.QueryRow(`SELECT rraid, service,
 		impact_availrep, impact_availprd, impact_availfin,
 		impact_confirep, impact_confiprd, impact_confifin,
@@ -245,12 +245,15 @@ func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
 
-	rraid := req.FormValue("id")
-	if rraid == "" {
-		err := fmt.Errorf("no rra id specified")
-		op.logf(err.Error())
-		http.Error(rw, err.Error(), 400)
+	rraidstr := req.FormValue("id")
+	if rraidstr == "" {
+		op.logf("invalid rra id")
+		http.Error(rw, "invalid rra id", 400)
 		return
+	}
+	rraid, err := strconv.Atoi(rraidstr)
+	if err != nil {
+		http.Error(rw, "invalid rra id", 400)
 	}
 
 	r, err := getRRA(op, rraid)

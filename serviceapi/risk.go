@@ -210,7 +210,7 @@ func riskForRRA(op opContext, useCache bool, rraid int) (ret slib.Risk, err erro
 		}
 	}
 
-	/*r, err := getRRA(op, strconv.Itoa(rraid))
+	r, err := getRRA(op, rraid)
 	if err != nil {
 		return ret, err
 	}
@@ -223,7 +223,7 @@ func riskForRRA(op opContext, useCache bool, rraid int) (ret slib.Risk, err erro
 	err = ret.Validate()
 	if err != nil {
 		return ret, err
-	}*/
+	}
 	return ret, nil
 }
 

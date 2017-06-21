@@ -124,93 +124,6 @@ var dbconn *sql.DB
 var wg sync.WaitGroup
 var logChan chan string
 
-// Update the lastused value for an asset to indicate that we have recieved
-// a search for this asset
-func updateLastUsedHost(op opContext, hn string) error {
-	_, err := op.Exec(`UPDATE asset
-		SET lastused = now()
-		WHERE lower(hostname) = lower($1) AND
-		assettype = 'host'`, hn)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// Periodically prune old RRAs
-func rraCleanup() {
-	defer func() {
-		if e := recover(); e != nil {
-			logf("error in rra cleanup: %v", e)
-		}
-	}()
-	op := opContext{}
-	op.newContext(dbconn, true, "rracleanup")
-	cutoff := time.Now().UTC().Add(-(168 * time.Hour))
-	_, err := op.Exec(`DELETE FROM rra_sysgroup WHERE
-		rraid IN (SELECT rraid FROM rra WHERE 
-		lastupdated < $1)`, cutoff)
-	if err != nil {
-		op.rollback()
-		panic(err)
-	}
-	_, err = op.Exec(`DELETE FROM risk WHERE
-		rraid IN (SELECT rraid FROM rra WHERE
-		lastupdated < $1)`, cutoff)
-	if err != nil {
-		op.rollback()
-		panic(err)
-	}
-	_, err = op.Exec(`DELETE FROM rra WHERE
-		lastupdated < $1`, cutoff)
-	if err != nil {
-		op.rollback()
-		panic(err)
-	}
-	err = op.commit()
-	if err != nil {
-		panic(err)
-	}
-}
-
-// Periodically prune dynamic assets from the database that have not been seen
-// within a given period.
-func dynAssetManager() {
-	defer func() {
-		if e := recover(); e != nil {
-			logf("error in dynamic asset manager: %v", e)
-		}
-	}()
-	op := opContext{}
-	op.newContext(dbconn, false, "dynassetmanager")
-	// Remove any assets which we have not seen evidence of in the past 7 days
-	cutoff := time.Now().UTC().Add(-(168 * time.Hour))
-	rows, err := op.Query(`SELECT assetid FROM asset
-			WHERE dynamic = true AND lastused < $1`, cutoff)
-	if err != nil {
-		panic(err)
-	}
-	for rows.Next() {
-		var assetid int
-		err = rows.Scan(&assetid)
-		if err != nil {
-			rows.Close()
-			panic(err)
-		}
-		logf("removing asset %v", assetid)
-		_, err = op.Exec(`DELETE FROM asset
-				WHERE assetid = $1`, assetid)
-		if err != nil {
-			rows.Close()
-			panic(err)
-		}
-	}
-	err = rows.Err()
-	if err != nil {
-		panic(err)
-	}
-}
-
 func dbInit() error {
 	var err error
 	connstr := fmt.Sprintf("dbname=%v host=%v user=%v password=%v",
@@ -251,14 +164,9 @@ func createPid() error {
 func main() {
 	var cfgpath string
 
-	flag.StringVar(&cfgpath, "f", "", "path to configuration file")
+	flag.StringVar(&cfgpath, "f", "/etc/serviceapi.conf", "path to configuration file")
 	flag.StringVar(&pidFile, "p", "/var/run/serviceapi.pid", "path to pid file")
 	flag.Parse()
-
-	if cfgpath == "" {
-		fmt.Fprintf(os.Stderr, "error: must specify configuration file with -f\n")
-		os.Exit(1)
-	}
 
 	err := gcfg.ReadFileInto(&cfg, cfgpath)
 	if err != nil {
@@ -323,22 +231,6 @@ func main() {
 		for {
 			riskCache()
 			time.Sleep(5 * time.Second)
-		}
-	}()
-	// Spawn asset manager
-	go func() {
-		logf("spawning asset manager")
-		for {
-			time.Sleep(1 * time.Minute)
-			dynAssetManager()
-		}
-	}()
-	// Spawn RRA cleanup routine
-	go func() {
-		logf("spawning rra cleanup routine")
-		for {
-			time.Sleep(1 * time.Minute)
-			rraCleanup()
 		}
 	}()
 	go func() {

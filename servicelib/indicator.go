@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// Describes an indicator, as it present in the database and associated with an asset
+// Describes an indicator, as is present in the database and associated with an asset
 type Indicator struct {
 	ID          int         `json:"id"`
 	EventSource string      `json:"event_source,omitempty"`

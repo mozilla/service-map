@@ -34,7 +34,6 @@ type interlinkRule struct {
 
 	srcHostMatch       string
 	srcAssetGroupMatch string
-	srcAWSSQLMatch     string
 
 	destServiceMatch    string
 	destAssetGroupMatch string

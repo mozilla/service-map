@@ -47,14 +47,14 @@ type RRA struct {
 	ConfiFinProb string `json:"confidentiality_financial_probability,omitempty"`
 }
 
-func (r *RRAService) Validate() error {
+func (r *RRA) Validate() error {
 	if r.Name == "" {
 		return fmt.Errorf("rra must have a name")
 	}
 	return nil
 }
 
-func (r *RRAService) HighestRiskReputation() (float64, float64) {
+func (r *RRA) HighestRiskReputation() (float64, float64) {
 	// XXX Assumed values have been normalized here
 	repavi, _ := ImpactValueFromLabel(r.AvailRepImpact)
 	repavp, _ := ImpactValueFromLabel(r.AvailRepProb)
@@ -82,7 +82,7 @@ func (r *RRAService) HighestRiskReputation() (float64, float64) {
 	return *candi, *candp
 }
 
-func (r *RRAService) HighestRiskProductivity() (float64, float64) {
+func (r *RRA) HighestRiskProductivity() (float64, float64) {
 	// XXX Assumed values have been normalized here
 	prdavi, _ := ImpactValueFromLabel(r.AvailPrdImpact)
 	prdavp, _ := ImpactValueFromLabel(r.AvailPrdProb)
@@ -110,7 +110,7 @@ func (r *RRAService) HighestRiskProductivity() (float64, float64) {
 	return *candi, *candp
 }
 
-func (r *RRAService) HighestRiskFinancial() (float64, float64) {
+func (r *RRA) HighestRiskFinancial() (float64, float64) {
 	// XXX Assumed values have been normalized here
 	finavi, _ := ImpactValueFromLabel(r.AvailFinImpact)
 	finavp, _ := ImpactValueFromLabel(r.AvailFinProb)
@@ -165,7 +165,7 @@ type RRAAttribute struct {
 // Describes calculated risk for a service, based on an RRA and known
 // data points
 type Risk struct {
-	RRA RRAService `json:"rra"` // The RRA we are describing
+	RRA RRA `json:"rra"` // The RRA we are describing
 
 	// The attribute from the RRA we use as the basis for risk calculations
 	// (business impact) for the service. For example, this could be "reputation",
@@ -204,12 +204,12 @@ func (r *Risk) Validate() error {
 // generally would be created using control information and is combined with the
 // RRA impact scores to produce estimated service risk
 type RiskScenario struct {
-	Name        string  `json:"name"` // Name describing the datapoint
-	Probability float64 `json:"probability"`
-	Impact      float64 `json:"impact"`
-	Score       float64 `json:"score"`
-	NoData      bool    `json:"nodata"`   // No data exists for proper calculation
-	Coverage    string  `json:"coverage"` // Coverage (partial, complete, none, unknown)
+	Name        string  `json:"name"`        // Name describing the datapoint
+	Probability float64 `json:"probability"` // Probability
+	Impact      float64 `json:"impact"`      // Impact
+	Score       float64 `json:"score"`       // Calculated score
+	NoData      bool    `json:"nodata"`      // No data exists for proper calculation
+	Coverage    string  `json:"coverage"`    // Coverage (partial, complete, none, unknown)
 }
 
 // Validates a RiskScenario for consistency
@@ -219,7 +219,7 @@ func (r *RiskScenario) Validate() error {
 	}
 	if r.Coverage != "none" && r.Coverage != "partial" &&
 		r.Coverage != "complete" && r.Coverage != "unknown" {
-		return fmt.Errorf("scenario \"%v\" coverage invalid \"%v\"", r.Name, r.Coverage)
+		return fmt.Errorf("scenario %q coverage invalid %q", r.Name, r.Coverage)
 	}
 	return nil
 }
@@ -318,9 +318,6 @@ type RawRRA struct {
 	LastModified time.Time     `json:"lastmodified"`
 }
 
-// XXX TEMP
-type RRAService RRA
-
 // Convert a RawRRA to an RRA
 func (r *RawRRA) ToRRA() (ret RRA) {
 	ret.Name = r.Details.Metadata.Service
@@ -365,11 +362,11 @@ func (r *RawRRADetails) validate() error {
 	if err != nil {
 		return err
 	}
-	err = r.Risk.validate(r.Metadata.Service)
+	err = r.Risk.validate()
 	if err != nil {
 		return err
 	}
-	err = r.Data.validate(r.Metadata.Service)
+	err = r.Data.validate()
 	if err != nil {
 		return err
 	}
@@ -394,7 +391,7 @@ type RawRRAData struct {
 	Default string `json:"default"`
 }
 
-func (r *RawRRAData) validate(s string) error {
+func (r *RawRRAData) validate() error {
 	if r.Default == "" {
 		return fmt.Errorf("rra has no default data classification")
 	}
@@ -421,16 +418,16 @@ type RawRRARisk struct {
 	Availability    RawRRARiskAttr `json:"availability"`
 }
 
-func (r *RawRRARisk) validate(s string) error {
-	err := r.Confidentiality.validate(s)
+func (r *RawRRARisk) validate() error {
+	err := r.Confidentiality.validate()
 	if err != nil {
 		return err
 	}
-	err = r.Integrity.validate(s)
+	err = r.Integrity.validate()
 	if err != nil {
 		return err
 	}
-	err = r.Availability.validate(s)
+	err = r.Availability.validate()
 	if err != nil {
 		return err
 	}
@@ -443,16 +440,16 @@ type RawRRARiskAttr struct {
 	Productivity RawRRAMeasure `json:"productivity"`
 }
 
-func (r *RawRRARiskAttr) validate(s string) error {
-	err := r.Reputation.validate(s)
+func (r *RawRRARiskAttr) validate() error {
+	err := r.Reputation.validate()
 	if err != nil {
 		return err
 	}
-	err = r.Finances.validate(s)
+	err = r.Finances.validate()
 	if err != nil {
 		return err
 	}
-	err = r.Productivity.validate(s)
+	err = r.Productivity.validate()
 	if err != nil {
 		return err
 	}
@@ -464,7 +461,7 @@ type RawRRAMeasure struct {
 	Probability string `json:"probability"`
 }
 
-func (r *RawRRAMeasure) validate(s string) (err error) {
+func (r *RawRRAMeasure) validate() (err error) {
 	r.Impact, err = SanitizeImpactLabel(r.Impact)
 	if err != nil {
 		return err
