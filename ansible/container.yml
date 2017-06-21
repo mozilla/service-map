@@ -1,0 +1,22 @@
+version: "2"
+settings:
+  conductor_base: ubuntu:xenial
+defaults:
+  dbuser: serviceapi
+  dbhostname: db.host.name
+  serviceapi_port: 8080
+services:
+  serviceapi:
+    from: ubuntu:xenial
+    roles:
+      - serviceapi
+    environment:
+      - PGUSER={{ dbuser }}
+      - PGHOST={{ dbhostname }}
+      - PGPPASSWORD={{ lookup('credstash', 'service-map:dbpass', region='us-west-2', application='service-map') }}
+    ports:
+      - "{{ serviceapi_port }}"
+    working_dir: /home/serviceapi
+    command: ['/usr/bin/dumb-init', '/home/serviceapi/go/bin/serviceapi', '-f', '/etc/serviceapi.conf', '-p', '/home/serviceapi/serviceapi.pid']
+    user: serviceapi
+registries: {}
