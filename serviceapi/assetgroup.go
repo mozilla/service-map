@@ -45,7 +45,7 @@ func getAssetGroups(op opContext) (ret []slib.AssetGroup, err error) {
 	return
 }
 
-// API entry point to retrieve a given system group
+// API entry point to retrieve a given asset group
 func serviceGetAssetGroup(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
