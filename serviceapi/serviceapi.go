@@ -100,9 +100,8 @@ type Config struct {
 		Password string
 	}
 	Interlink struct {
-		RulePath              string
-		RunEvery              string
-		AWSStripDNSSuffixList string
+		RulePath string
+		RunEvery string
 	}
 }
 
