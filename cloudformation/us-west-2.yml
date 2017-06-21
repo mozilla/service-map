@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Mozilla service-map"
+Parameters:
+  EnvType:
+    Description: Environment type
+    Default: dev
+    Type: String
+    AllowedValues:
+      - prod
+      - dev
+  DBPassword:
+    Description: Database password
+    Type: String
+    NoEcho: true
+    MinLength: 16
+Conditions:
+  UseProdCondition:
+    !Equals [!Ref EnvType, prod]
+  UseDevCondition:
+    !Equals [!Ref EnvType, dev]
+Resources:
+  ServiceMapInternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: Name
+          Value: service-map
+  ServiceMapVPC:
+    Type: "AWS::EC2::VPC"
+    DependsOn: ServiceMapInternetGateway
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsSupport: True
+      EnableDnsHostnames: True
+      Tags:
+        - Key: Name
+          Value: service-map
+  ServiceMapAttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DependsOn: ServiceMapVPC
+    Properties:
+      VpcId:
+        Ref: ServiceMapVPC
+      InternetGatewayId:
+        Ref: ServiceMapInternetGateway
+  ServiceMapRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    DependsOn: [ ServiceMapVPC, ServiceMapInternetGateway, ServiceMapAttachGateway ]
+    Properties:
+      VpcId:
+        Ref: ServiceMapVPC
+      Tags:
+        - Key: Name
+          Value: service-map
+  ServiceMapDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: ServiceMapInternetGateway
+    Properties:
+      RouteTableId:
+        Ref: ServiceMapRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: ServiceMapInternetGateway
+  ServiceMapSubnet1:
+    Type: "AWS::EC2::Subnet"
+    DependsOn: ServiceMapRouteTable
+    Properties:
+      AvailabilityZone: "us-west-2a"
+      CidrBlock: "10.0.0.0/24"
+      MapPublicIpOnLaunch: True
+      VpcId:
+        Ref: ServiceMapVPC
+      Tags:
+        - Key: Name
+          Value: service-map subnet 1
+  ServiceMapSubnet2:
+    Type: "AWS::EC2::Subnet"
+    DependsOn: ServiceMapRouteTable
+    Properties:
+      AvailabilityZone: "us-west-2b"
+      CidrBlock: "10.0.1.0/24"
+      MapPublicIpOnLaunch: True
+      VpcId:
+        Ref: ServiceMapVPC
+      Tags:
+        - Key: Name
+          Value: service-map subnet 2
+  ServiceMapRouteAssoc1:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    DependsOn: ServiceMapDefaultRoute
+    Properties:
+      RouteTableId:
+        Ref: ServiceMapRouteTable
+      SubnetId:
+        Ref: ServiceMapSubnet1
+  ServiceMapRouteAssoc2:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    DependsOn: ServiceMapDefaultRoute
+    Properties:
+      RouteTableId:
+        Ref: ServiceMapRouteTable
+      SubnetId:
+        Ref: ServiceMapSubnet2
+  ServiceMapDBSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupDescription: service-map
+      SubnetIds:
+        - Ref: ServiceMapSubnet1
+        - Ref: ServiceMapSubnet2
+  ServiceMapDBSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      VpcId:
+        Ref: ServiceMapVPC
+      GroupDescription: "security group for service-map db"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: service-map db
+  ServiceMapDB:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      AllocatedStorage: 15
+      BackupRetentionPeriod: 15
+      DBInstanceClass: db.m4.large
+      DBInstanceIdentifier: service-map
+      VPCSecurityGroups:
+        - Ref: ServiceMapDBSecurityGroup
+      DBName: servicemap
+      Engine: postgres
+      EngineVersion: 9.5.6
+      MasterUsername: dbadmin
+      MasterUserPassword:
+        Ref: DBPassword
+      DBSubnetGroupName:
+        Ref: ServiceMapDBSubnetGroup
+      PubliclyAccessible: true
+      MultiAZ: true
