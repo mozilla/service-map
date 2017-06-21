@@ -21,8 +21,7 @@ Resources:
     Properties:
       InstanceProfileName: "service-map-instance-profile"
       Roles:
-        -
-          Ref: ServiceMapRole
+        - Ref: ServiceMapRole
   ServiceMapCodePipelineAccess:
     Type: "AWS::IAM::Policy"
     DependsOn: ServiceMapRole
@@ -61,8 +60,7 @@ Resources:
             Resource: "arn:aws:s3:::codepipeline*"
       PolicyName: service-map-read-codepipeline
       Roles:
-        -
-          Ref: ServiceMapRole
+        - Ref: ServiceMapRole
   ServiceMapCredstashRead:
     Type: "AWS::IAM::Policy"
     DependsOn: ServiceMapRole
@@ -79,8 +77,7 @@ Resources:
             Resource: "arn:aws:dynamodb:*:*:table/credential-store"
       PolicyName: servicemap-credstash
       Roles:
-        -
-          Ref: ServiceMapRole
+        - Ref: ServiceMapRole
   ServiceMapTagAccess:
     Type: "AWS::IAM::Policy"
     DependsOn: ServiceMapRole
@@ -95,8 +92,7 @@ Resources:
             Resource: "*"
       PolicyName: service-map-describe-tags
       Roles:
-        -
-          Ref: ServiceMapRole
+        - Ref: ServiceMapRole
   ServiceMapCodeDeploy:
     Type: "AWS::IAM::Policy"
     DependsOn: ServiceMapRole
@@ -111,5 +107,4 @@ Resources:
             Resource: "arn:aws:codedeploy:*:*:application:service-map-*"
       PolicyName: service-map-code-deploy
       Roles:
-        -
-          Ref: ServiceMapRole
+        - Ref: ServiceMapRole
