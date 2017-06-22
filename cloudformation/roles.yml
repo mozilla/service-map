@@ -93,6 +93,20 @@ Resources:
       PolicyName: service-map-describe-tags
       Roles:
         - Ref: ServiceMapRole
+  ServiceMapS3:
+    Type: "AWS::IAM::Policy"
+    DependsOn: ServiceMapRole
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "s3:GetObject"
+            Resource: "arn:aws:s3:::moz-service-map-dev/*"
+      PolicyName: service-map-s3
+      Roles:
+        - !Ref ServiceMapRole
   ServiceMapCodeDeploy:
     Type: "AWS::IAM::Policy"
     DependsOn: ServiceMapRole
