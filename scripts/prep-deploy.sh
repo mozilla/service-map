@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source /etc/serviceapiprofile
+
 if [[ -f /home/serviceapi/app/ansible/container.yml ]]; then
 	(cd /home/serviceapi/app/ansible && ansible-container stop)
 fi
