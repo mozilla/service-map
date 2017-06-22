@@ -159,31 +159,37 @@ Resources:
       BucketName: !FindInMap [!Ref EnvType, !Ref "AWS::Region", S3Bucket]
   ServiceMapLaunchConfigDev:
     Type: "AWS::AutoScaling::LaunchConfiguration"
+    DependsOn: ServiceMapDB
     Condition: UseDevCondition
     Properties:
       KeyName: !Ref SSHKeyName
       ImageId: !FindInMap [!Ref EnvType, !Ref "AWS::Region", AMI]
       IamInstanceProfile: "service-map-instance-profile"
       UserData:
-        Fn::Base64: !Sub |
-          #cloud-config
-          repo_update: true
-          repo_upgrade: all
-          runcmd:
-            - REGION=$(curl 169.254.169.254/latest/meta-data/placement/availability-zone/ | sed 's/[a-z]$//')
-            - cd /root
-            - apt-get update
-            - apt-get install -y curl ruby python-pip docker.io libssl-dev
-            - pip install ansible-container docker credstash
-            - curl -OL https://aws-codedeploy-$REGION.s3.amazonaws.com/latest/install
-            - chmod +x ./install
-            - ./install auto
+        Fn::Base64: !Sub
+          - |
+            #cloud-config
+            repo_update: true
+            repo_upgrade: all
+            runcmd:
+              - sed -i s,us-west-2,us-west-1,g /etc/apt/sources.list
+              - REGION=$(curl 169.254.169.254/latest/meta-data/placement/availability-zone/ | sed 's/[a-z]$//')
+              - echo export AC_DBHOSTNAME=${LocalDBHostname} > /etc/serviceapiprofile
+              - cd /root
+              - apt-get update
+              - apt-get install -y curl ruby python-pip docker.io libssl-dev
+              - pip install ansible-container docker credstash
+              - curl -OL https://aws-codedeploy-$REGION.s3.amazonaws.com/latest/install
+              - chmod +x ./install
+              - ./install auto
+          - {LocalDBHostname: !GetAtt ServiceMapDB.Endpoint.Address}
       SecurityGroups:
         - !Ref ServiceMapSecurityGroup
       InstanceType: "t2.medium"
   ServiceMapLaunchConfigProd:
     Type: "AWS::AutoScaling::LaunchConfiguration"
-    Condition: UseDevCondition
+    DependsOn: ServiceMapDB
+    Condition: UseProdCondition
     Properties:
       KeyName: !Ref SSHKeyName
       ImageId: !FindInMap [!Ref EnvType, !Ref "AWS::Region", AMI]
