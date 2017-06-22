@@ -23,6 +23,7 @@ Mappings:
       branch: "git checkout master"
       CertificateARN: "arn:aws:acm:us-west-2:656532927350:certificate/857106e8-787f-4a95-9bbc-d51b5bee5c50"
       AMI: "ami-2709bd47"
+      S3Bucket: "moz-service-map-dev"
 Conditions:
   UseProdCondition:
     !Equals [!Ref EnvType, prod]
@@ -151,6 +152,11 @@ Resources:
         Ref: ServiceMapDBSubnetGroup
       PubliclyAccessible: true
       MultiAZ: true
+  ServiceMapS3Bucket:
+    Condition: UseDevCondition
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !FindInMap [!Ref EnvType, !Ref "AWS::Region", S3Bucket]
   ServiceMapLaunchConfigDev:
     Type: "AWS::AutoScaling::LaunchConfiguration"
     Condition: UseDevCondition
