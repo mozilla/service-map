@@ -173,8 +173,8 @@ Resources:
             - REGION=$(curl 169.254.169.254/latest/meta-data/placement/availability-zone/ | sed 's/[a-z]$//')
             - cd /root
             - apt-get update
-            - apt-get install -y curl ruby python-pip docker.io
-            - pip install ansible-container docker
+            - apt-get install -y curl ruby python-pip docker.io libssl-dev
+            - pip install ansible-container docker credstash
             - curl -OL https://aws-codedeploy-$REGION.s3.amazonaws.com/latest/install
             - chmod +x ./install
             - ./install auto
