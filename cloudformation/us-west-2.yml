@@ -13,6 +13,16 @@ Parameters:
     Type: String
     NoEcho: true
     MinLength: 16
+  SSHKeyName:
+    Description: Name of SSH key to use for instances
+    Type: String
+    Default: alm-keys
+Mappings:
+  dev:
+    us-west-2:
+      branch: "git checkout master"
+      CertificateARN: "arn:aws:acm:us-west-2:656532927350:certificate/857106e8-787f-4a95-9bbc-d51b5bee5c50"
+      AMI: "ami-2709bd47"
 Conditions:
   UseProdCondition:
     !Equals [!Ref EnvType, prod]
@@ -141,3 +151,136 @@ Resources:
         Ref: ServiceMapDBSubnetGroup
       PubliclyAccessible: true
       MultiAZ: true
+  ServiceMapLaunchConfigDev:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    Condition: UseDevCondition
+    Properties:
+      KeyName: !Ref SSHKeyName
+      ImageId: !FindInMap [!Ref EnvType, !Ref "AWS::Region", AMI]
+      IamInstanceProfile: "service-map-instance-profile"
+      UserData:
+        Fn::Base64: !Sub |
+          #cloud-config
+          repo_update: true
+          repo_upgrade: all
+          runcmd:
+            - REGION=$(curl 169.254.169.254/latest/meta-data/placement/availability-zone/ | sed 's/[a-z]$//')
+            - cd /root
+            - apt-get install -y curl ruby
+            - curl -OL https://aws-codedeploy-$REGION.s3.amazonaws.com/latest/install
+            - chmod +x ./install
+            - ./install auto
+      SecurityGroups:
+        - !Ref ServiceMapSecurityGroup
+      InstanceType: "t2.medium"
+  ServiceMapLaunchConfigProd:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    Condition: UseDevCondition
+    Properties:
+      KeyName: !Ref SSHKeyName
+      ImageId: !FindInMap [!Ref EnvType, !Ref "AWS::Region", AMI]
+      IamInstanceProfile: "service-map-instance-profile"
+      UserData:
+        Fn::Base64: !Sub |
+          #cloud-config
+          repo_update: true
+          repo_upgrade: all
+          runcmd:
+            - REGION=$(curl 169.254.169.254/latest/meta-data/placement/availability-zone/ | sed 's/[a-z]$//')
+            - cd /root
+            - apt-get install -y curl
+            - curl -OL https://aws-codedeploy-$REGION.s3.amazonaws.com/latest/install
+            - chmod +x ./install
+            - ./install auto
+      SecurityGroups:
+        - !Ref ServiceMapSecurityGroup
+      InstanceType: "t2.medium"
+  ServiceMapSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    DependsOn: ServiceMapVPC
+    Properties:
+      GroupDescription: "security group for service-map instances"
+      VpcId: !Ref ServiceMapVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: service-map instances
+  ServiceMapAutoScalingGroup:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    DependsOn: [ ServiceMapSubnet1, ServiceMapSubnet2 ]
+    Properties:
+      Tags:
+        - Key: Name
+          Value: service-map instance
+          PropagateAtLaunch: true
+        - Key: Application
+          Value: service-map
+          PropagateAtLaunch: true
+      MinSize: 1
+      MaxSize: 1
+      TargetGroupARNs:
+        - !Ref ALBTargetGroup
+      VPCZoneIdentifier:
+        - !Ref ServiceMapSubnet1
+        - !Ref ServiceMapSubnet2
+      LaunchConfigurationName: !If [UseProdCondition, Ref: ServiceMapLaunchConfigProd, Ref: ServiceMapLaunchConfigDev]
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    DependsOn: ServiceMapELBSecurityGroup
+    Properties:
+      Scheme: internet-facing
+      Subnets:
+        - !Ref ServiceMapSubnet1
+        - !Ref ServiceMapSubnet2
+      SecurityGroups:
+        - !Ref ServiceMapELBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: service-map
+  ALBHTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn: ApplicationLoadBalancer
+    Properties:
+      Certificates:
+        - CertificateArn: !FindInMap [!Ref EnvType, !Ref "AWS::Region", CertificateARN]
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-2016-08
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: ApplicationLoadBalancer
+    Properties:
+      HealthyThresholdCount: 2
+      HealthCheckIntervalSeconds: 30
+      UnhealthyThresholdCount: 5
+      HealthCheckPath: /health
+      HealthCheckPort: 443
+      Name: service-map-web
+      Port: 8080
+      Protocol: HTTP
+      VpcId: !Ref ServiceMapVPC
+      Tags:
+        - Key: Name
+          Value: service-map
+  ServiceMapELBSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    DependsOn: ServiceMapVPC
+    Properties:
+      GroupDescription: "security group for service-map elb"
+      VpcId: !Ref ServiceMapVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: service-map elb
