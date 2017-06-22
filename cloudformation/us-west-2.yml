@@ -275,8 +275,9 @@ Resources:
       HealthyThresholdCount: 2
       HealthCheckIntervalSeconds: 30
       UnhealthyThresholdCount: 5
-      HealthCheckPath: /health
-      HealthCheckPort: 443
+      HealthCheckPath: /api/v1/ping
+      HealthCheckPort: 8080
+      HealthCheckProtocol: HTTP
       Name: service-map-web
       Port: 8080
       Protocol: HTTP

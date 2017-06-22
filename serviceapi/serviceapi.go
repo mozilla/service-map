@@ -261,6 +261,7 @@ func main() {
 	s.HandleFunc("/rra/update", authenticate(serviceUpdateRRA)).Methods("POST")
 	s.HandleFunc("/rra/risk", authenticate(serviceGetRRARisk)).Methods("GET")
 	s.HandleFunc("/owners", authenticate(serviceOwners)).Methods("GET")
+	s.HandleFunc("/ping", servicePing).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
 	err = http.ListenAndServe(cfg.General.Listen, nil)
 	if err != nil {
@@ -269,6 +270,10 @@ func main() {
 	}
 
 	doExit(0)
+}
+
+func servicePing(rw http.ResponseWriter, req *http.Request) {
+	fmt.Fprintf(rw, "pong\n")
 }
 
 // Generalized API authentication wrapper
