@@ -1,5 +1,10 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Mozilla service-map roles"
+Parameters:
+  CodeDeployUserName:
+    Description: Username for CodeDeploy IAM user
+    Default: service-map-codedeploy
+    Type: String
 Resources:
   ServiceMapRole:
     Type: "AWS::IAM::Role"
@@ -79,3 +84,37 @@ Resources:
       PolicyName: service-map-code-deploy
       Roles:
         - Ref: ServiceMapRole
+  CodeDeployManaged:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "codedeploy:RegisterApplicationRevision"
+              - "codedeploy:GetApplicationRevision"
+            Resource: "arn:aws:codedeploy:*:*:application:service-map-*"
+          - Effect: "Allow"
+            Action:
+              - "codedeploy:CreateDeployment"
+              - "codedeploy:GetDeployment"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+              - "codedeploy:GetDeploymentConfig"
+            Resource:
+              - !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentconfig:CodeDeployDefault.OneAtATime"
+              - !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentconfig:CodeDeployDefault.HalfAtATime"
+              - !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentconfig:CodeDeployDefault.AllAtOnce"
+          - Effect: "Allow"
+            Action:
+              - "s3:PutObject"
+            Resource:
+              - "arn:aws:s3:::moz-service-map-dev/*"
+  CodeDeployUser:
+    Type: "AWS::IAM::User"
+    Properties:
+      UserName: !Ref CodeDeployUserName
+      ManagedPolicyArns:
+        - Ref: CodeDeployManaged
