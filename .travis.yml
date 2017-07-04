@@ -4,9 +4,14 @@ deploy:
     access_key_id: $DEVAKID
     secret_access_key: $DEVAK
     bucket: $DEVBUCKET
+    local_dir: s3_upload
+    skip_cleanup: true
     on:
       branch: master
 script:
   - go test -v ./servicelib
   - go test -v ./serviceapi
+  - zip -r service-map *
+  - mkdir s3_upload
+  - mv service-map.zip s3_upload/service-map.zip
 install: true
