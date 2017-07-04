@@ -1,2 +1,0 @@
-credstash
-boto3

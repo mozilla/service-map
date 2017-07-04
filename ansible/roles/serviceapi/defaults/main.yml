@@ -1,5 +1,0 @@
----
-servicemap_repo: https://github.com/ameihm0912/service-map
-servicemap_version: v2
-source_postfix: github.com/mozilla/service-map
-dumb_init_url: https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64.deb
