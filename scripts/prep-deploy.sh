@@ -3,7 +3,6 @@
 # Create a fresh application environment
 touch /etc/serviceapienv
 chmod 600 /etc/serviceapienv
-chown serviceapi:serviceapi /etc/serviceapienv
 bash /home/serviceapi/app/scripts/appenv.sh > /etc/serviceapienv
 if [[ $? -ne 0 ]]; then
 	exit 1
