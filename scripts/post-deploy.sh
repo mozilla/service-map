@@ -1,5 +1,3 @@
 #!/bin/bash
 
-source /etc/serviceapiprofile
-cd /home/serviceapi/app/ansible
-/usr/local/bin/ansible-container run --production
+docker run -d --env-file /etc/serviceapienv -p 0.0.0.0:8080:8080 serviceapi:latest

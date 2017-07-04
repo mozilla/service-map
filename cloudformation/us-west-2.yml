@@ -174,11 +174,11 @@ Resources:
             runcmd:
               - sed -i s,us-west-2,us-west-1,g /etc/apt/sources.list
               - REGION=$(curl 169.254.169.254/latest/meta-data/placement/availability-zone/ | sed 's/[a-z]$//')
-              - echo export AC_DBHOSTNAME=${LocalDBHostname} > /etc/serviceapiprofile
+              - echo export PGHOST=${LocalDBHostname} > /etc/serviceapidbhost
               - cd /root
               - apt-get update
               - apt-get install -y curl ruby python-pip docker.io libssl-dev
-              - pip install ansible-container docker credstash
+              - pip install docker credstash
               - curl -OL https://aws-codedeploy-$REGION.s3.amazonaws.com/latest/install
               - chmod +x ./install
               - ./install auto

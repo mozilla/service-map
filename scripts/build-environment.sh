@@ -1,5 +1,5 @@
 #!/bin/bash
 
-source /etc/serviceapiprofile
-cd /home/serviceapi/app/ansible
-/usr/local/bin/ansible-container --debug build >/home/serviceapi/build.log 2>&1
+cd /home/serviceapi/app
+docker build -t serviceapi:latest .
+if [[ $? -ne 0 ]]; then exit 1; fi
