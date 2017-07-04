@@ -8,6 +8,13 @@ deploy:
     skip_cleanup: true
     on:
       branch: master
+  - provider: codedeploy
+    access_key_id: $DEVAKID
+    secret_access_key: $DEVAK
+    bucket: $DEVBUCKET
+    key: service-map.zip
+    application: service-map-dev
+    deployment_group: service-map-dev
 script:
   - go test -v ./servicelib
   - go test -v ./serviceapi
