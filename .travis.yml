@@ -2,3 +2,4 @@ language: go
 script:
   - go test -v ./servicelib
   - go test -v ./serviceapi
+install: true
