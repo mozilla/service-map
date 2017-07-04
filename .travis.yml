@@ -15,6 +15,7 @@ deploy:
     key: service-map.zip
     application: service-map-dev
     deployment_group: service-map-dev
+    region: us-west-2
 script:
   - go test -v ./servicelib
   - go test -v ./serviceapi
