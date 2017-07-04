@@ -87,6 +87,7 @@ Resources:
   CodeDeployManaged:
     Type: "AWS::IAM::ManagedPolicy"
     Properties:
+      Description: Permits Travis CI code deploy access for service-map
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
