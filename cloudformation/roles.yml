@@ -80,7 +80,7 @@ Resources:
           - Effect: "Allow"
             Action:
               - "codedeploy:*"
-            Resource: "arn:aws:codedeploy:*:*:application:service-map-*"
+            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:service-map-*"
       PolicyName: service-map-code-deploy
       Roles:
         - Ref: ServiceMapRole
@@ -94,12 +94,9 @@ Resources:
             Action:
               - "codedeploy:RegisterApplicationRevision"
               - "codedeploy:GetApplicationRevision"
-            Resource: "arn:aws:codedeploy:*:*:application:service-map-*"
-          - Effect: "Allow"
-            Action:
               - "codedeploy:CreateDeployment"
               - "codedeploy:GetDeployment"
-            Resource: "*"
+            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:service-map-*"
           - Effect: "Allow"
             Action:
               - "codedeploy:GetDeploymentConfig"
