@@ -95,9 +95,12 @@ Resources:
             Action:
               - "codedeploy:RegisterApplicationRevision"
               - "codedeploy:GetApplicationRevision"
+            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:service-map-*"
+          - Effect: "Allow"
+            Action:
               - "codedeploy:CreateDeployment"
               - "codedeploy:GetDeployment"
-            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:service-map-*"
+            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:service-map-*"
           - Effect: "Allow"
             Action:
               - "codedeploy:GetDeploymentConfig"
