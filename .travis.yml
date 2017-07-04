@@ -1,4 +1,11 @@
 language: go
+deploy:
+  - provider: s3
+    access_key_id: $DEVAKID
+    secret_access_key: $DEVAK
+    bucket: $DEVBUCKET
+    on:
+      branch: master
 script:
   - go test -v ./servicelib
   - go test -v ./serviceapi
