@@ -20,7 +20,6 @@ Parameters:
 Mappings:
   dev:
     us-west-2:
-      branch: "git checkout master"
       CertificateARN: "arn:aws:acm:us-west-2:656532927350:certificate/857106e8-787f-4a95-9bbc-d51b5bee5c50"
       AMI: "ami-2709bd47"
       S3Bucket: "moz-service-map-dev"
@@ -182,6 +181,12 @@ Resources:
               - curl -OL https://aws-codedeploy-$REGION.s3.amazonaws.com/latest/install
               - chmod +x ./install
               - ./install auto
+              - mkdir -p /home/serviceapi
+              - git clone https://github.com/mozilla/service-map /home/serviceapi/app
+              - cd /home/serviceapi/app
+              - git checkout master
+              - bash scripts/build-environment.sh
+              - bash scripts/post-deploy.sh
           - {LocalDBHostname: !GetAtt ServiceMapDB.Endpoint.Address}
       SecurityGroups:
         - !Ref ServiceMapSecurityGroup
@@ -195,17 +200,29 @@ Resources:
       ImageId: !FindInMap [!Ref EnvType, !Ref "AWS::Region", AMI]
       IamInstanceProfile: "service-map-instance-profile"
       UserData:
-        Fn::Base64: !Sub |
-          #cloud-config
-          repo_update: true
-          repo_upgrade: all
-          runcmd:
-            - REGION=$(curl 169.254.169.254/latest/meta-data/placement/availability-zone/ | sed 's/[a-z]$//')
-            - cd /root
-            - apt-get install -y curl
-            - curl -OL https://aws-codedeploy-$REGION.s3.amazonaws.com/latest/install
-            - chmod +x ./install
-            - ./install auto
+        Fn::Base64: !Sub
+          - |
+            #cloud-config
+            repo_update: true
+            repo_upgrade: all
+            runcmd:
+              - sed -i s,us-west-2,us-west-1,g /etc/apt/sources.list
+              - REGION=$(curl 169.254.169.254/latest/meta-data/placement/availability-zone/ | sed 's/[a-z]$//')
+              - echo export PGHOST=${LocalDBHostname} > /etc/serviceapidbhost
+              - cd /root
+              - apt-get update
+              - apt-get install -y curl ruby python-pip docker.io libssl-dev
+              - pip install docker credstash
+              - curl -OL https://aws-codedeploy-$REGION.s3.amazonaws.com/latest/install
+              - chmod +x ./install
+              - ./install auto
+              - mkdir -p /home/serviceapi
+              - git clone https://github.com/mozilla/service-map /home/serviceapi/app
+              - cd /home/serviceapi/app
+              - git checkout production
+              - bash scripts/build-environment.sh
+              - bash scripts/post-deploy.sh
+          - {LocalDBHostname: !GetAtt ServiceMapDB.Endpoint.Address}
       SecurityGroups:
         - !Ref ServiceMapSecurityGroup
       InstanceType: "t2.medium"
