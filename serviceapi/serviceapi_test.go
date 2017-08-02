@@ -8,13 +8,17 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	slib "github.com/mozilla/service-map/servicelib"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
 	"testing"
+	"time"
 )
 
 var testserv *httptest.Server
@@ -41,6 +45,51 @@ func addTestBase() error {
 		}
 		rr.Body.Close()
 		fd.Close()
+	}
+
+	// Generate test indicators
+	dirlist, err = ioutil.ReadDir("./testdata/validindicator")
+	if err != nil {
+		return err
+	}
+	for _, f := range dirlist {
+		// For each valid indicator, we will generate a series of indicators mutating
+		// the timestamp
+		fd, err := os.Open(path.Join("./testdata/validindicator", f.Name()))
+		if err != nil {
+			return err
+		}
+		buf, err := ioutil.ReadAll(fd)
+		if err != nil {
+			return err
+		}
+		fd.Close()
+
+		var ind slib.RawIndicator
+		err = json.Unmarshal(buf, &ind)
+		if err != nil {
+			return err
+		}
+
+		stime := time.Now().Add(-1 * (time.Minute))
+		ind.Timestamp = stime
+		for i := 0; i < 10; i++ {
+			ind.Timestamp = ind.Timestamp.Add(time.Second)
+			sendbuf, err := json.Marshal(ind)
+			if err != nil {
+				return err
+			}
+
+			reader := bytes.NewReader(sendbuf)
+			rr, err := client.Post(testserv.URL+"/api/v1/indicator", "application/json", reader)
+			if err != nil {
+				return err
+			}
+			if rr.StatusCode != http.StatusOK {
+				return fmt.Errorf("indicator response code %v", rr.StatusCode)
+			}
+			rr.Body.Close()
+		}
 	}
 
 	return nil
