@@ -17,22 +17,23 @@ import (
 	"net/http/httptest"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"time"
 )
 
 var testserv *httptest.Server
 
-func addTestBase() error {
+func addTestBase(sroot string) error {
 	client := http.Client{}
 
 	// Add all valid RRAs
-	dirlist, err := ioutil.ReadDir("./testdata/validrra")
+	dirlist, err := ioutil.ReadDir(path.Join(sroot, "rra"))
 	if err != nil {
 		return err
 	}
 	for _, f := range dirlist {
-		fd, err := os.Open(path.Join("./testdata/validrra", f.Name()))
+		fd, err := os.Open(path.Join(sroot, "rra", f.Name()))
 		if err != nil {
 			return err
 		}
@@ -48,14 +49,14 @@ func addTestBase() error {
 	}
 
 	// Generate test indicators
-	dirlist, err = ioutil.ReadDir("./testdata/validindicator")
+	dirlist, err = ioutil.ReadDir(path.Join(sroot, "indicator"))
 	if err != nil {
 		return err
 	}
 	for _, f := range dirlist {
 		// For each valid indicator, we will generate a series of indicators mutating
 		// the timestamp
-		fd, err := os.Open(path.Join("./testdata/validindicator", f.Name()))
+		fd, err := os.Open(path.Join(sroot, "indicator", f.Name()))
 		if err != nil {
 			return err
 		}
@@ -127,10 +128,21 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	err = addTestBase()
+	dirlist, err := ioutil.ReadDir("./testdata")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
+	}
+	for _, f := range dirlist {
+		if !strings.HasPrefix(f.Name(), "service") {
+			continue
+		}
+		tdir := path.Join("./testdata", f.Name())
+		err = addTestBase(tdir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// Run the interlink rules prior to the other tests

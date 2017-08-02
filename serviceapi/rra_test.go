@@ -12,12 +12,14 @@ import (
 	slib "github.com/mozilla/service-map/servicelib"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 )
 
 func TestGetRRA(t *testing.T) {
 	op := opContext{}
 	op.newContext(dbconn, false, "127.0.0.1")
+	// Tests service1
 	rra, err := getRRA(op, 1)
 	if err != nil {
 		t.Fatalf("getRRA: %v", err)
@@ -33,6 +35,7 @@ func TestGetRRA(t *testing.T) {
 func TestServiceGetRRA(t *testing.T) {
 	client := http.Client{}
 
+	// Tests service1
 	rr, err := client.Get(testserv.URL + "/api/v1/rra/id?id=1")
 	if err != nil {
 		t.Fatalf("client.Get: %v", err)
@@ -78,6 +81,7 @@ func TestServiceGetNonExistRRA(t *testing.T) {
 func TestServiceGetRRARisk(t *testing.T) {
 	client := http.Client{}
 
+	// Tests service1
 	rr, err := client.Get(testserv.URL + "/api/v1/rra/risk?id=1")
 	if err != nil {
 		t.Fatalf("client.Get: %v", err)
@@ -102,9 +106,16 @@ func TestServiceRRAs(t *testing.T) {
 	// The number of RRAs returned should correspond with the number of
 	// valid test RRAs we have
 	var rraresp slib.RRAsResponse
-	dirlist, err := ioutil.ReadDir("./testdata/validrra")
+	dirlist, err := ioutil.ReadDir("./testdata")
 	if err != nil {
 		t.Fatalf("ioutil.ReadDir: %v", err)
+	}
+	cnt := 0
+	for _, x := range dirlist {
+		if !strings.HasPrefix(x.Name(), "service") {
+			continue
+		}
+		cnt++
 	}
 	buf, err := ioutil.ReadAll(rr.Body)
 	if err != nil {
@@ -115,7 +126,7 @@ func TestServiceRRAs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("json.Unmarshal: %v", err)
 	}
-	if len(dirlist) != len(rraresp.RRAs) {
+	if cnt != len(rraresp.RRAs) {
 		t.Fatalf("unexpected rra count from rras endpoint")
 	}
 }
