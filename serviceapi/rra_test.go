@@ -30,6 +30,32 @@ func TestGetRRA(t *testing.T) {
 	}
 }
 
+func TestServiceGetRRA(t *testing.T) {
+	client := http.Client{}
+
+	rr, err := client.Get(testserv.URL + "/api/v1/rra/id?id=1")
+	if err != nil {
+		t.Fatalf("client.Get: %v", err)
+	}
+	if rr.StatusCode != http.StatusOK {
+		t.Fatalf("rra get response code %v", rr.StatusCode)
+	}
+	rr.Body.Close()
+}
+
+func TestServiceGetNonExistRRA(t *testing.T) {
+	client := http.Client{}
+
+	rr, err := client.Get(testserv.URL + "/api/v1/rra/id?id=999")
+	if err != nil {
+		t.Fatalf("client.Get: %v", err)
+	}
+	if rr.StatusCode != http.StatusNotFound {
+		t.Fatalf("rra get response code %v", rr.StatusCode)
+	}
+	rr.Body.Close()
+}
+
 func TestServiceRRAs(t *testing.T) {
 	client := http.Client{}
 

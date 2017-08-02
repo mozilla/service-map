@@ -266,6 +266,12 @@ func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if r.Name == "" {
+		// RRA wasn't found
+		http.Error(rw, "rra not found", 404)
+		return
+	}
+
 	buf, err := json.Marshal(&r)
 	if err != nil {
 		op.logf(err.Error())
