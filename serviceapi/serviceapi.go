@@ -250,6 +250,17 @@ func main() {
 
 	logf("Starting processing")
 
+	_ = muxRouter()
+	err = http.ListenAndServe(cfg.General.Listen, nil)
+	if err != nil {
+		logf("http.ListenAndServe: %v", err)
+		doExit(1)
+	}
+
+	doExit(0)
+}
+
+func muxRouter() *mux.Router {
 	r := mux.NewRouter()
 	s := r.PathPrefix("/api/v1").Subrouter()
 	s.HandleFunc("/indicator", authenticate(serviceIndicator)).Methods("POST")
@@ -263,13 +274,7 @@ func main() {
 	s.HandleFunc("/owners", authenticate(serviceOwners)).Methods("GET")
 	s.HandleFunc("/ping", servicePing).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
-	err = http.ListenAndServe(cfg.General.Listen, nil)
-	if err != nil {
-		logf("http.ListenAndServe: %v", err)
-		doExit(1)
-	}
-
-	doExit(0)
+	return r
 }
 
 func servicePing(rw http.ResponseWriter, req *http.Request) {
