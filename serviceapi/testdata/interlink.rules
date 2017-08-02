@@ -1,6 +1,7 @@
 # test interlink rule set
 
 add assetgroup testgroup1
+host matches testhost\d\..* link assetgroup testgroup1
 
 assetgroup matches testgroup1 link service ^test\sservice
 
