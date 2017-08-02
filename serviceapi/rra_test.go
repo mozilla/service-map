@@ -40,7 +40,26 @@ func TestServiceGetRRA(t *testing.T) {
 	if rr.StatusCode != http.StatusOK {
 		t.Fatalf("rra get response code %v", rr.StatusCode)
 	}
+	buf, err := ioutil.ReadAll(rr.Body)
+	if err != nil {
+		t.Fatalf("ioutil.ReadAll: %v", err)
+	}
 	rr.Body.Close()
+	var rra slib.RRA
+	err = json.Unmarshal(buf, &rra)
+	if err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	if rra.Name != "test service" {
+		t.Fatalf("rra get rra had unexpected name")
+	}
+	if rra.ConfiRepImpact != "high" {
+		t.Fatalf("rra get rra had unexpected service attribute value")
+	}
+	// The RRA should have one group associated with it
+	if len(rra.Groups) != 1 {
+		t.Fatalf("rra get rra associated with unexpected number of groups")
+	}
 }
 
 func TestServiceGetNonExistRRA(t *testing.T) {
