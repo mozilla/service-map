@@ -88,6 +88,11 @@ func interlinkRunAssetGroupAdd(op opContext, rules []interlinkRule) error {
 		if err != nil {
 			return err
 		}
+		_, err = op.Exec(`DELETE FROM rra_assetgroup WHERE
+			assetgroupid = $1`, x.ID)
+		if err != nil {
+			return err
+		}
 		_, err = op.Exec(`DELETE FROM assetgroup WHERE
 			assetgroupid = $1`, x.ID)
 		if err != nil {
