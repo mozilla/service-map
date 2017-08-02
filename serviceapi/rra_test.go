@@ -75,6 +75,19 @@ func TestServiceGetNonExistRRA(t *testing.T) {
 	rr.Body.Close()
 }
 
+func TestServiceGetRRARisk(t *testing.T) {
+	client := http.Client{}
+
+	rr, err := client.Get(testserv.URL + "/api/v1/rra/risk?id=1")
+	if err != nil {
+		t.Fatalf("client.Get: %v", err)
+	}
+	if rr.StatusCode != http.StatusOK {
+		t.Fatalf("rra get response code %v", rr.StatusCode)
+	}
+	rr.Body.Close()
+}
+
 func TestServiceRRAs(t *testing.T) {
 	client := http.Client{}
 
