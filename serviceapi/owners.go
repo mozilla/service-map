@@ -14,11 +14,17 @@ import (
 	"net/http"
 )
 
+// getOwner returns Owner ID oid from the database
 func getOwner(op opContext, oid int) (ret slib.Owner, err error) {
+	err = op.QueryRow(`SELECT ownerid, operator, team
+		FROM assetowners`).Scan(&ret.ID, &ret.Operator, &ret.Team)
+	if err != nil {
+		return
+	}
 	return
 }
 
-// Return all owners from database
+// getOwners returns all owners from database
 func getOwners(op opContext) (ret []slib.Owner, err error) {
 	rows, err := op.Query(`SELECT ownerid, operator, team
 		FROM assetowners`)
@@ -41,7 +47,7 @@ func getOwners(op opContext) (ret []slib.Owner, err error) {
 	return
 }
 
-// API entry point to fetch raw owner map
+// serviceOwners is the API entry point to fetch raw owner map
 //
 // This is a legacy function that supports a few integrated tools, providing a
 // simple method to obtain asset ownership details.
