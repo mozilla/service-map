@@ -14,7 +14,8 @@ import (
 	"net/http"
 )
 
-// Process a new indicator request
+// serviceIndicator processes a new indicator being sent to serviceapi by
+// an event publisher
 func serviceIndicator(rw http.ResponseWriter, req *http.Request) {
 	var (
 		indicator slib.RawIndicator
@@ -38,6 +39,12 @@ func serviceIndicator(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	asset, err := assetFromIndicator(op, indicator)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, "error processing indicator", 500)
+		return
+	}
+	err = asset.Validate()
 	if err != nil {
 		op.logf(err.Error())
 		http.Error(rw, "error processing indicator", 500)
