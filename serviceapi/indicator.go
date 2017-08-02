@@ -69,6 +69,7 @@ func serviceIndicator(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// getAsset returns asset ID aid from the database
 func getAsset(op opContext, aid int) (ret slib.Asset, err error) {
 	var (
 		grpid, ownid   sql.NullInt64
@@ -98,8 +99,9 @@ func getAsset(op opContext, aid int) (ret slib.Asset, err error) {
 	return
 }
 
-// Given a raw indicator, attempt to locate the relevant asset for the indicator
-// in the database. If not found, add a new asset for the indicator.
+// assetFromIndicator returns an asset given the information present in a RawIndicator, if
+// an existing asset is present in the database this will be returned, otherwise a new asset
+// is created and returned.
 func assetFromIndicator(op opContext, indicator slib.RawIndicator) (ret slib.Asset, err error) {
 	var aid int
 	err = op.QueryRow(`SELECT assetid FROM asset
