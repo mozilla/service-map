@@ -84,5 +84,17 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	// Run the interlink rules prior to the other tests
+	rules, err := interlinkLoadRules()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	err = interlinkRunRules(rules)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+
 	os.Exit(m.Run())
 }
