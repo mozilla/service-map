@@ -24,9 +24,8 @@ func getAssetGroup(op opContext, agid int) (ret slib.AssetGroup, err error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ret, nil
-		} else {
-			return
 		}
+		return
 	}
 	return
 }

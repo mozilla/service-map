@@ -39,9 +39,8 @@ func getRRA(op opContext, rraid int) (rr slib.RRA, err error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return rr, nil
-		} else {
-			return
 		}
+		return
 	}
 	err = rraResolveSupportGroups(op, &rr)
 	if err != nil {

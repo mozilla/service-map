@@ -88,7 +88,7 @@ func (o *opContext) logf(s string, args ...interface{}) {
 	logf("[%v:%v] %v", o.opid, clnt, buf)
 }
 
-type Config struct {
+type config struct {
 	General struct {
 		Listen         string
 		RiskCacheEvery string
@@ -106,7 +106,7 @@ type Config struct {
 	}
 }
 
-func (c *Config) validate() error {
+func (c *config) validate() error {
 	if c.General.Listen == "" {
 		return fmt.Errorf("missing configuration option: general..listen")
 	}
@@ -119,7 +119,7 @@ func (c *Config) validate() error {
 	return nil
 }
 
-var cfg Config
+var cfg config
 var dbconn *sql.DB
 
 var wg sync.WaitGroup
