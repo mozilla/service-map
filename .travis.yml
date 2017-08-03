@@ -23,7 +23,6 @@ deploy:
     region: us-west-2
 before_script:
   - psql -c 'CREATE DATABASE servicemap;' -U postgres
-  - psql -c 'CREATE EXTENSION pgcrypto;' -U postgres
   - psql -c 'CREATE ROLE serviceapi;' -U postgres
   - psql -c 'ALTER ROLE serviceapi WITH login;' -U postgres
   - psql -c 'ALTER ROLE serviceapi PASSWORD null;' -U postgres

@@ -103,6 +103,7 @@ CREATE ROLE serviceapi;
 ALTER ROLE serviceapi WITH login;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO serviceapi;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO serviceapi;
+CREATE EXTENSION pgcrypto;
 EOF
 
 exit 0
