@@ -208,18 +208,12 @@ type RiskScenario struct {
 	Probability float64 `json:"probability"` // Probability
 	Impact      float64 `json:"impact"`      // Impact
 	Score       float64 `json:"score"`       // Calculated score
-	NoData      bool    `json:"nodata"`      // No data exists for proper calculation
-	Coverage    string  `json:"coverage"`    // Coverage (partial, complete, none, unknown)
 }
 
 // Validates a RiskScenario for consistency
 func (r *RiskScenario) Validate() error {
 	if r.Name == "" {
 		return fmt.Errorf("scenario must have a name")
-	}
-	if r.Coverage != "none" && r.Coverage != "partial" &&
-		r.Coverage != "complete" && r.Coverage != "unknown" {
-		return fmt.Errorf("scenario %q coverage invalid %q", r.Name, r.Coverage)
 	}
 	return nil
 }

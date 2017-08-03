@@ -17,12 +17,13 @@ import (
 	"time"
 )
 
-// Calculate a risk scenario, uses information from the RRA
-func riskRRAScenario(op opContext, rs *slib.Risk, src slib.RRAAttribute, desc string) error {
+// riskRRAScenario calculates a risk scenario for a given RRA using the probability
+// associated with the impact score we decided to use based on riskFindHighestImpact. For
+// example, if a reputation based attribute was selected, we will also use the probability
+// that was associated with that attribute.
+func riskRRAScenario(op opContext, rs *slib.Risk, src slib.RRAAttribute) error {
 	newscen := slib.RiskScenario{
-		Name:     "RRA derived risk for " + desc,
-		Coverage: "none",
-		NoData:   true,
+		Name: "RRA derived risk for " + src.Attribute,
 	}
 	if src.Impact != 0 && src.Probability != 0 {
 		// Cap the maximum probability we will use on the RRA at 2.0 (MEDIUM).
@@ -36,8 +37,6 @@ func riskRRAScenario(op opContext, rs *slib.Risk, src slib.RRAAttribute, desc st
 		}
 		newscen.Impact = src.Impact
 		newscen.Score = newscen.Impact * newscen.Probability
-		newscen.Coverage = "complete"
-		newscen.NoData = false
 	}
 	err := newscen.Validate()
 	if err != nil {
@@ -47,18 +46,61 @@ func riskRRAScenario(op opContext, rs *slib.Risk, src slib.RRAAttribute, desc st
 	return nil
 }
 
-// Finalize calculation of the risk using available datapoints
+// riskIndicatorScenarios creates a risk scenario for each distinct event_source for the
+// assets which are part of the service
+func riskIndicatorScenarios(op opContext, rs *slib.Risk, src slib.RRAAttribute) error {
+	var err error
+	// First build a map, where the key is a distinct event source name from an indicator
+	// and the value is the highest likelihood reported for that event source for all assets
+	// which are part of the service.
+	scenmap := make(map[string]float64)
+	for _, g := range rs.RRA.Groups {
+		for _, a := range g.Assets {
+			for _, i := range a.Indicators {
+				if v, ok := scenmap[i.EventSource]; ok {
+					tv, err := slib.ImpactValueFromLabel(i.Likelihood)
+					if err != nil {
+						return err
+					}
+					if tv > v {
+						scenmap[i.EventSource] = tv
+					}
+				} else {
+					scenmap[i.EventSource], err = slib.ImpactValueFromLabel(i.Likelihood)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	// Next, we generate a scenario for each element in the map
+	for k, v := range scenmap {
+		newscen := slib.RiskScenario{
+			Name: k + " derived risk for " + src.Attribute,
+		}
+		newscen.Probability = v
+		newscen.Impact = src.Impact
+		newscen.Score = newscen.Impact * newscen.Probability
+		err := newscen.Validate()
+		if err != nil {
+			return err
+		}
+		rs.Scenarios = append(rs.Scenarios, newscen)
+	}
+	return nil
+}
+
+// riskFinalize takes into account all scenarios present in rs and calculates a final
+// risk score for the RRA
 func riskFinalize(op opContext, rs *slib.Risk) error {
 	var (
 		rvals []float64
 		err   error
 	)
+
 	for _, x := range rs.Scenarios {
-		// If the scenario had no data, don't include it in the
-		// final scoring
-		if x.NoData {
-			continue
-		}
 		rvals = append(rvals, x.Score)
 	}
 
@@ -107,9 +149,9 @@ func riskFinalize(op opContext, rs *slib.Risk) error {
 	return nil
 }
 
-// Determine which attributes (e.g., reputation, financial, productivity +
-// conf, integ, avail) from the RRA we want to use as impact inputs for the
-// risk scenarios.
+// riskFindHighestImpact examines the RRA within rs, and determines which attribute
+// (e.g., reputation, finances, productivity) has the highest impact score. This is
+// the impact score that we will use for risk calculations.
 func riskFindHighestImpact(rs *slib.Risk) error {
 	var (
 		repimp, repprob   float64
@@ -157,15 +199,19 @@ func riskFindHighestImpact(rs *slib.Risk) error {
 	return nil
 }
 
-// Risk calculation entry function, evaluates RRA in rs using any known
-// datapoints we have information for
+// riskCalculation evaluates and finalizes the risk for the RRA in rs, existing
+// indicators are taken into account and rs is populated with the risk score.
 func riskCalculation(op opContext, rs *slib.Risk) error {
 	// Determine our highest impact value
 	err := riskFindHighestImpact(rs)
 	if err != nil {
 		return err
 	}
-	err = riskRRAScenario(op, rs, rs.UsedRRAAttrib, rs.UsedRRAAttrib.Attribute)
+	err = riskRRAScenario(op, rs, rs.UsedRRAAttrib)
+	if err != nil {
+		return err
+	}
+	err = riskIndicatorScenarios(op, rs, rs.UsedRRAAttrib)
 	if err != nil {
 		return err
 	}

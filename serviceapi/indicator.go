@@ -96,6 +96,33 @@ func getAsset(op opContext, aid int) (ret slib.Asset, err error) {
 	if triageoverride.Valid {
 		ret.Owner.TriageKey = triageoverride.String
 	}
+	// Add the most recent indicators for the asset
+	ret.Indicators, err = assetGetIndicators(op, ret)
+	return
+}
+
+// assetGetIndicators returns a list of the most recent indicators for each distinct
+// event source for an asset
+func assetGetIndicators(op opContext, a slib.Asset) (ret []slib.Indicator, err error) {
+	rows, err := op.Query(`SELECT x.timestamp, x.event_source, x.likelihood_indicator, x.details
+		FROM indicator x INNER JOIN
+		(SELECT event_source, MAX(timestamp) FROM indicator WHERE assetid = $1
+		GROUP BY event_source) y
+		ON x.event_source = y.event_source AND x.timestamp = y.max`, a.ID)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var newind slib.Indicator
+		err = rows.Scan(&newind.Timestamp, &newind.EventSource, &newind.Likelihood,
+			&newind.Details)
+		if err != nil {
+			rows.Close()
+			return
+		}
+		ret = append(ret, newind)
+	}
+	err = rows.Err()
 	return
 }
 

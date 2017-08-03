@@ -27,6 +27,31 @@ func getAssetGroup(op opContext, agid int) (ret slib.AssetGroup, err error) {
 		}
 		return
 	}
+
+	// Append any assets present in this group
+	rows, err := op.Query(`SELECT assetid FROM asset WHERE
+		assetgroupid = $1`, ret.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return ret, nil
+		}
+		return
+	}
+	for rows.Next() {
+		var aid int
+		err = rows.Scan(&aid)
+		if err != nil {
+			rows.Close()
+			return
+		}
+		a, err := getAsset(op, aid)
+		if err != nil {
+			rows.Close()
+			return ret, err
+		}
+		ret.Assets = append(ret.Assets, a)
+	}
+	err = rows.Err()
 	return
 }
 

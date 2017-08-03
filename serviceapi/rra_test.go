@@ -89,7 +89,17 @@ func TestServiceGetRRARisk(t *testing.T) {
 	if rr.StatusCode != http.StatusOK {
 		t.Fatalf("rra get response code %v", rr.StatusCode)
 	}
+	buf, err := ioutil.ReadAll(rr.Body)
+	if err != nil {
+		t.Fatalf("ioutil.ReadAll: %v", err)
+	}
 	rr.Body.Close()
+	var r slib.Risk
+	err = json.Unmarshal(buf, &r)
+	if err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	t.Logf("%+v\n", r)
 }
 
 func TestServiceRRAs(t *testing.T) {
