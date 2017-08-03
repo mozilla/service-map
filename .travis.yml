@@ -1,4 +1,5 @@
 language: go
+dist: trusty
 services:
   - postgresql
 addons:
