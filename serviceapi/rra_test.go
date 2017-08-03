@@ -99,7 +99,9 @@ func TestServiceGetRRARisk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("json.Unmarshal: %v", err)
 	}
-	t.Logf("%+v\n", r)
+	if r.Risk.MedianLabel != "medium" {
+		t.Fatalf("rra get risk had unexpected median label value")
+	}
 }
 
 func TestServiceRRAs(t *testing.T) {
