@@ -1,4 +1,8 @@
 language: go
+services:
+  - postgresql
+addons:
+  postgresql: "9.5"
 deploy:
   - provider: s3
     access_key_id: $DEVAKID
@@ -16,9 +20,12 @@ deploy:
     application: service-map-dev
     deployment_group: service-map-dev
     region: us-west-2
+before_script:
+  - psql -c "CREATE USER dbadmin WITH PASSWORD 'test';" -U postgres
+  - psql -c 'CREATE DATABASE servicemap WITH OWNER dbadmin;' -U postgres
+  - psql -c 'CREATE EXTENSION pgcrypto;' -U postgres
 script:
-  - go test -v ./servicelib
-  - go test -v ./serviceapi
+  - make runtests
   - zip -r service-map *
   - mkdir s3_upload
   - mv service-map.zip s3_upload/service-map.zip
