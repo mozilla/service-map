@@ -1,0 +1,55 @@
+{
+	"details": {
+		"metadata": {
+			"service": "another test service"
+		},
+		"risk": {
+			"confidentiality": {
+				"reputation": {
+					"impact": "LOW",
+					"probability": "LOW"
+				},
+				"finances": {
+					"impact": "LOW",
+					"probability": "LOW"
+				},
+				"productivity": {
+					"impact": "LOW",
+					"probability": "LOW"
+				}
+			},
+			"integrity": {
+				"reputation": {
+					"impact": "LOW",
+					"probability": "LOW"
+				},
+				"finances": {
+					"impact": "LOW",
+					"probability": "LOW"
+				},
+				"productivity": {
+					"impact": "LOW",
+					"probability": "LOW"
+				}
+			},
+			"availability": {
+				"reputation": {
+					"impact": "MAXIMUM",
+					"probability": "HIGH"
+				},
+				"finances": {
+					"impact": "LOW",
+					"probability": "LOW"
+				},
+				"productivity": {
+					"impact": "MEDIUM",
+					"probability": "HIGH"
+				}
+			}
+		},
+		"data": {
+			"default": "public"
+		}
+	},
+	"lastmodified": "2017-08-02T14:25:47.511Z"
+}

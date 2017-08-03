@@ -11,7 +11,7 @@ import (
 	"errors"
 )
 
-// Authenticate a request with an API key token
+// apiAuthenticate authenticates a request with an API key token
 func apiAuthenticate(hdr string) (name string, err error) {
 	op := opContext{}
 	op.newContext(dbconn, false, "apiAuthenticate")

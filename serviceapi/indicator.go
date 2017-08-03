@@ -14,7 +14,8 @@ import (
 	"net/http"
 )
 
-// Process a new indicator request
+// serviceIndicator processes a new indicator being sent to serviceapi by
+// an event publisher
 func serviceIndicator(rw http.ResponseWriter, req *http.Request) {
 	var (
 		indicator slib.RawIndicator
@@ -43,6 +44,12 @@ func serviceIndicator(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, "error processing indicator", 500)
 		return
 	}
+	err = asset.Validate()
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, "error processing indicator", 500)
+		return
+	}
 	detailsbuf, err := json.Marshal(indicator.Details)
 	if err != nil {
 		op.logf(err.Error())
@@ -62,6 +69,7 @@ func serviceIndicator(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// getAsset returns asset ID aid from the database
 func getAsset(op opContext, aid int) (ret slib.Asset, err error) {
 	var (
 		grpid, ownid   sql.NullInt64
@@ -88,11 +96,39 @@ func getAsset(op opContext, aid int) (ret slib.Asset, err error) {
 	if triageoverride.Valid {
 		ret.Owner.TriageKey = triageoverride.String
 	}
+	// Add the most recent indicators for the asset
+	ret.Indicators, err = assetGetIndicators(op, ret)
 	return
 }
 
-// Given a raw indicator, attempt to locate the relevant asset for the indicator
-// in the database. If not found, add a new asset for the indicator.
+// assetGetIndicators returns a list of the most recent indicators for each distinct
+// event source for an asset
+func assetGetIndicators(op opContext, a slib.Asset) (ret []slib.Indicator, err error) {
+	rows, err := op.Query(`SELECT x.timestamp, x.event_source, x.likelihood_indicator, x.details
+		FROM indicator x INNER JOIN
+		(SELECT event_source, MAX(timestamp) FROM indicator WHERE assetid = $1
+		GROUP BY event_source) y
+		ON x.event_source = y.event_source AND x.timestamp = y.max`, a.ID)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var newind slib.Indicator
+		err = rows.Scan(&newind.Timestamp, &newind.EventSource, &newind.Likelihood,
+			&newind.Details)
+		if err != nil {
+			rows.Close()
+			return
+		}
+		ret = append(ret, newind)
+	}
+	err = rows.Err()
+	return
+}
+
+// assetFromIndicator returns an asset given the information present in a RawIndicator, if
+// an existing asset is present in the database this will be returned, otherwise a new asset
+// is created and returned.
 func assetFromIndicator(op opContext, indicator slib.RawIndicator) (ret slib.Asset, err error) {
 	var aid int
 	err = op.QueryRow(`SELECT assetid FROM asset

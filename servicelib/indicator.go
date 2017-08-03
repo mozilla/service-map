@@ -13,7 +13,8 @@ import (
 	"time"
 )
 
-// Describes an indicator, as is present in the database and associated with an asset
+// Indicator describes an indicator as it is internally stored by serviceapi, and
+// indicators are associated with assets
 type Indicator struct {
 	ID          int         `json:"id"`
 	EventSource string      `json:"event_source,omitempty"`
@@ -22,7 +23,8 @@ type Indicator struct {
 	Details     interface{} `json:"details,omitempty"`
 }
 
-// Describes an indicator as would be submitted to serviceapi
+// RawIndicator describes an indicator as would be submitted to serviceapi from an
+// event publisher
 type RawIndicator struct {
 	Type        string      `json:"asset_type,omitempty"`
 	Name        string      `json:"asset_identifier,omitempty"`
@@ -34,7 +36,7 @@ type RawIndicator struct {
 	Details     interface{} `json:"details,omitempty"`
 }
 
-// Validate indicator fields
+// Validate ensures a RawIndicator is formatted correctly
 func (i *RawIndicator) Validate() error {
 	if i.Type == "" {
 		return errors.New("indicator asset type missing")
@@ -44,6 +46,9 @@ func (i *RawIndicator) Validate() error {
 	}
 	if i.EventSource == "" {
 		return errors.New("indicator event source missing")
+	}
+	if i.Timestamp.IsZero() {
+		return errors.New("indicator has invalid time stamp")
 	}
 	i.Likelihood = strings.ToLower(i.Likelihood)
 	switch i.Likelihood {

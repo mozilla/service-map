@@ -11,6 +11,7 @@ import (
 	"github.com/pborman/uuid"
 )
 
+// NewUUID gneerates and returns a new UUID value
 func NewUUID() string {
 	return uuid.New()
 }

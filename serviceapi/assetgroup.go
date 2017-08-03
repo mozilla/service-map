@@ -16,7 +16,7 @@ import (
 	"strconv"
 )
 
-// Return an AssetGroup given an asset group ID, if the requested ID
+// getAssetGroup returns an AssetGroup given an asset group ID, if the requested ID
 // does not exist, err will be nil and ret.Name will be the zero value
 func getAssetGroup(op opContext, agid int) (ret slib.AssetGroup, err error) {
 	err = op.QueryRow(`SELECT assetgroupid, name
@@ -24,14 +24,38 @@ func getAssetGroup(op opContext, agid int) (ret slib.AssetGroup, err error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ret, nil
-		} else {
+		}
+		return
+	}
+
+	// Append any assets present in this group
+	rows, err := op.Query(`SELECT assetid FROM asset WHERE
+		assetgroupid = $1`, ret.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return ret, nil
+		}
+		return
+	}
+	for rows.Next() {
+		var aid int
+		err = rows.Scan(&aid)
+		if err != nil {
+			rows.Close()
 			return
 		}
+		a, err := getAsset(op, aid)
+		if err != nil {
+			rows.Close()
+			return ret, err
+		}
+		ret.Assets = append(ret.Assets, a)
 	}
+	err = rows.Err()
 	return
 }
 
-// Get all asset groups
+// getAssetGroups returns all asset groups
 func getAssetGroups(op opContext) (ret []slib.AssetGroup, err error) {
 	rows, err := op.Query(`SELECT assetgroupid, name
 		FROM assetgroup`)
@@ -54,7 +78,7 @@ func getAssetGroups(op opContext) (ret []slib.AssetGroup, err error) {
 	return
 }
 
-// API entry point to retrieve a given asset group
+// serviceGetAssetGroup is the API entry point to retrieve a given asset group
 func serviceGetAssetGroup(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
@@ -88,7 +112,7 @@ func serviceGetAssetGroup(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
-// API entry point to retrieve all asset groups
+// serviceAssetGroups is the API entry point to retrieve all asset groups
 func serviceAssetGroups(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)

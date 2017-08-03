@@ -1,6 +1,7 @@
 #!/bin/bash
 
 dbname=servicemap
+dbuser=serviceapi
 psql="psql -f - ${dbname}"
 
 $psql << EOF
@@ -98,6 +99,11 @@ CREATE TABLE apikey (
 	UNIQUE(name),
 	UNIQUE(hash)
 );
+CREATE ROLE serviceapi;
+ALTER ROLE serviceapi WITH login;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO serviceapi;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO serviceapi;
+CREATE EXTENSION pgcrypto;
 EOF
 
 exit 0

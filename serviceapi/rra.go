@@ -17,7 +17,7 @@ import (
 	"strconv"
 )
 
-// Get a fully populated RRA by ID; in the event the requested ID does
+// getRRA returns a fully populated RRA by ID; in the event the requested ID does
 // not exist, err will be nil and rr.Name will be the zero value
 func getRRA(op opContext, rraid int) (rr slib.RRA, err error) {
 	err = op.QueryRow(`SELECT rraid, service,
@@ -39,9 +39,8 @@ func getRRA(op opContext, rraid int) (rr slib.RRA, err error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return rr, nil
-		} else {
-			return
 		}
+		return
 	}
 	err = rraResolveSupportGroups(op, &rr)
 	if err != nil {
@@ -50,7 +49,8 @@ func getRRA(op opContext, rraid int) (rr slib.RRA, err error) {
 	return
 }
 
-// For RRA r, add any asset group information for groups linked to the RRA
+// rraResolveSupportGroups adds any asset group information to the RRA, if asset
+// groups have been linked
 func rraResolveSupportGroups(op opContext, r *slib.RRA) error {
 	r.Groups = make([]slib.AssetGroup, 0)
 	rows, err := op.Query(`SELECT assetgroupid FROM
@@ -85,7 +85,7 @@ func rraResolveSupportGroups(op opContext, r *slib.RRA) error {
 	return nil
 }
 
-// Return a risk document that includes all RRAs
+// serviceRisks returns a risk document that includes all RRAs
 func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}
 	op.newContext(dbconn, false, req.RemoteAddr)
@@ -135,7 +135,7 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
-// Calculate the risk for the requested RRA
+// serviceGetRRARisk returns the risk for a given RRA ID
 func serviceGetRRARisk(rw http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 
@@ -170,8 +170,8 @@ func serviceGetRRARisk(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
-// Endpoint used to update RRAs in the database (RRA submission to serviceapi
-// from rra2json.
+// serviceUpdateRRA is the endpoint used to update RRAs in the database (RRA submission
+// to serviceapi from rra2json.
 func serviceUpdateRRA(rw http.ResponseWriter, req *http.Request) {
 	var (
 		buf    []byte
@@ -240,8 +240,8 @@ func serviceUpdateRRA(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// API entry point to retrieve a specific RRA. All details including the
-// original RRA document are returned.
+// serviceGetRRA is the API entry point to retrieve a specific RRA. All details
+// including the original RRA document are returned.
 func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 
@@ -266,6 +266,12 @@ func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if r.Name == "" {
+		// RRA wasn't found
+		http.Error(rw, "rra not found", 404)
+		return
+	}
+
 	buf, err := json.Marshal(&r)
 	if err != nil {
 		op.logf(err.Error())
@@ -275,8 +281,8 @@ func serviceGetRRA(rw http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(rw, string(buf))
 }
 
-// API entry point to retrieve a list of all RRAs. The response is a slice of
-// RRA types (RRAsResponse), note though we only populate a few elements inside
+// serviceRRAs is the API entry point to retrieve a list of all RRAs. The
+// response is a slice of RRA types (RRAsResponse), note though we only populate a few elements inside
 // the RRA
 func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 	op := opContext{}

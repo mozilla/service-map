@@ -7,6 +7,8 @@
 
 package servicelib
 
+// AssetGroup describes an asset group, which has a name and an associated list
+// of Assets
 type AssetGroup struct {
 	Name   string  `json:"name,omitempty"`   // Group name
 	ID     int     `json:"id,omitempty"`     // Group ID

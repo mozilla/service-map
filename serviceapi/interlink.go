@@ -19,16 +19,16 @@ import (
 
 const (
 	_ = iota
-	ASSETGROUP_ADD
-	ASSETGROUP_LINK_SERVICE
-	HOST_LINK_ASSETGROUP
-	WEBSITE_ADD
-	WEBSITE_LINK_ASSETGROUP
-	HOST_OWNERSHIP
-	OWNER_ADD
+	assetgroupAdd
+	assetgroupLinkService
+	hostLinkAssetgroup
+	websiteAdd
+	websiteLinkAssetgroup
+	hostOwnership
+	ownerAdd
 )
 
-// Defines a rule in the interlink system
+// interlinkRule defines a rule in the interlink system
 type interlinkRule struct {
 	ruletype int
 
@@ -54,7 +54,7 @@ type interlinkRule struct {
 // single query to be in flight at a time, and we need to drain the results
 // of select queries to make sure they do not overlap with other operations.
 
-// Execute any asset group add operations
+// interlinkRunAssetGroupAdd executes any asset group add operations
 func interlinkRunAssetGroupAdd(op opContext, rules []interlinkRule) error {
 	for _, x := range rules {
 		_, err := op.Exec(`INSERT INTO assetgroup
@@ -88,6 +88,11 @@ func interlinkRunAssetGroupAdd(op opContext, rules []interlinkRule) error {
 		if err != nil {
 			return err
 		}
+		_, err = op.Exec(`DELETE FROM rra_assetgroup WHERE
+			assetgroupid = $1`, x.ID)
+		if err != nil {
+			return err
+		}
 		_, err = op.Exec(`DELETE FROM assetgroup WHERE
 			assetgroupid = $1`, x.ID)
 		if err != nil {
@@ -97,7 +102,7 @@ func interlinkRunAssetGroupAdd(op opContext, rules []interlinkRule) error {
 	return nil
 }
 
-// Execute any owner add operations
+// interlinkRunOwnerAdd executes any owner add operations
 func interlinkRunOwnerAdd(op opContext, rules []interlinkRule) error {
 	for _, o := range rules {
 		operator := o.destOwnerMatch.Operator
@@ -144,7 +149,7 @@ func interlinkRunOwnerAdd(op opContext, rules []interlinkRule) error {
 	return nil
 }
 
-// Link hostname type assets with owners based on host match and operator/team
+// interlinkHostOwnerLink links hostname type assets with owners based on host match and operator/team
 func interlinkHostOwnerLink(op opContext, rules []interlinkRule) error {
 	_, err := op.Exec(`UPDATE asset SET ownerid = NULL`)
 	if err != nil {
@@ -181,7 +186,8 @@ func interlinkHostOwnerLink(op opContext, rules []interlinkRule) error {
 	return nil
 }
 
-// Link websites with asset groups based on site match and system group name match
+// interlinkWebsiteAssetGroupLink links websites with asset groups based on site match and
+// system group name match
 func interlinkWebsiteAssetGroupLink(op opContext, rules []interlinkRule) error {
 	_, err := op.Exec(`UPDATE asset SET assetgroupid = NULL WHERE assettype = 'website'`)
 	if err != nil {
@@ -200,7 +206,8 @@ func interlinkWebsiteAssetGroupLink(op opContext, rules []interlinkRule) error {
 	return nil
 }
 
-// Link hosts with system groups based on host match and system group name match
+// interlinkHostAssetGroupLink links hosts with system groups based on host match and
+// system group name match
 func interlinkHostAssetGroupLink(op opContext, rules []interlinkRule) error {
 	_, err := op.Exec(`UPDATE asset SET assetgroupid = NULL WHERE assettype = 'hostname'`)
 	if err != nil {
@@ -219,7 +226,8 @@ func interlinkHostAssetGroupLink(op opContext, rules []interlinkRule) error {
 	return nil
 }
 
-// Link system groups with supported services based on group and service name
+// interlinkAssetGroupServiceLink links system groups with supported services based on group
+// and service name
 func interlinkAssetGroupServiceLink(op opContext, rules []interlinkRule) error {
 	_, err := op.Exec(`DELETE FROM rra_assetgroup`)
 	if err != nil {
@@ -272,7 +280,7 @@ func getRulesType(rules []interlinkRule, ruletype int) (ret []interlinkRule) {
 	return
 }
 
-// Run interlink rules
+// interlinkRunRules runs all interlink rules
 func interlinkRunRules(rules []interlinkRule) error {
 	op := opContext{}
 	op.newContext(dbconn, true, "interlink")
@@ -289,7 +297,7 @@ func interlinkRunRules(rules []interlinkRule) error {
 
 	// Run system group adds
 	stim()
-	err := interlinkRunAssetGroupAdd(op, getRulesType(rules, ASSETGROUP_ADD))
+	err := interlinkRunAssetGroupAdd(op, getRulesType(rules, assetgroupAdd))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -300,7 +308,7 @@ func interlinkRunRules(rules []interlinkRule) error {
 	etim("AssetGroupAdd")
 	// Run owner adds
 	stim()
-	err = interlinkRunOwnerAdd(op, getRulesType(rules, OWNER_ADD))
+	err = interlinkRunOwnerAdd(op, getRulesType(rules, ownerAdd))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -311,7 +319,7 @@ func interlinkRunRules(rules []interlinkRule) error {
 	etim("OwnerAdd")
 	// Run host to system group linkage
 	stim()
-	err = interlinkHostAssetGroupLink(op, getRulesType(rules, HOST_LINK_ASSETGROUP))
+	err = interlinkHostAssetGroupLink(op, getRulesType(rules, hostLinkAssetgroup))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -322,7 +330,7 @@ func interlinkRunRules(rules []interlinkRule) error {
 	etim("HostAssetGroupLink")
 	// Run host to owner linkage
 	stim()
-	err = interlinkHostOwnerLink(op, getRulesType(rules, HOST_OWNERSHIP))
+	err = interlinkHostOwnerLink(op, getRulesType(rules, hostOwnership))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -333,7 +341,7 @@ func interlinkRunRules(rules []interlinkRule) error {
 	etim("HostOwnerLink")
 	// Run website to system group linkage
 	stim()
-	err = interlinkWebsiteAssetGroupLink(op, getRulesType(rules, WEBSITE_LINK_ASSETGROUP))
+	err = interlinkWebsiteAssetGroupLink(op, getRulesType(rules, websiteLinkAssetgroup))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -344,7 +352,7 @@ func interlinkRunRules(rules []interlinkRule) error {
 	etim("WebsiteAssetGroupLink")
 	// Run system group to service linkage
 	stim()
-	err = interlinkAssetGroupServiceLink(op, getRulesType(rules, ASSETGROUP_LINK_SERVICE))
+	err = interlinkAssetGroupServiceLink(op, getRulesType(rules, assetgroupLinkService))
 	if err != nil {
 		e := op.rollback()
 		if e != nil {
@@ -360,7 +368,6 @@ func interlinkRunRules(rules []interlinkRule) error {
 	return nil
 }
 
-// Load interlink rules from the file system and return the rule set
 func interlinkLoadRules() ([]interlinkRule, error) {
 	var rules []interlinkRule
 
@@ -388,33 +395,33 @@ func interlinkLoadRules() ([]interlinkRule, error) {
 		}
 		valid := false
 		if len(tokens) == 3 && tokens[0] == "add" && tokens[1] == "assetgroup" {
-			nr.ruletype = ASSETGROUP_ADD
+			nr.ruletype = assetgroupAdd
 			nr.destAssetGroupMatch = tokens[2]
 			valid = true
 		} else if len(tokens) == 4 && tokens[0] == "add" && tokens[1] == "owner" {
-			nr.ruletype = OWNER_ADD
+			nr.ruletype = ownerAdd
 			nr.destOwnerMatch.Operator = tokens[2]
 			nr.destOwnerMatch.Team = tokens[3]
 			valid = true
 		} else if len(tokens) == 3 && tokens[0] == "add" && tokens[1] == "website" {
-			nr.ruletype = WEBSITE_ADD
+			nr.ruletype = websiteAdd
 			nr.destWebsiteMatch = tokens[2]
 			valid = true
 		} else if len(tokens) == 6 && tokens[0] == "assetgroup" &&
 			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "service" {
-			nr.ruletype = ASSETGROUP_LINK_SERVICE
+			nr.ruletype = assetgroupLinkService
 			nr.srcAssetGroupMatch = tokens[2]
 			nr.destServiceMatch = tokens[5]
 			valid = true
 		} else if len(tokens) == 6 && tokens[0] == "host" &&
 			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "assetgroup" {
-			nr.ruletype = HOST_LINK_ASSETGROUP
+			nr.ruletype = hostLinkAssetgroup
 			nr.srcHostMatch = tokens[2]
 			nr.destAssetGroupMatch = tokens[5]
 			valid = true
 		} else if len(tokens) >= 6 && tokens[0] == "host" &&
 			tokens[1] == "matches" && tokens[3] == "ownership" {
-			nr.ruletype = HOST_OWNERSHIP
+			nr.ruletype = hostOwnership
 			nr.srcHostMatch = tokens[2]
 			nr.destOwnerMatch.Operator = tokens[4]
 			nr.destOwnerMatch.Team = tokens[5]
@@ -424,7 +431,7 @@ func interlinkLoadRules() ([]interlinkRule, error) {
 			valid = true
 		} else if len(tokens) == 6 && tokens[0] == "website" &&
 			tokens[1] == "matches" && tokens[3] == "link" && tokens[4] == "assetgroup" {
-			nr.ruletype = WEBSITE_LINK_ASSETGROUP
+			nr.ruletype = websiteLinkAssetgroup
 			nr.srcWebsiteMatch = tokens[2]
 			nr.destAssetGroupMatch = tokens[5]
 			valid = true

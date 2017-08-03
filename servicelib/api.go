@@ -7,17 +7,17 @@
 
 package servicelib
 
-// The response to an asset group list request
+// AssetGroupsResponse describes the response to a group list request
 type AssetGroupsResponse struct {
 	Groups []AssetGroup `json:"asset_groups"`
 }
 
-// The response to an RRA list request
+// RRAsResponse describes the response to an RRA list request
 type RRAsResponse struct {
 	RRAs []RRA `json:"rras"`
 }
 
-// The response to a risks request; risk for all RRAs
+// RisksResponse describes the response to a risks request
 type RisksResponse struct {
 	Risks []Risk `json:"risks"`
 }

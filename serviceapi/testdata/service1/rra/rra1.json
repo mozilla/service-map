@@ -1,0 +1,55 @@
+{
+	"details": {
+		"metadata": {
+			"service": "test service"
+		},
+		"risk": {
+			"confidentiality": {
+				"reputation": {
+					"impact": "HIGH",
+					"probability": "LOW"
+				},
+				"finances": {
+					"impact": "LOW",
+					"probability": "LOW"
+				},
+				"productivity": {
+					"impact": "LOW",
+					"probability": "LOW"
+				}
+			},
+			"integrity": {
+				"reputation": {
+					"impact": "HIGH",
+					"probability": "LOW"
+				},
+				"finances": {
+					"impact": "LOW",
+					"probability": "LOW"
+				},
+				"productivity": {
+					"impact": "HIGH",
+					"probability": "HIGH"
+				}
+			},
+			"availability": {
+				"reputation": {
+					"impact": "LOW",
+					"probability": "LOW"
+				},
+				"finances": {
+					"impact": "LOW",
+					"probability": "LOW"
+				},
+				"productivity": {
+					"impact": "LOW",
+					"probability": "LOW"
+				}
+			}
+		},
+		"data": {
+			"default": "confidential restricted"
+		}
+	},
+	"lastmodified": "2017-08-02T14:25:47.511Z"
+}

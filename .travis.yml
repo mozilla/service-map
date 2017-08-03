@@ -1,24 +1,16 @@
 language: go
-deploy:
-  - provider: s3
-    access_key_id: $DEVAKID
-    secret_access_key: $DEVAK
-    bucket: $DEVBUCKET
-    local_dir: s3_upload
-    skip_cleanup: true
-    on:
-      branch: master
-  - provider: codedeploy
-    access_key_id: $DEVAKID
-    secret_access_key: $DEVAK
-    bucket: $DEVBUCKET
-    key: service-map.zip
-    application: service-map-dev
-    deployment_group: service-map-dev
-    region: us-west-2
+dist: trusty
+services:
+  - postgresql
+addons:
+  postgresql: "9.5"
+before_script:
+  - psql -c 'CREATE DATABASE servicemap;' -U postgres
+  - psql -c 'CREATE ROLE serviceapi;' -U postgres
+  - psql -c 'ALTER ROLE serviceapi WITH login;' -U postgres
+  - psql -c 'ALTER ROLE serviceapi PASSWORD null;' -U postgres
 script:
-  - go test -v ./servicelib
-  - go test -v ./serviceapi
+  - make runtests
   - zip -r service-map *
   - mkdir s3_upload
   - mv service-map.zip s3_upload/service-map.zip
