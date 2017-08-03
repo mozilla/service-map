@@ -1,5 +1,24 @@
 language: go
 dist: trusty
+deploy:
+  - provider: s3
+    access_key_id: $AKID
+    secret_access_key: $AK
+    bucket: $BUCKET
+    local_dir: s3_upload
+    skip_cleanup: true
+    on:
+      branch: master
+  - provider: codedeploy
+    access_key_id: $AKID
+    secret_access_key: $AK
+    bucket: $BUCKET
+    key: service-map.zip
+    application: service-map
+    deployment_group: service-map
+    region: us-west-2
+    on:
+      branch: master
 services:
   - postgresql
 addons:
