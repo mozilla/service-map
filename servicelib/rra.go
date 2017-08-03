@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// Describes an RRA.
+// RRA describes an RRA as would be returned by serviceapi
 type RRA struct {
 	Name        string          `json:"name,omitempty"`         // Service name
 	ID          int             `json:"id,omitempty"`           // RRA ID
@@ -47,6 +47,7 @@ type RRA struct {
 	ConfiFinProb string `json:"confidentiality_financial_probability,omitempty"`
 }
 
+// Validate ensures an RRA is properly formatted
 func (r *RRA) Validate() error {
 	if r.Name == "" {
 		return fmt.Errorf("rra must have a name")
@@ -54,6 +55,8 @@ func (r *RRA) Validate() error {
 	return nil
 }
 
+// HighestRiskReputation returns the highest impact and probability values for all
+// reputation related attributes
 func (r *RRA) HighestRiskReputation() (float64, float64) {
 	// XXX Assumed values have been normalized here
 	repavi, _ := ImpactValueFromLabel(r.AvailRepImpact)
@@ -82,6 +85,8 @@ func (r *RRA) HighestRiskReputation() (float64, float64) {
 	return *candi, *candp
 }
 
+// HighestRiskProductivity returns the highest impact and probability values for all
+// productivity related attributes
 func (r *RRA) HighestRiskProductivity() (float64, float64) {
 	// XXX Assumed values have been normalized here
 	prdavi, _ := ImpactValueFromLabel(r.AvailPrdImpact)
@@ -110,6 +115,8 @@ func (r *RRA) HighestRiskProductivity() (float64, float64) {
 	return *candi, *candp
 }
 
+// HighestRiskFinancial returns the highest impact and probability values for all
+// finances related attributes
 func (r *RRA) HighestRiskFinancial() (float64, float64) {
 	// XXX Assumed values have been normalized here
 	finavi, _ := ImpactValueFromLabel(r.AvailFinImpact)
@@ -156,14 +163,15 @@ const (
 	DataConfSecValue = 4.0
 )
 
+// RRAAttribute describes a given impact/probability attribute
 type RRAAttribute struct {
 	Attribute   string  `json:"attribute"`
 	Impact      float64 `json:"impact"`
 	Probability float64 `json:"probability"`
 }
 
-// Describes calculated risk for a service, based on an RRA and known
-// data points
+// Risk is the overall risk representation for a service, based on the RRA and data points
+// included in scenario generation (from indicators for assets which are part of this service)
 type Risk struct {
 	RRA RRA `json:"rra"` // The RRA we are describing
 
@@ -192,6 +200,7 @@ type Risk struct {
 	Scenarios []RiskScenario `json:"scenarios"` // Risk scenarios
 }
 
+// Validate checks various values in Risk type r to ensure they are correctly formatted
 func (r *Risk) Validate() error {
 	err := r.RRA.Validate()
 	if err != nil {
@@ -200,7 +209,7 @@ func (r *Risk) Validate() error {
 	return nil
 }
 
-// Stores information used to support probability for risk calculation; this
+// RiskScenario stores information used to support probability for risk calculation; this
 // generally would be created using control information and is combined with the
 // RRA impact scores to produce estimated service risk
 type RiskScenario struct {
@@ -210,7 +219,7 @@ type RiskScenario struct {
 	Score       float64 `json:"score"`       // Calculated score
 }
 
-// Validates a RiskScenario for consistency
+// Validate checks a RiskScenario for consistency
 func (r *RiskScenario) Validate() error {
 	if r.Name == "" {
 		return fmt.Errorf("scenario must have a name")
@@ -218,8 +227,7 @@ func (r *RiskScenario) Validate() error {
 	return nil
 }
 
-// Convert an impact label into the numeric representation from 1 - 4 for
-// that label
+// ImpactValueFromLabel converts a string label l into a float64 value from 1 - 4
 func ImpactValueFromLabel(l string) (float64, error) {
 	switch l {
 	case "maximum":
@@ -239,8 +247,8 @@ func ImpactValueFromLabel(l string) (float64, error) {
 	return 0, fmt.Errorf("invalid impact label %v", l)
 }
 
-// Convert an impact label into the numeric representation from 1 - 4 for
-// that label
+// DataValueFromLabel converts a data classification string value l into a float64
+// value from 1 - 4
 func DataValueFromLabel(l string) (float64, error) {
 	switch l {
 	case "confidential secret":
@@ -257,7 +265,8 @@ func DataValueFromLabel(l string) (float64, error) {
 	return 0, fmt.Errorf("invalid impact label %v", l)
 }
 
-// Sanitize an impact label and verify it's a valid value
+// SanitizeImpactLabel normalizes an impact label string value and ensures it is
+// one of the acceptable values
 func SanitizeImpactLabel(l string) (ret string, err error) {
 	if l == "" {
 		err = fmt.Errorf("invalid zero length label")
@@ -271,9 +280,8 @@ func SanitizeImpactLabel(l string) (ret string, err error) {
 	return
 }
 
-// Covert an impact value from 1 - 4 to the string value for that label,
-// note that does not handle decimal values in the floating point value
-// and should only be used with 1.0, 2.0, 3.0, or 4.0
+// ImpactLabelFromValue converts a float64 value from 1 - 4 to a string representation
+// for impact
 func ImpactLabelFromValue(v float64) (string, error) {
 	switch v {
 	case ImpactMaxValue:
@@ -290,8 +298,8 @@ func ImpactLabelFromValue(v float64) (string, error) {
 	return "", fmt.Errorf("invalid impact value %v", v)
 }
 
-// Given a risk score from 1 - 16, convert that sore into
-// the string value that represents the risk
+// NormalLabelFromValue takes a finalized risk score (impact * likelihood) and converts
+// it into a string represetation of the risk (e.g., medium, high, etc)
 func NormalLabelFromValue(v float64) string {
 	if v >= 13 {
 		return "maximum"
@@ -312,7 +320,7 @@ type RawRRA struct {
 	LastModified time.Time     `json:"lastmodified"`
 }
 
-// Convert a RawRRA to an RRA
+// ToRRA converts a RawRRA to an RRA
 func (r *RawRRA) ToRRA() (ret RRA) {
 	ret.Name = r.Details.Metadata.Service
 	ret.DefData = r.Details.Data.Default
@@ -341,10 +349,13 @@ func (r *RawRRA) ToRRA() (ret RRA) {
 	return
 }
 
+// Validate checks a RawRRA for consistency
 func (r *RawRRA) Validate() error {
 	return r.Details.validate()
 }
 
+// RawRRADetails describes the details section within an RRA document being submitted to
+// serviceapi
 type RawRRADetails struct {
 	Metadata RawRRAMetadata `json:"metadata"`
 	Risk     RawRRARisk     `json:"risk"`
@@ -367,6 +378,7 @@ func (r *RawRRADetails) validate() error {
 	return nil
 }
 
+// RawRRAMetadata represents the metadata section of an RRA document
 type RawRRAMetadata struct {
 	Service string `json:"service"`
 }
@@ -381,6 +393,7 @@ func (r *RawRRAMetadata) validate() error {
 	return nil
 }
 
+// RawRRAData represents the data section of an RRA document
 type RawRRAData struct {
 	Default string `json:"default"`
 }
@@ -406,6 +419,7 @@ func (r *RawRRAData) validate() error {
 	return nil
 }
 
+// RawRRARisk represents the risk section of an RRA document
 type RawRRARisk struct {
 	Confidentiality RawRRARiskAttr `json:"confidentiality"`
 	Integrity       RawRRARiskAttr `json:"integrity"`
@@ -428,6 +442,7 @@ func (r *RawRRARisk) validate() error {
 	return nil
 }
 
+// RawRRARiskAttr represents the attributes with an RRA document
 type RawRRARiskAttr struct {
 	Reputation   RawRRAMeasure `json:"reputation"`
 	Finances     RawRRAMeasure `json:"finances"`
@@ -450,6 +465,8 @@ func (r *RawRRARiskAttr) validate() error {
 	return nil
 }
 
+// RawRRAMeasure represents the values associated with a single attribute in an
+// RRA document
 type RawRRAMeasure struct {
 	Impact      string `json:"impact"`
 	Probability string `json:"probability"`

@@ -7,7 +7,7 @@
 
 package servicelib
 
-// Describes the owner of an asset
+// Owner describes ownership information for an asset
 type Owner struct {
 	ID        int    `json:"id"`                  // Owner ID
 	Operator  string `json:"operator,omitempty"`  // The operator (e.g., group)
