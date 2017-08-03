@@ -109,8 +109,8 @@ func TestMain(m *testing.M) {
 	cfg.General.DisableAPIAuth = true
 	cfg.Database.Hostname = "127.0.0.1"
 	cfg.Database.Database = "servicemap"
-	cfg.Database.User = "dbadmin"
-	cfg.Database.Password = "test"
+	cfg.Database.User = "serviceapi"
+	cfg.Database.Password = ""
 	cfg.Interlink.RulePath = "./testdata/interlink.rules"
 	cfg.Interlink.RunEvery = "10s"
 	err := cfg.validate()

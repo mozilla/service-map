@@ -22,9 +22,11 @@ deploy:
     deployment_group: service-map-dev
     region: us-west-2
 before_script:
-  - psql -c "CREATE USER dbadmin WITH PASSWORD 'test';" -U postgres
-  - psql -c 'CREATE DATABASE servicemap WITH OWNER dbadmin;' -U postgres
+  - psql -c 'CREATE DATABASE servicemap;' -U postgres
   - psql -c 'CREATE EXTENSION pgcrypto;' -U postgres
+  - psql -c 'CREATE ROLE serviceapi;' -U postgres
+  - psql -c 'ALTER ROLE serviceapi WITH login;' -U postgres
+  - psql -c 'ALTER ROLE serviceapi PASSWORD null;' -U postgres
 script:
   - make runtests
   - zip -r service-map *
