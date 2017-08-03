@@ -66,7 +66,7 @@ Resources:
           - Effect: "Allow"
             Action:
               - "s3:GetObject"
-            Resource: "arn:aws:s3:::moz-service-map-*/*"
+            Resource: "arn:aws:s3:::moz-service-map/*"
       PolicyName: service-map-s3
       Roles:
         - !Ref ServiceMapRole
@@ -80,7 +80,7 @@ Resources:
           - Effect: "Allow"
             Action:
               - "codedeploy:*"
-            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:service-map-*"
+            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:service-map"
       PolicyName: service-map-code-deploy
       Roles:
         - Ref: ServiceMapRole
@@ -95,12 +95,12 @@ Resources:
             Action:
               - "codedeploy:RegisterApplicationRevision"
               - "codedeploy:GetApplicationRevision"
-            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:service-map-*"
+            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:service-map"
           - Effect: "Allow"
             Action:
               - "codedeploy:CreateDeployment"
               - "codedeploy:GetDeployment"
-            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:service-map-*"
+            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:service-map"
           - Effect: "Allow"
             Action:
               - "codedeploy:GetDeploymentConfig"
@@ -112,7 +112,7 @@ Resources:
             Action:
               - "s3:PutObject"
             Resource:
-              - "arn:aws:s3:::moz-service-map-*/*"
+              - "arn:aws:s3:::moz-service-map/*"
   CodeDeployUser:
     Type: "AWS::IAM::User"
     Properties:

@@ -3,11 +3,10 @@ Description: "Mozilla service-map"
 Parameters:
   EnvType:
     Description: Environment type
-    Default: dev
+    Default: prod
     Type: String
     AllowedValues:
       - prod
-      - dev
   DBPassword:
     Description: Database password
     Type: String
@@ -18,16 +17,11 @@ Parameters:
     Type: String
     Default: alm-keys
 Mappings:
-  dev:
+  prod:
     us-west-2:
-      CertificateARN: "arn:aws:acm:us-west-2:656532927350:certificate/857106e8-787f-4a95-9bbc-d51b5bee5c50"
+      CertificateARN: "arn:aws:acm:us-west-2:371522382791:certificate/49a27686-5dae-411c-af35-2762a57ffd86"
       AMI: "ami-2709bd47"
-      S3Bucket: "moz-service-map-dev"
-Conditions:
-  UseProdCondition:
-    !Equals [!Ref EnvType, prod]
-  UseDevCondition:
-    !Equals [!Ref EnvType, dev]
+      S3Bucket: "moz-service-map"
 Resources:
   ServiceMapInternetGateway:
     Type: "AWS::EC2::InternetGateway"
@@ -135,7 +129,7 @@ Resources:
   ServiceMapDB:
     Type: "AWS::RDS::DBInstance"
     Properties:
-      AllocatedStorage: 15
+      AllocatedStorage: 40
       BackupRetentionPeriod: 15
       DBInstanceClass: db.m4.large
       DBInstanceIdentifier: service-map-db
@@ -152,14 +146,12 @@ Resources:
       PubliclyAccessible: false
       MultiAZ: true
   ServiceMapS3Bucket:
-    Condition: UseDevCondition
     Type: "AWS::S3::Bucket"
     Properties:
       BucketName: !FindInMap [!Ref EnvType, !Ref "AWS::Region", S3Bucket]
-  ServiceMapLaunchConfigDev:
+  ServiceMapLaunchConfig:
     Type: "AWS::AutoScaling::LaunchConfiguration"
     DependsOn: ServiceMapDB
-    Condition: UseDevCondition
     Properties:
       KeyName: !Ref SSHKeyName
       ImageId: !FindInMap [!Ref EnvType, !Ref "AWS::Region", AMI]
@@ -185,41 +177,6 @@ Resources:
               - git clone https://github.com/mozilla/service-map /home/serviceapi/app
               - cd /home/serviceapi/app
               - git checkout master
-              - bash scripts/build-environment.sh
-              - bash scripts/post-deploy.sh
-          - {LocalDBHostname: !GetAtt ServiceMapDB.Endpoint.Address}
-      SecurityGroups:
-        - !Ref ServiceMapSecurityGroup
-      InstanceType: "t2.medium"
-  ServiceMapLaunchConfigProd:
-    Type: "AWS::AutoScaling::LaunchConfiguration"
-    DependsOn: ServiceMapDB
-    Condition: UseProdCondition
-    Properties:
-      KeyName: !Ref SSHKeyName
-      ImageId: !FindInMap [!Ref EnvType, !Ref "AWS::Region", AMI]
-      IamInstanceProfile: "service-map-instance-profile"
-      UserData:
-        Fn::Base64: !Sub
-          - |
-            #cloud-config
-            repo_update: true
-            repo_upgrade: all
-            runcmd:
-              - sed -i s,us-west-2,us-west-1,g /etc/apt/sources.list
-              - REGION=$(curl 169.254.169.254/latest/meta-data/placement/availability-zone/ | sed 's/[a-z]$//')
-              - echo export PGHOST=${LocalDBHostname} > /etc/serviceapidbhost
-              - cd /root
-              - apt-get update
-              - apt-get install -y curl ruby python-pip docker.io libssl-dev
-              - pip install docker credstash
-              - curl -OL https://aws-codedeploy-$REGION.s3.amazonaws.com/latest/install
-              - chmod +x ./install
-              - ./install auto
-              - mkdir -p /home/serviceapi
-              - git clone https://github.com/mozilla/service-map /home/serviceapi/app
-              - cd /home/serviceapi/app
-              - git checkout production
               - bash scripts/build-environment.sh
               - bash scripts/post-deploy.sh
           - {LocalDBHostname: !GetAtt ServiceMapDB.Endpoint.Address}
@@ -262,7 +219,7 @@ Resources:
       VPCZoneIdentifier:
         - !Ref ServiceMapSubnet1
         - !Ref ServiceMapSubnet2
-      LaunchConfigurationName: !If [UseProdCondition, Ref: ServiceMapLaunchConfigProd, Ref: ServiceMapLaunchConfigDev]
+      LaunchConfigurationName: !Ref ServiceMapLaunchConfig
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     DependsOn: ServiceMapELBSecurityGroup
