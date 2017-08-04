@@ -100,7 +100,7 @@ Resources:
             Action:
               - "codedeploy:CreateDeployment"
               - "codedeploy:GetDeployment"
-            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:service-map"
+            Resource: !Sub "arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:service-map/service-map"
           - Effect: "Allow"
             Action:
               - "codedeploy:GetDeploymentConfig"
