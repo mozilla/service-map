@@ -103,6 +103,9 @@ type config struct {
 	Interlink struct {
 		RulePath string
 		RunEvery string
+		S3Fetch  bool
+		S3Bucket string
+		S3Region string
 	}
 }
 
@@ -241,6 +244,16 @@ func main() {
 			if err != nil {
 				logf("interlink: bad value for runevery, default to 10m")
 				sd, _ = time.ParseDuration("10m")
+			}
+			if cfg.Interlink.S3Fetch {
+				logf("interlink: checking for updates at s3 %v", cfg.Interlink.S3Bucket)
+				err = interlinkUpdateFromS3(cfg.Interlink.S3Bucket, cfg.Interlink.S3Region)
+				if err != nil {
+					logf("interlink: s3 fetch failed: %v", err)
+					logf("interlink: waiting %v for next run", sd)
+					time.Sleep(sd)
+					continue
+				}
 			}
 			interlinkManager()
 			logf("interlink: waiting %v for next run", sd)
