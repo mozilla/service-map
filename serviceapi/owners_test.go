@@ -92,3 +92,35 @@ func TestServiceHostOwnerNoExist(t *testing.T) {
 	}
 	rr.Body.Close()
 }
+
+func TestServiceHostOwnerTriageKey(t *testing.T) {
+	client := http.Client{}
+
+	// Tests second asset in service2
+	rr, err := client.Get(testserv.URL + "/api/v1/owner/hostname?hostname=triagekey.mozilla.com")
+	if err != nil {
+		t.Fatalf("client.Get: %v", err)
+	}
+	if rr.StatusCode != http.StatusOK {
+		t.Fatalf("host get owner response code %v", rr.StatusCode)
+	}
+	buf, err := ioutil.ReadAll(rr.Body)
+	if err != nil {
+		t.Fatalf("ioutil.ReadAll: %v", err)
+	}
+	rr.Body.Close()
+	var owner slib.Owner
+	err = json.Unmarshal(buf, &owner)
+	if err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	if owner.Operator != "operator" {
+		t.Fatalf("host get owner had unexpected operator")
+	}
+	if owner.Team != "anothertestservice" {
+		t.Fatalf("host get owner had unexpected team")
+	}
+	if owner.TriageKey != "triagekey" {
+		t.Fatalf("host get owner had unexpected triage key")
+	}
+}
