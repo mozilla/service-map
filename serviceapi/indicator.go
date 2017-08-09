@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	slib "github.com/mozilla/service-map/servicelib"
 	"net/http"
+	"strings"
 )
 
 // serviceIndicator processes a new indicator being sent to serviceapi by
@@ -87,6 +88,8 @@ func getAsset(op opContext, aid int) (ret slib.Asset, err error) {
 	if grpid.Valid {
 		ret.AssetGroupID = int(grpid.Int64)
 	}
+	ret.Owner.Operator = "unset"
+	ret.Owner.Team = "unset"
 	if ownid.Valid {
 		ret.Owner, err = getOwner(op, int(ownid.Int64))
 		if err != nil {
@@ -95,9 +98,38 @@ func getAsset(op opContext, aid int) (ret slib.Asset, err error) {
 	}
 	if triageoverride.Valid {
 		ret.Owner.TriageKey = triageoverride.String
+	} else {
+		ret.Owner.TriageKey = ret.Owner.Operator + "-" + ret.Owner.Team
 	}
 	// Add the most recent indicators for the asset
 	ret.Indicators, err = assetGetIndicators(op, ret)
+	return
+}
+
+// getAssetByHost returns any hostname type assets from the database where the hostname
+// matches hn
+func getAssetHostname(op opContext, hn string) (ret []slib.Asset, err error) {
+	hn = strings.ToLower(hn)
+	rows, err := op.Query(`SELECT assetid FROM asset WHERE
+		name = $1 AND assettype = 'hostname'`, hn)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var aid int
+		err = rows.Scan(&aid)
+		if err != nil {
+			rows.Close()
+			return ret, err
+		}
+		newasset, err := getAsset(op, aid)
+		if err != nil {
+			rows.Close()
+			return ret, err
+		}
+		ret = append(ret, newasset)
+	}
+	err = rows.Err()
 	return
 }
 

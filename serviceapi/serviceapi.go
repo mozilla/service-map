@@ -285,6 +285,7 @@ func muxRouter() *mux.Router {
 	s.HandleFunc("/rra/update", authenticate(serviceUpdateRRA)).Methods("POST")
 	s.HandleFunc("/rra/risk", authenticate(serviceGetRRARisk)).Methods("GET")
 	s.HandleFunc("/owners", authenticate(serviceOwners)).Methods("GET")
+	s.HandleFunc("/owner/hostname", authenticate(serviceHostOwner)).Methods("GET")
 	s.HandleFunc("/ping", servicePing).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
 	return r

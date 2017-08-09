@@ -9,6 +9,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	slib "github.com/mozilla/service-map/servicelib"
 	"net/http"
@@ -17,7 +18,7 @@ import (
 // getOwner returns Owner ID oid from the database
 func getOwner(op opContext, oid int) (ret slib.Owner, err error) {
 	err = op.QueryRow(`SELECT ownerid, operator, team
-		FROM assetowners`).Scan(&ret.ID, &ret.Operator, &ret.Team)
+		FROM assetowners WHERE ownerid = $1`, oid).Scan(&ret.ID, &ret.Operator, &ret.Team)
 	if err != nil {
 		return
 	}
@@ -45,6 +46,47 @@ func getOwners(op opContext) (ret []slib.Owner, err error) {
 		return
 	}
 	return
+}
+
+// serviceHostOwner is the API entry point to fetch known ownership information
+// for a host type asset
+func serviceHostOwner(rw http.ResponseWriter, req *http.Request) {
+	op := opContext{}
+	op.newContext(dbconn, false, req.RemoteAddr)
+
+	assethostname := req.FormValue("hostname")
+	if assethostname == "" {
+		op.logf("invalid hostname")
+		http.Error(rw, "invalid hostname", 400)
+		return
+	}
+
+	alist, err := getAssetHostname(op, assethostname)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, "error retrieving owner info", 500)
+		return
+	}
+
+	// XXX We only return a single owner entry here for the asset, even
+	// though getAssetHostname could return more than one asset if there are a
+	// more than one asset in the database with the same hostname but a different
+	// zone ID.
+	//
+	// This should be adjusted in the future but for now we just return the first
+	// result we get.
+	if len(alist) == 0 {
+		http.Error(rw, "no matching assets found", 404)
+		return
+	}
+	a := alist[0]
+	buf, err := json.Marshal(&a.Owner)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, "error retrieving owner info", 500)
+		return
+	}
+	fmt.Fprintf(rw, string(buf))
 }
 
 // serviceOwners is the API entry point to fetch raw owner map
