@@ -34,7 +34,39 @@ func TestGetAsset(t *testing.T) {
 	if a.Owner.Team != "testservice" {
 		t.Fatalf("getAsset: unexpected asset team")
 	}
-	if a.Owner.TriageKey != "" {
+	if a.Owner.TriageKey != "operator-testservice" {
+		t.Fatalf("getAsset: unexpected asset triage key")
+	}
+}
+
+func TestGetAssetHostname(t *testing.T) {
+	op := opContext{}
+	op.newContext(dbconn, false, "127.0.0.1")
+	// Tests the first asset in service1
+	alist, err := getAssetHostname(op, "testhost1.mozilla.com")
+	if err != nil {
+		t.Fatalf("getAssetHostname: %v", err)
+	}
+	if len(alist) != 1 {
+		t.Fatalf("getAssetHostname: unexpected number of assets returned")
+	}
+	a := alist[0]
+	if a.Name != "testhost1.mozilla.com" {
+		t.Fatalf("getAsset: unexpected asset name")
+	}
+	if a.Type != "hostname" {
+		t.Fatalf("getAsset: unexpected asset type")
+	}
+	if a.AssetGroupID != 1 {
+		t.Fatalf("getAsset: unexpected asset group id")
+	}
+	if a.Owner.Operator != "operator" {
+		t.Fatalf("getAsset: unexpected asset operator")
+	}
+	if a.Owner.Team != "testservice" {
+		t.Fatalf("getAsset: unexpected asset team")
+	}
+	if a.Owner.TriageKey != "operator-testservice" {
 		t.Fatalf("getAsset: unexpected asset triage key")
 	}
 }

@@ -6,10 +6,14 @@ assetgroup matches testgroup1 link service ^test\sservice
 
 add assetgroup testgroup2
 host matches anothertesthost.* link assetgroup testgroup2
+host matches noowner.* link assetgroup testgroup2
+host matches triagekey.* link assetgroup testgroup2
 assetgroup matches testgroup2 link service ^another\stest\sservice
 
 add owner operator testservice
 add owner operator anothertestservice
 
 host matches testhost\d\..* ownership operator testservice
+
 host matches anothertesthost.* ownership operator anothertestservice
+host matches triagekey.* ownership operator anothertestservice triagekey
