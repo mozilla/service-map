@@ -91,7 +91,7 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 	op.newContext(dbconn, false, req.RemoteAddr)
 
 	rows, err := op.Query(`SELECT rraid FROM rra x
-		WHERE lastmodified = (
+		WHERE lastupdated = (
 			SELECT MAX(lastupdated) FROM rra y
 			WHERE x.service = y.service
 		)`)
