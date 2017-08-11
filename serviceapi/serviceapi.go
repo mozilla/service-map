@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"sync"
 	"syscall"
 	"time"
@@ -304,6 +305,11 @@ func authenticate(runfunc func(http.ResponseWriter, *http.Request)) func(http.Re
 		}
 		hdr := r.Header.Get("SERVICEAPIKEY")
 		if hdr == "" {
+			http.Error(rw, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		hdrre := regexp.MustCompile("^[A-Za-z0-9]{16,}$")
+		if !hdrre.MatchString(hdr) {
 			http.Error(rw, "unauthorized", http.StatusUnauthorized)
 			return
 		}
