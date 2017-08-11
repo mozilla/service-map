@@ -8,6 +8,7 @@
 package main
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -36,6 +37,19 @@ func TestGetAsset(t *testing.T) {
 	}
 	if a.Owner.TriageKey != "operator-testservice" {
 		t.Fatalf("getAsset: unexpected asset triage key")
+	}
+
+	// We should have two indicators here
+	if len(a.Indicators) != 2 {
+		t.Fatalf("getAsset: unexpected number of indicators")
+	}
+	expectDetails := "{\"noop\":\"no details in test indicator\"}"
+	buf, err := json.Marshal(a.Indicators[0].Details)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	if string(buf) != expectDetails {
+		t.Fatalf("getAsset: unexpected indicator details")
 	}
 }
 
