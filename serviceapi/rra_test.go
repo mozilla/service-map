@@ -32,6 +32,31 @@ func TestGetRRA(t *testing.T) {
 	}
 }
 
+func TestServiceRisks(t *testing.T) {
+	client := http.Client{}
+
+	rr, err := client.Get(testserv.URL + "/api/v1/risks")
+	if err != nil {
+		t.Fatalf("client.Get: %v", err)
+	}
+	if rr.StatusCode != http.StatusOK {
+		t.Fatalf("rra get response code %v", rr.StatusCode)
+	}
+	buf, err := ioutil.ReadAll(rr.Body)
+	if err != nil {
+		t.Fatalf("ioutil.ReadAll: %v", err)
+	}
+	rr.Body.Close()
+	var risks slib.RisksResponse
+	err = json.Unmarshal(buf, &risks)
+	if err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	if len(risks.Risks) == 0 {
+		t.Fatalf("risks get returned no risk entries")
+	}
+}
+
 func TestServiceGetRRA(t *testing.T) {
 	client := http.Client{}
 
