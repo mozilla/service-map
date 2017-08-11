@@ -145,9 +145,17 @@ func assetGetIndicators(op opContext, a slib.Asset) (ret []slib.Indicator, err e
 		return
 	}
 	for rows.Next() {
-		var newind slib.Indicator
+		var (
+			newind  slib.Indicator
+			details []byte
+		)
 		err = rows.Scan(&newind.Timestamp, &newind.EventSource, &newind.Likelihood,
-			&newind.Details)
+			&details)
+		if err != nil {
+			rows.Close()
+			return
+		}
+		err = json.Unmarshal(details, &newind.Details)
 		if err != nil {
 			rows.Close()
 			return
