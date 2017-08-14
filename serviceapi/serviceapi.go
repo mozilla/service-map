@@ -338,9 +338,11 @@ func authenticate(runfunc func(http.ResponseWriter, *http.Request), p int) func(
 			}
 		default:
 			http.Error(rw, "unauthorized", http.StatusUnauthorized)
+			return
 		}
 		if !haveperm {
 			http.Error(rw, "unauthorized", http.StatusUnauthorized)
+			return
 		}
 		runfunc(rw, r)
 	}
