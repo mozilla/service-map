@@ -96,6 +96,10 @@ CREATE TABLE apikey (
 	keyid SERIAL PRIMARY KEY,
 	name TEXT NOT NULL,
 	hash TEXT NOT NULL,
+	readrisk BOOLEAN DEFAULT FALSE,
+	readowner BOOLEAN DEFAULT FALSE,
+	writeindicator BOOLEAN DEFAULT FALSE,
+	writerra BOOLEAN DEFAULT FALSE,
 	UNIQUE(name),
 	UNIQUE(hash)
 );

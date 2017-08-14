@@ -11,13 +11,32 @@ import (
 	"errors"
 )
 
+const (
+	_ = iota
+	authReadRisk
+	authReadOwner
+	authWriteIndicator
+	authWriteRRA
+)
+
+type authPeer struct {
+	name string
+
+	readrisk       bool
+	readowner      bool
+	writeindicator bool
+	writerra       bool
+}
+
 // apiAuthenticate authenticates a request with an API key token
-func apiAuthenticate(hdr string) (name string, err error) {
+func apiAuthenticate(hdr string) (ret authPeer, err error) {
 	op := opContext{}
 	op.newContext(dbconn, false, "apiAuthenticate")
 
-	err = op.QueryRow(`SELECT name FROM apikey WHERE
-		hash = crypt($1, hash)`, hdr).Scan(&name)
+	err = op.QueryRow(`SELECT name, readrisk, readowner, writeindicator, writerra
+		FROM apikey WHERE
+		hash = crypt($1, hash)`, hdr).Scan(&ret.name, &ret.readrisk, &ret.readowner,
+		&ret.writeindicator, &ret.writerra)
 	if err != nil {
 		err = errors.New("api key invalid")
 	}

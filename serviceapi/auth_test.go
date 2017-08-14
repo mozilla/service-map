@@ -38,8 +38,9 @@ func TestAPIAuthenticate(t *testing.T) {
 	// Add a new API key directly to the database, that doesn't match the key RE
 	op := opContext{}
 	op.newContext(dbconn, false, "127.0.0.1")
-	_, err = op.Exec(`INSERT INTO apikey (name, hash) VALUES
-		('testing', crypt('AAAAAAAA', gen_salt('bf', 8)))`)
+	_, err = op.Exec(`INSERT INTO apikey (name, hash, readrisk, readowner,
+		writeindicator, writerra) VALUES
+		('testing', crypt('AAAAAAAA', gen_salt('bf', 8)), TRUE, TRUE, TRUE, TRUE)`)
 	if err != nil {
 		t.Fatalf("op.Exec: %v", err)
 	}
@@ -82,8 +83,9 @@ func TestAPIAuthenticate(t *testing.T) {
 	}
 
 	// Add another key, which is a valid length
-	_, err = op.Exec(`INSERT INTO apikey (name, hash) VALUES
-		('testing2', crypt('AAAAAAAAAAAAAAAAAAAA', gen_salt('bf', 8)))`)
+	_, err = op.Exec(`INSERT INTO apikey (name, hash, readrisk, readowner,
+		writeindicator, writerra) VALUES
+		('testing2', crypt('AAAAAAAAAAAAAAAAAAAA', gen_salt('bf', 8)), TRUE, TRUE, TRUE, TRUE)`)
 	if err != nil {
 		t.Fatalf("op.Exec: %v", err)
 	}
@@ -99,6 +101,26 @@ func TestAPIAuthenticate(t *testing.T) {
 		t.Fatalf("request should have been OK")
 	}
 	rr.Body.Close()
+
+	// Disable risk read permission, request should fail
+	_, err = op.Exec(`UPDATE apikey SET readrisk = FALSE where name = 'testing2'`)
+	if err != nil {
+		t.Fatalf("op.Exec: %v", err)
+	}
+	req, _ = http.NewRequest("GET", testserv.URL+"/api/v1/rra/id?id=1", nil)
+	req.Header.Set("SERVICEAPIKEY", "AAAAAAAAAAAAAAAAAAAA")
+	rr, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("client.Do: %v", err)
+	}
+	if rr.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("request should have been unauthorized")
+	}
+	rr.Body.Close()
+	_, err = op.Exec(`UPDATE apikey SET readrisk = TRUE where name = 'testing2'`)
+	if err != nil {
+		t.Fatalf("op.Exec: %v", err)
+	}
 
 	// Repeat the request with a bad key
 	req, _ = http.NewRequest("GET", testserv.URL+"/api/v1/rra/id?id=1", nil)
