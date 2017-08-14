@@ -277,16 +277,16 @@ func main() {
 func muxRouter() *mux.Router {
 	r := mux.NewRouter()
 	s := r.PathPrefix("/api/v1").Subrouter()
-	s.HandleFunc("/indicator", authenticate(serviceIndicator)).Methods("POST")
-	s.HandleFunc("/assetgroups", authenticate(serviceAssetGroups)).Methods("GET")
-	s.HandleFunc("/assetgroup/id", authenticate(serviceGetAssetGroup)).Methods("GET")
-	s.HandleFunc("/rras", authenticate(serviceRRAs)).Methods("GET")
-	s.HandleFunc("/risks", authenticate(serviceRisks)).Methods("GET")
-	s.HandleFunc("/rra/id", authenticate(serviceGetRRA)).Methods("GET")
-	s.HandleFunc("/rra/update", authenticate(serviceUpdateRRA)).Methods("POST")
-	s.HandleFunc("/rra/risk", authenticate(serviceGetRRARisk)).Methods("GET")
-	s.HandleFunc("/owners", authenticate(serviceOwners)).Methods("GET")
-	s.HandleFunc("/owner/hostname", authenticate(serviceHostOwner)).Methods("GET")
+	s.HandleFunc("/indicator", authenticate(serviceIndicator, authWriteIndicator)).Methods("POST")
+	s.HandleFunc("/assetgroups", authenticate(serviceAssetGroups, authReadRisk)).Methods("GET")
+	s.HandleFunc("/assetgroup/id", authenticate(serviceGetAssetGroup, authReadRisk)).Methods("GET")
+	s.HandleFunc("/rras", authenticate(serviceRRAs, authReadRisk)).Methods("GET")
+	s.HandleFunc("/risks", authenticate(serviceRisks, authReadRisk)).Methods("GET")
+	s.HandleFunc("/rra/id", authenticate(serviceGetRRA, authReadRisk)).Methods("GET")
+	s.HandleFunc("/rra/update", authenticate(serviceUpdateRRA, authWriteRRA)).Methods("POST")
+	s.HandleFunc("/rra/risk", authenticate(serviceGetRRARisk, authReadRisk)).Methods("GET")
+	s.HandleFunc("/owners", authenticate(serviceOwners, authReadOwner)).Methods("GET")
+	s.HandleFunc("/owner/hostname", authenticate(serviceHostOwner, authReadOwner)).Methods("GET")
 	s.HandleFunc("/ping", servicePing).Methods("GET")
 	http.Handle("/", context.ClearHandler(r))
 	return r
@@ -297,7 +297,7 @@ func servicePing(rw http.ResponseWriter, req *http.Request) {
 }
 
 // Generalized API authentication wrapper
-func authenticate(runfunc func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+func authenticate(runfunc func(http.ResponseWriter, *http.Request), p int) func(http.ResponseWriter, *http.Request) {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		if cfg.General.DisableAPIAuth {
 			runfunc(rw, r)
@@ -313,10 +313,34 @@ func authenticate(runfunc func(http.ResponseWriter, *http.Request)) func(http.Re
 			http.Error(rw, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		_, err := apiAuthenticate(hdr)
+		authpeer, err := apiAuthenticate(hdr)
 		if err != nil {
 			http.Error(rw, "unauthorized", http.StatusUnauthorized)
 			return
+		}
+		haveperm := false
+		switch p {
+		case authReadRisk:
+			if authpeer.readrisk {
+				haveperm = true
+			}
+		case authReadOwner:
+			if authpeer.readowner {
+				haveperm = true
+			}
+		case authWriteIndicator:
+			if authpeer.writeindicator {
+				haveperm = true
+			}
+		case authWriteRRA:
+			if authpeer.writerra {
+				haveperm = true
+			}
+		default:
+			http.Error(rw, "unauthorized", http.StatusUnauthorized)
+		}
+		if !haveperm {
+			http.Error(rw, "unauthorized", http.StatusUnauthorized)
 		}
 		runfunc(rw, r)
 	}
