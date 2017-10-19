@@ -261,6 +261,13 @@ func main() {
 			time.Sleep(sd)
 		}
 	}()
+	go func() {
+		logf("spawning reference service update routine")
+		for {
+			referenceUpdate()
+			time.Sleep(1 * time.Minute)
+		}
+	}()
 
 	logf("Starting processing")
 

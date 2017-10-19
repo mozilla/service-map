@@ -17,3 +17,8 @@ host matches testhost\d\..* ownership operator testservice
 
 host matches anothertesthost.* ownership operator anothertestservice
 host matches triagekey.* ownership operator anothertestservice triagekey
+
+add assetgroup reference
+host matches referencehost.* link assetgroup reference
+website matches referencewww.* link assetgroup reference
+assetgroup matches reference link service ^Reference\sservice

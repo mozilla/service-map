@@ -204,7 +204,17 @@ func serviceUpdateRRA(rw http.ResponseWriter, req *http.Request) {
 	// Convert the incoming RRA into an RRA type, and insert it into the
 	// database if required
 	rra := rawrra.ToRRA()
-	_, err = op.Exec(`INSERT INTO rra
+	err = insertRRA(op, rra, buf)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, "error processing rra", 500)
+	}
+	return
+}
+
+// insertRRA inserts RRA rra into the database
+func insertRRA(op opContext, rra slib.RRA, raw []byte) error {
+	_, err := op.Exec(`INSERT INTO rra
 		(service,
 		impact_availrep, impact_availprd, impact_availfin,
 		impact_confirep, impact_confiprd, impact_confifin,
@@ -231,13 +241,9 @@ func serviceUpdateRRA(rw http.ResponseWriter, req *http.Request) {
 		rra.AvailRepProb, rra.AvailPrdProb, rra.AvailFinProb,
 		rra.ConfiRepProb, rra.ConfiPrdProb, rra.ConfiFinProb,
 		rra.IntegRepProb, rra.IntegPrdProb, rra.IntegFinProb,
-		rra.DefData, rra.LastUpdated, buf,
+		rra.DefData, rra.LastUpdated, raw,
 		rra.Name, rra.LastUpdated)
-	if err != nil {
-		op.logf(err.Error())
-		http.Error(rw, "error processing rra", 500)
-		return
-	}
+	return err
 }
 
 // serviceGetRRA is the API entry point to retrieve a specific RRA. All details
