@@ -144,6 +144,18 @@ func TestMain(m *testing.M) {
 			os.Exit(1)
 		}
 	}
+	// Also call the reference related routines, we will call them twice to validate
+	// continuous execution
+	err = referenceService()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	err = referenceService()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
 
 	// Run the interlink rules prior to the other tests
 	rules, err := interlinkLoadRules()

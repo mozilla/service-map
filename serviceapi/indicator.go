@@ -57,17 +57,23 @@ func serviceIndicator(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, "error processing indicator", 500)
 		return
 	}
+	err = insertIndicator(op, indicator, asset, detailsbuf)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, "error processing indicator", 500)
+	}
+	return
+}
+
+func insertIndicator(op opContext, indicator slib.RawIndicator, asset slib.Asset, detailsbuf []byte) error {
+	var err error
 	op.logf("adding new indicator for asset %v (%v)", asset.ID, indicator.EventSource)
 	_, err = op.Exec(`INSERT INTO indicator
 		(timestamp, event_source, likelihood_indicator, assetid, details)
 		VALUES ($1, $2, $3, $4, $5)`,
 		indicator.Timestamp, indicator.EventSource, indicator.Likelihood,
 		asset.ID, string(detailsbuf))
-	if err != nil {
-		op.logf(err.Error())
-		http.Error(rw, "error processing indicator", 500)
-		return
-	}
+	return err
 }
 
 // getAsset returns asset ID aid from the database

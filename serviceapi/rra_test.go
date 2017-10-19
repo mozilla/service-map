@@ -154,6 +154,9 @@ func TestServiceRRAs(t *testing.T) {
 		}
 		cnt++
 	}
+	// Also add one here, since we should have the reference service present in
+	// the database
+	cnt++
 	buf, err := ioutil.ReadAll(rr.Body)
 	if err != nil {
 		t.Fatalf("ioutil.ReadAll: %v", err)
