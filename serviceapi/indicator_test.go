@@ -84,3 +84,57 @@ func TestGetAssetHostname(t *testing.T) {
 		t.Fatalf("getAsset: unexpected asset triage key")
 	}
 }
+
+func TestIndicatorsFromEventSource(t *testing.T) {
+	op := opContext{}
+	op.newContext(dbconn, false, "127.0.0.1")
+	alist, err := indicatorsFromEventSource(op, "testing")
+	if err != nil {
+		t.Fatalf("indicatorsFromEventSource: %v", err)
+	}
+	if len(alist) != 5 {
+		t.Fatalf("indicatorsFromEventSource: unexpected number of assets returned")
+	}
+	// For each returned element, we should have a single indicator of the correct
+	// source type
+	for _, x := range alist {
+		if len(x.Indicators) != 1 {
+			t.Fatalf("indicatorsFromEventSource: unexpected number of indicators returned")
+		}
+		if x.Indicators[0].EventSource != "testing" {
+			t.Fatalf("indicatorsFromEventSource: indicator had incorrect name")
+		}
+	}
+	// Try marshalling it
+	_, err = json.Marshal(&alist)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+
+	alist, err = indicatorsFromEventSource(op, "secondeventsource")
+	if err != nil {
+		t.Fatalf("indicatorsFromEventSource: %v", err)
+	}
+	if len(alist) != 1 {
+		t.Fatalf("indicatorsFromEventSource: unexpected number of assets returned")
+	}
+	// For each returned element, we should have a single indicator of the correct
+	// source type
+	for _, x := range alist {
+		if len(x.Indicators) != 1 {
+			t.Fatalf("indicatorsFromEventSource: unexpected number of indicators returned")
+		}
+		if x.Indicators[0].EventSource != "secondeventsource" {
+			t.Fatalf("indicatorsFromEventSource: indicator had incorrect name")
+		}
+	}
+
+	// Try requesting an indicator we should have no data for
+	alist, err = indicatorsFromEventSource(op, "nonexistent")
+	if err != nil {
+		t.Fatalf("indicatorsFromEventSource: %v", err)
+	}
+	if len(alist) != 0 {
+		t.Fatalf("indicatorsFromEventSource: should have had no indicators")
+	}
+}

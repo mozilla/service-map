@@ -10,6 +10,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	slib "github.com/mozilla/service-map/servicelib"
 	"net/http"
 	"strings"
@@ -63,6 +64,35 @@ func serviceIndicator(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, "error processing indicator", 500)
 	}
 	return
+}
+
+// serviceGetIndicators returns a JSON document that includes all the most recent indicators
+// given specified criteria, currently limited to all recent indicators from a given event_source_name.
+func serviceGetIndicators(rw http.ResponseWriter, req *http.Request) {
+	op := opContext{}
+	op.newContext(dbconn, false, req.RemoteAddr)
+
+	req.ParseForm()
+	eventSourceName := req.FormValue("event_source_name")
+	if eventSourceName == "" {
+		http.Error(rw, "event_source_name not specified", 400)
+		return
+	}
+
+	inds, err := indicatorsFromEventSource(op, eventSourceName)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, "error retrieving indicators", 500)
+		return
+	}
+
+	buf, err := json.Marshal(&inds)
+	if err != nil {
+		op.logf(err.Error())
+		http.Error(rw, "error retrieving indicators", 500)
+		return
+	}
+	fmt.Fprintf(rw, string(buf))
 }
 
 func insertIndicator(op opContext, indicator slib.RawIndicator, asset slib.Asset, detailsbuf []byte) error {
@@ -136,6 +166,53 @@ func getAssetHostname(op opContext, hn string) (ret []slib.Asset, err error) {
 		ret = append(ret, newasset)
 	}
 	err = rows.Err()
+	return
+}
+
+// indicatorsFromEventSource return all of the most recent indicators for a given event
+// source name, the data is returned as a list of assets so we can capture the asset information
+// associated with the indicator.
+func indicatorsFromEventSource(op opContext, esn string) (ret []slib.Asset, err error) {
+	var aidlist []int
+	// First, get a unique list of relevant assets for the event_source_name
+	rows, err := op.Query(`SELECT assetid FROM indicator WHERE event_source = $1 GROUP BY
+		assetid`, esn)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var aid int
+
+		err = rows.Scan(&aid)
+		if err != nil {
+			rows.Close()
+			return
+		}
+		aidlist = append(aidlist, aid)
+	}
+	err = rows.Err()
+	if err != nil {
+		return
+	}
+
+	// For each asset in our list, pull the full asset data and rewrite the indicator list
+	// so it just includes the indicator we want
+	for _, aid := range aidlist {
+		tmpIndicators := make([]slib.Indicator, 0)
+		a, err := getAsset(op, aid)
+		if err != nil {
+			return ret, err
+		}
+		tmpIndicators = a.Indicators
+		a.Indicators = make([]slib.Indicator, 0)
+		for _, i := range tmpIndicators {
+			if i.EventSource != esn {
+				continue
+			}
+			a.Indicators = append(a.Indicators, i)
+		}
+		ret = append(ret, a)
+	}
 	return
 }
 
