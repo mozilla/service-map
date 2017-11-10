@@ -285,6 +285,7 @@ func muxRouter() *mux.Router {
 	r := mux.NewRouter()
 	s := r.PathPrefix("/api/v1").Subrouter()
 	s.HandleFunc("/indicator", authenticate(serviceIndicator, authWriteIndicator)).Methods("POST")
+	s.HandleFunc("/indicators", authenticate(serviceGetIndicators, authReadRisk)).Methods("GET")
 	s.HandleFunc("/assetgroups", authenticate(serviceAssetGroups, authReadRisk)).Methods("GET")
 	s.HandleFunc("/assetgroup/id", authenticate(serviceGetAssetGroup, authReadRisk)).Methods("GET")
 	s.HandleFunc("/rras", authenticate(serviceRRAs, authReadRisk)).Methods("GET")
