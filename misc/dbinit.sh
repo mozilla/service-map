@@ -38,6 +38,7 @@ CREATE TABLE rra (
 	lastupdated TIMESTAMP WITH TIME ZONE NOT NULL,
 	timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 	raw JSONB NOT NULL,
+	masked BOOLEAN DEFAULT false,
 	UNIQUE(service, lastupdated)
 );
 CREATE INDEX ON rra (service);

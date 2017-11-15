@@ -28,7 +28,7 @@ func getRRA(op opContext, rraid int) (rr slib.RRA, err error) {
 		prob_confirep, prob_confiprd, prob_confifin,
 		prob_integrep, prob_integprd, prob_integfin,
 		datadefault, raw, lastupdated
-		FROM rra WHERE rraid = $1`, rraid).Scan(&rr.ID, &rr.Name,
+		FROM rra WHERE rraid = $1 AND masked = false`, rraid).Scan(&rr.ID, &rr.Name,
 		&rr.AvailRepImpact, &rr.AvailPrdImpact, &rr.AvailFinImpact,
 		&rr.ConfiRepImpact, &rr.ConfiPrdImpact, &rr.ConfiFinImpact,
 		&rr.IntegRepImpact, &rr.IntegPrdImpact, &rr.IntegFinImpact,
@@ -91,7 +91,7 @@ func serviceRisks(rw http.ResponseWriter, req *http.Request) {
 	op.newContext(dbconn, false, req.RemoteAddr)
 
 	rows, err := op.Query(`SELECT rraid FROM rra x
-		WHERE lastupdated = (
+		WHERE masked = false AND lastupdated = (
 			SELECT MAX(lastupdated) FROM rra y
 			WHERE x.service = y.service
 		)`)
@@ -295,7 +295,7 @@ func serviceRRAs(rw http.ResponseWriter, req *http.Request) {
 	op.newContext(dbconn, false, req.RemoteAddr)
 
 	rows, err := op.Query(`SELECT rraid, service, lastupdated, datadefault
-		FROM rra x WHERE lastupdated = (
+		FROM rra x WHERE masked = false AND lastupdated = (
 			SELECT MAX(lastupdated) FROM rra y WHERE
 			x.service = y.service
 		)`)

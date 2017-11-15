@@ -12,6 +12,8 @@ import (
 	slib "github.com/mozilla/service-map/servicelib"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path"
 	"strings"
 	"testing"
 )
@@ -150,6 +152,12 @@ func TestServiceRRAs(t *testing.T) {
 	cnt := 0
 	for _, x := range dirlist {
 		if !strings.HasPrefix(x.Name(), "service") {
+			continue
+		}
+		maskedpath := path.Join("./testdata", x.Name(), "masked")
+		_, err := os.Stat(maskedpath)
+		if err == nil {
+			// Service should be masked so don't include it in the check
 			continue
 		}
 		cnt++

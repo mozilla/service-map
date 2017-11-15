@@ -10,6 +10,7 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -31,6 +32,14 @@ func TestRiskResults(t *testing.T) {
 		if !strings.HasPrefix(x.Name(), "service") {
 			continue
 		}
+
+		isMasked := false
+		maskedpath := path.Join("./testdata", x.Name(), "masked")
+		_, err = os.Stat(maskedpath)
+		if err == nil {
+			isMasked = true
+		}
+
 		specpath := path.Join("./testdata", x.Name(), "result.json")
 		idstr := strings.TrimPrefix(x.Name(), "service")
 		rraid, err := strconv.Atoi(idstr)
@@ -51,6 +60,11 @@ func TestRiskResults(t *testing.T) {
 		op.newContext(dbconn, false, "127.0.0.1")
 		risk, err := riskForRRA(op, false, rraid)
 		if err != nil {
+			// If the RRA should be masked, we will get an error here so do not
+			// treat this as fatal
+			if isMasked {
+				continue
+			}
 			t.Fatalf("riskForRRA: %v", err)
 		}
 

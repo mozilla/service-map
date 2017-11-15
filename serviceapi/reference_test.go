@@ -17,7 +17,7 @@ func TestGetReference(t *testing.T) {
 	op := opContext{}
 	op.newContext(dbconn, false, "127.0.0.1")
 
-	rra, err := getRRA(op, 3)
+	rra, err := getRRA(op, 4)
 	if err != nil {
 		t.Fatalf("getRRA: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestGetReference(t *testing.T) {
 		t.Fatalf("getRRA: unexpected data classification for reference service attribute")
 	}
 
-	risk, err := riskForRRA(op, false, 3)
+	risk, err := riskForRRA(op, false, 4)
 	if err != nil {
 		t.Fatalf("riskForRRA: %v", err)
 	}
