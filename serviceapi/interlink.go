@@ -26,6 +26,7 @@ const (
 	websiteLinkAssetgroup
 	hostOwnership
 	ownerAdd
+	maskService
 )
 
 // interlinkRule defines a rule in the interlink system
@@ -34,6 +35,7 @@ type interlinkRule struct {
 
 	srcHostMatch       string
 	srcAssetGroupMatch string
+	srcServiceMatch    string
 
 	destServiceMatch    string
 	destAssetGroupMatch string
@@ -271,6 +273,21 @@ func interlinkAssetGroupServiceLink(op opContext, rules []interlinkRule) error {
 	return nil
 }
 
+func interlinkMaskServices(op opContext, rules []interlinkRule) error {
+	_, err := op.Exec(`UPDATE rra SET masked = false`)
+	if err != nil {
+		return err
+	}
+	for _, r := range rules {
+		_, err = op.Exec(`UPDATE rra SET masked = true
+			WHERE service ~* $1`, r.srcServiceMatch)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func getRulesType(rules []interlinkRule, ruletype int) (ret []interlinkRule) {
 	for _, x := range rules {
 		if x.ruletype == ruletype {
@@ -361,6 +378,17 @@ func interlinkRunRules(rules []interlinkRule) error {
 		return err
 	}
 	etim("AssetGroupServiceLink")
+	// Run service mask
+	stim()
+	err = interlinkMaskServices(op, getRulesType(rules, maskService))
+	if err != nil {
+		e := op.rollback()
+		if e != nil {
+			panic(e)
+		}
+		return err
+	}
+	etim("MaskServices")
 	err = op.commit()
 	if err != nil {
 		panic(err)
@@ -434,6 +462,11 @@ func interlinkLoadRules() ([]interlinkRule, error) {
 			nr.ruletype = websiteLinkAssetgroup
 			nr.srcWebsiteMatch = tokens[2]
 			nr.destAssetGroupMatch = tokens[5]
+			valid = true
+		} else if len(tokens) == 4 && tokens[0] == "service" &&
+			tokens[3] == "mask" {
+			nr.ruletype = maskService
+			nr.srcServiceMatch = tokens[2]
 			valid = true
 		}
 		if !valid {

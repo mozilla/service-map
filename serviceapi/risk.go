@@ -260,6 +260,10 @@ func riskForRRA(op opContext, useCache bool, rraid int) (ret slib.Risk, err erro
 	if err != nil {
 		return ret, err
 	}
+	if r.Name == "" {
+		// RRA with this ID was not found
+		return ret, fmt.Errorf("invalid RRA id")
+	}
 
 	ret.RRA = r
 	err = riskCalculation(op, &ret)
@@ -299,7 +303,7 @@ func cacheRisk(op opContext, rraid int) error {
 func riskCacheGetRRAs(op opContext) error {
 	rows, err := op.Query(`SELECT rra.rraid, MAX(risk.timestamp)
 		FROM rra LEFT OUTER JOIN risk ON rra.rraid = risk.rraid
-		GROUP BY rra.rraid`)
+		WHERE rra.masked = false GROUP BY rra.rraid`)
 	if err != nil {
 		return err
 	}
