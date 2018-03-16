@@ -15,7 +15,7 @@ Parameters:
   SSHKeyName:
     Description: Name of SSH key to use for instances
     Type: String
-    Default: alm-keys
+    Default: claudijd-keys
 Mappings:
   prod:
     us-west-2:
