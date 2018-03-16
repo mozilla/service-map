@@ -129,7 +129,7 @@ Resources:
   ServiceMapDB:
     Type: "AWS::RDS::DBInstance"
     Properties:
-      AllocatedStorage: 40
+      AllocatedStorage: 60
       BackupRetentionPeriod: 15
       DBInstanceClass: db.m4.large
       DBInstanceIdentifier: service-map-db
