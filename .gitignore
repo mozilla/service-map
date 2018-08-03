@@ -15,8 +15,12 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+Pipfile.lock
 
 
 # Serverless directories
 .serverless
 node_modules/
+
+#vscode
+settings.json
