@@ -5,7 +5,8 @@ provider:
   stage: dev
   region: us-west-2
   environment:
-    DYNAMODB_TABLE: ${opt:stage, self:provider.stage}-AssetOwners
+    ASSET_OWNER_TABLE: ${opt:stage, self:provider.stage}-AssetOwners
+    INDICATOR_TABLE: ${opt:stage, self:provider.stage}-Indicators
     ENVIRONMENT: dev
     REGION: ${opt:region, self:provider.region}
   iamRoleStatements:
@@ -25,7 +26,24 @@ provider:
         - dynamodb:BatchWriteItem
         - dynamodb:DescribeLimits
         - dynamodb:UpdateTimeToLive
-      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.ASSET_OWNER_TABLE}"
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:BatchGetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:DescribeTable
+        - dynamodb:CreateTable
+        - dynamodb:UpdateTable
+        - dynamodb:GetRecords
+        - dynamodb:BatchWriteItem
+        - dynamodb:DescribeLimits
+        - dynamodb:UpdateTimeToLive
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.INDICATOR_TABLE}"
     - Effect: Allow
       Action:
         - dynamodb:ListTables
