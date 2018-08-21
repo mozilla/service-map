@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-marshmallow = "*"
+marshmallow = "==2.15.4"
 dynamorm = "*"
 "boto3" = "*"
 flask = "*"
