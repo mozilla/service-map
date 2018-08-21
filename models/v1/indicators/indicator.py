@@ -79,8 +79,8 @@ class create (Resource):
 @api.route("/<id>")
 @api.route('s', defaults={'id':None})
 class list (Resource):
-    @api.doc("hit /indicators to get all entries, hit /indicators/<substring UUID> for any partial or full UUID match")
-    def get(self,id):
+    @api.doc("get /indicators to get all entries, hit /indicator/<substring UUID> for any partial or full UUID match")
+    def get(self, id):
         try:
             indicators=[]
             if id is None:
@@ -97,28 +97,34 @@ class list (Resource):
             message = {"exception": "{}".format(e)}
             return json.dumps(message),500
 
-@api.route("s/<identifier>")
-class team(Resource):
-    @api.doc("/<identifier> to return all matches for this word/term")
-    def get(self,identifier):
+    @api.doc("delete /indicator/uuid to remove an entry")
+    def delete(self, id):
         try:
             indicators=[]
 
-            for identifier in Indicator.scan(asset_identifier__contains=identifier):
-                indicators.append(identifier.to_dict())
+            if id is not None:
+
+                for indicator in Indicator.scan(id__eq=id):
+                    indicators.append(indicator.to_dict())
+                    indicator.delete()
 
             return json.dumps(indicators),200
         except Exception as e:
             message = {"exception": "{}".format(e)}
             return json.dumps(message),500
 
-    def delete(self,team):
+@api.route("s/<identifier>")
+@api.route("s/",defaults={'identifier':None})
+class search(Resource):
+    @api.doc("/<asset_identifier> partial or full asset identifier to return all matches for this word/term")
+    def get(self, identifier):
         try:
             indicators=[]
 
-            for indicator in Indicator.scan(team__eq=team):
-                indicators.append(indicator.to_dict())
-                indicator.delete()
+            if identifier is not None:
+
+                for indicator in Indicator.scan(asset_identifier__contains=identifier):
+                    indicators.append(indicator.to_dict())
 
             return json.dumps(indicators),200
         except Exception as e:
