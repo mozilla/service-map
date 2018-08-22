@@ -5,7 +5,7 @@ import uuid
 from flask import jsonify, request
 from dynamorm import DynaModel
 from dynamorm.exceptions import ValidationError
-from marshmallow import fields, validate, validates
+from marshmallow import Schema, fields, validate, validates
 from flask_restplus import Namespace, Resource
 from datetime import datetime, timezone
 
@@ -15,6 +15,13 @@ api=Namespace('indicator',
 def randuuid():
     return(str(uuid.uuid4()))
 
+class Vulnerabilities(Schema):
+    coverage = fields.Boolean()
+    maximum = fields.Integer(default=0)
+    high = fields.Integer(default=0)
+    medium = fields.Integer(default=0)
+    low = fields.Integer(default=0)
+
 class Indicator(DynaModel):
     class Table:
         name = '{env}-Indicators'.format(env=os.environ.get('ENVIRONMENT', 'dev'))
@@ -23,13 +30,6 @@ class Indicator(DynaModel):
         resource_kwargs = {
             'region_name': os.environ.get('REGION', 'us-west-2')
         }
-
-    class Vulnerabilities:
-        coverage = fields.String()
-        maximum = fields.Integer(default=0)
-        high = fields.Integer(default=0)
-        medium = fields.Integer(default=0)
-        low = fields.Integer(default=0)
 
     class Schema:
         id = fields.String(missing=randuuid)
