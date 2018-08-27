@@ -5,9 +5,11 @@ import uuid
 from flask import jsonify, request
 from dynamorm import DynaModel
 from dynamorm.exceptions import ValidationError
-from marshmallow import Schema, fields, validate, validates
 from flask_restplus import Namespace, Resource
 from datetime import datetime, timezone
+from schematics.models import Model
+from schematics.types import StringType as String, IntType as Number
+from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, DictType, ListType, PolyModelType
 
 api=Namespace('indicator',
                 description='create, list, update, delete indicator',
@@ -15,12 +17,32 @@ api=Namespace('indicator',
 def randuuid():
     return(str(uuid.uuid4()))
 
-class Vulnerabilities(Schema):
-    coverage = fields.Boolean()
-    maximum = fields.Integer(default=0)
-    high = fields.Integer(default=0)
-    medium = fields.Integer(default=0)
-    low = fields.Integer(default=0)
+# supporting Models for the details portion of the indicator
+class VulnerabilitySummary(Model):
+    coverage = BooleanType()
+    maximum = Number(default=0)
+    high = Number(default=0)
+    medium = Number(default=0)
+    low = Number(default=0)
+
+class ObservatoryScore(Model):
+    grade=String()
+    tests = ListType(BaseType)
+
+class DastVulnerabilities(Model):
+    findings = ListType(BaseType)
+
+# helper function to figure out which 'details' we are working with:
+def claim_func(field, data):
+    '''
+    figure out which schema to use for the 'details' field
+    '''
+    if 'coverage' in data:
+        return VulnerabilitySummary
+    elif 'grade' in data:
+        return ObservatoryScore
+    elif 'findings' in data:
+        return DastVulnerabilities
 
 class Indicator(DynaModel):
     class Table:
@@ -32,16 +54,16 @@ class Indicator(DynaModel):
         }
 
     class Schema:
-        id = fields.String(missing=randuuid)
-        asset_type = fields.String(required=True)
-        asset_identifier = fields.String(required=True)
-        zone = fields.String(required=True)
-        #fields.DateTime doesn't validate an isoformatted date for some reason.
-        timestamp_utc = fields.String(missing=datetime.now(timezone.utc).isoformat())
-        description = fields.String()
-        event_source_name = fields.String()
-        likelihood_indicator = fields.String()
-        details = fields.Nested('Vulnerabilities',required=False)
+        id = String(default=randuuid)
+        asset_type = String(required=True)
+        asset_identifier = String(required=True)
+        zone = String(required=True)
+        timestamp_utc = String(default=datetime.now(timezone.utc).isoformat())
+        description = String()
+        event_source_name = String()
+        likelihood_indicator = String()
+        details=PolyModelType([ObservatoryScore,VulnerabilitySummary,DastVulnerabilities], claim_function=claim_func)
+
 
 @api.route("/status")
 class status(Resource):

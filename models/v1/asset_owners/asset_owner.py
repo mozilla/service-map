@@ -5,8 +5,11 @@ import uuid
 from flask import jsonify, request
 from dynamorm import DynaModel
 from dynamorm.exceptions import ValidationError
-from marshmallow import fields, validate, validates
+#from marshmallow import fields, validate, validates
 from flask_restplus import Namespace, Resource
+from schematics.models import Model
+from schematics.types import StringType as String, IntType as Number
+from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, DictType, ListType, PolyModelType
 
 api=Namespace('asset owners',
                 description='create, list, update, delete asset owners',
@@ -24,9 +27,9 @@ class AssetOwner(DynaModel):
         }
 
     class Schema:
-        id = fields.String(missing=randuuid)
-        team = fields.String(required=True)
-        operator = fields.String(required=True)
+        id = String(default=randuuid)
+        team = String(required=True)
+        operator = String(required=True)
 
 @api.route("/status")
 class status(Resource):
