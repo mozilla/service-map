@@ -4,6 +4,7 @@ import os
 import uuid
 from flask import jsonify, request
 from dynamorm import DynaModel
+from dynamorm.indexes import GlobalIndex, ProjectKeys, ProjectAll
 from dynamorm.exceptions import ValidationError
 from flask_restplus import Namespace, Resource
 from datetime import datetime, timezone
@@ -52,6 +53,36 @@ class Indicator(DynaModel):
         resource_kwargs = {
             'region_name': os.environ.get('REGION', 'us-west-2')
         }
+        read=5
+        write=5
+
+    class ByAsset(GlobalIndex):
+        name = 'indicators-by-asset'
+        hash_key = 'asset_id'
+        range_key = 'description'
+        projection = ProjectAll()
+        read = 1
+        write = 1
+
+    class Schema:
+        id = String(default=randuuid)
+        asset_id = String(required=False)
+        timestamp_utc = String(default=datetime.now(timezone.utc).isoformat()) #
+        description = String()
+        event_source_name = String()
+        likelihood_indicator = String()
+        details=PolyModelType([ObservatoryScore,VulnerabilitySummary,DastVulnerabilities], claim_function=claim_func)
+
+class Asset(DynaModel):
+    class Table:
+        name = '{env}-Assets'.format(env=os.environ.get('ENVIRONMENT', 'dev'))
+        hash_key = 'id'
+
+        resource_kwargs = {
+            'region_name': os.environ.get('REGION', 'us-west-2')
+        }
+        read=5
+        write=5
 
     class Schema:
         id = String(default=randuuid)
@@ -60,9 +91,6 @@ class Indicator(DynaModel):
         zone = String(required=True)
         timestamp_utc = String(default=datetime.now(timezone.utc).isoformat())
         description = String()
-        event_source_name = String()
-        likelihood_indicator = String()
-        details=PolyModelType([ObservatoryScore,VulnerabilitySummary,DastVulnerabilities], claim_function=claim_func)
 
 
 @api.route("/status")
@@ -76,12 +104,29 @@ class status(Resource):
 
 @api.route("","/")
 class create (Resource):
-    @api.doc("post route to create a new indicator that returns it's UUID" )
+    @api.doc("post route to create a new indicator provided an asset's uuid or an asset_identifier (hostname)" )
     def post(self):
         #return jsonify(request.get_json(force=True))
         try:
             post_data=request.get_json(force=True)
             try:
+                # were we given an asset_id?
+                if 'asset_id' not in post_data.keys():
+                    #find the asset or create it
+                    asset_id=''
+                    assets=[a for a in Asset.scan(asset_identifier__eq=post_data['asset_identifier'])]
+                    if len(assets):
+                        asset_id = assets[0].id
+                    else:
+                        #create an asset
+                        asset=Asset.new_from_raw({
+                            "asset_type": post_data['asset_type'],
+                            "asset_identifier": post_data['asset_identifier'],
+                            "zone": post_data['zone']
+                        })
+                        asset.save()
+                        asset_id=asset.id
+                    post_data['asset_id']= asset_id
                 # let dynamorn/marshmallow validate the data
                 indicator=Indicator.new_from_raw(post_data)
                 indicator.save()
@@ -108,7 +153,7 @@ class list (Resource):
             if id is None:
                 # return everything
 
-                for indicator in Indicator.scan(asset_identifier__exists=True):
+                for indicator in Indicator.scan(id__exists=True):
                     indicators.append(indicator.to_dict())
             else:
                 for indicator in Indicator.scan(id__contains=id):
@@ -141,14 +186,22 @@ class search(Resource):
     @api.doc("/<asset_identifier> partial or full asset identifier to return all matches for this word/term")
     def get(self, identifier):
         try:
+            assets=[]
             indicators=[]
 
             if identifier is not None:
+                for asset in Asset.scan(asset_identifier__contains=identifier):
 
-                for indicator in Indicator.scan(asset_identifier__contains=identifier):
-                    indicators.append(indicator.to_dict())
+                    indicators.clear()
+                    for indicator in Indicator.scan(asset_id__eq=asset.id):
+                        indicators.append(indicator.to_dict())
 
-            return json.dumps(indicators),200
+                    returnAsset=asset.to_dict()
+                    returnAsset['indicators']=indicators
+
+                    assets.append(returnAsset)
+
+            return json.dumps(assets),200
         except Exception as e:
             message = {"exception": "{}".format(e)}
             return json.dumps(message),500
