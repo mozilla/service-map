@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from schematics.models import Model
 from schematics.types import StringType as String, IntType as Number
 from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, DictType, ListType, PolyModelType
+from models.v1.assets.asset import Asset
 
 api=Namespace('indicator',
                 description='create, list, update, delete indicator',
@@ -73,25 +74,6 @@ class Indicator(DynaModel):
         likelihood_indicator = String()
         details=PolyModelType([ObservatoryScore,VulnerabilitySummary,DastVulnerabilities], claim_function=claim_func)
 
-class Asset(DynaModel):
-    class Table:
-        name = '{env}-Assets'.format(env=os.environ.get('ENVIRONMENT', 'dev'))
-        hash_key = 'id'
-
-        resource_kwargs = {
-            'region_name': os.environ.get('REGION', 'us-west-2')
-        }
-        read=5
-        write=5
-
-    class Schema:
-        id = String(default=randuuid)
-        asset_type = String(required=True)
-        asset_identifier = String(required=True)
-        zone = String(required=True)
-        timestamp_utc = String(default=datetime.now(timezone.utc).isoformat())
-        description = String()
-
 
 @api.route("/status")
 class status(Resource):
@@ -111,9 +93,9 @@ class create (Resource):
             post_data=request.get_json(force=True)
             try:
                 # were we given an asset_id?
+                asset_id=''
                 if 'asset_id' not in post_data.keys():
                     #find the asset or create it
-                    asset_id=''
                     assets=[a for a in Asset.scan(asset_identifier__eq=post_data['asset_identifier'])]
                     if len(assets):
                         asset_id = assets[0].id
@@ -127,6 +109,14 @@ class create (Resource):
                         asset.save()
                         asset_id=asset.id
                     post_data['asset_id']= asset_id
+                else:
+                    #asset_id was included in the post data, lets make sure it's valid
+                    assets=[a for a in Asset.scan(id__eq=post_data['asset_id'])]
+                    if len(assets):
+                        asset_id = assets[0].id
+                    else:
+                        raise ValueError('invalid asset_id, no matching asset found')
+
                 # let dynamorn/marshmallow validate the data
                 indicator=Indicator.new_from_raw(post_data)
                 indicator.save()
