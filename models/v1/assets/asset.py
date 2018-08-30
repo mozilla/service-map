@@ -1,7 +1,7 @@
 import boto3
 import json
 import os
-import uuid
+from utils.utils import randuuid
 from flask import jsonify, request
 from dynamorm import DynaModel
 from dynamorm.indexes import GlobalIndex, ProjectKeys, ProjectAll
@@ -15,8 +15,6 @@ from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, Dic
 api=Namespace('asset',
                 description='create, list, update, delete asset',
                 path='/api/v1/asset')
-def randuuid():
-    return(str(uuid.uuid4()))
 
 class Asset(DynaModel):
     class Table:

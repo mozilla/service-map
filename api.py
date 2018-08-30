@@ -14,7 +14,6 @@ api.add_namespace(asset_owner_api)
 api.add_namespace(indicator_api)
 api.add_namespace(asset_api)
 
-
 @api.route('/hello')
 class HelloWorld(Resource):
     def get(self):

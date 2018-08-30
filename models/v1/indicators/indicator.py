@@ -1,7 +1,7 @@
 import boto3
 import json
 import os
-import uuid
+from utils.utils import randuuid
 from flask import jsonify, request
 from dynamorm import DynaModel
 from dynamorm.indexes import GlobalIndex, ProjectKeys, ProjectAll
@@ -16,8 +16,6 @@ from models.v1.assets.asset import Asset
 api=Namespace('indicator',
                 description='create, list, update, delete indicator',
                 path='/api/v1/indicator')
-def randuuid():
-    return(str(uuid.uuid4()))
 
 # supporting Models for the details portion of the indicator
 class VulnerabilitySummary(Model):

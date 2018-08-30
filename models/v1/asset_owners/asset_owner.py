@@ -1,11 +1,10 @@
 import boto3
 import json
 import os
-import uuid
+from utils.utils import randuuid
 from flask import jsonify, request
 from dynamorm import DynaModel
 from dynamorm.exceptions import ValidationError
-#from marshmallow import fields, validate, validates
 from flask_restplus import Namespace, Resource
 from schematics.models import Model
 from schematics.types import StringType as String, IntType as Number
@@ -14,8 +13,7 @@ from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, Dic
 api=Namespace('asset owners',
                 description='create, list, update, delete asset owners',
                 path='/api/v1/asset_owner')
-def randuuid():
-    return(str(uuid.uuid4()))
+
 
 class AssetOwner(DynaModel):
     class Table:
