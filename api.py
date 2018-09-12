@@ -1,5 +1,5 @@
 import logging
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import cross_origin
 from flask_restplus import Resource,Api
 from models.v1.asset_owners.asset_owner import api as asset_owner_api
@@ -14,10 +14,14 @@ api.add_namespace(asset_owner_api)
 api.add_namespace(indicator_api)
 api.add_namespace(asset_api)
 
-@api.route('/hello')
-class HelloWorld(Resource):
+@api.route('/status')
+class status(Resource):
+    @api.doc('a klingon test/status endpoint')
     def get(self):
-        return {'hello': 'world'}
+        body = {
+            "message": "Qapla'!"
+        }
+        return jsonify(body)
 
 
 if __name__ == '__main__':
