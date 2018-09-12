@@ -1,4 +1,5 @@
 import boto3
+from models.v1.assets.asset import Asset
 
 class iRule():
     def __init__(self,ruletype,action,tokens=[]):
@@ -26,18 +27,19 @@ def event(event, context):
     #                                          'eTag': 'd50cb2e8d7ad6768d46b3d47ba9b241e',
     #                                          'sequencer': '005A1A0372C5A1D292'}}}]}
 
-    s3=boto3.client("s3")
+    s3=boto3.resource("s3")
     print('event: {}'.format(event))
     for record in event['Records']:
         print(record['eventName'])
         print(record['s3']['object']['key'])
         bucket = record['s3']['bucket']['name']
         key=record['s3']['object']['key']
-        response= s3.get_object(Bucket=bucket, Key=key)
-        contents=response['Body'].read().decode('utf-8')
+        #response= s3.get_object(Bucket=bucket, Key=key)
+        #contents=response['Body'].read().decode('utf-8')
+        s3.meta.client.download_file(bucket, key, '/tmp/{}'.format(key))
         #parsing the interlink.rules
         rules=[]
-        for rule in contents.split("/r"):
+        for rule in open('/tmp/{}'.format(key)):
 
             rule=rule.strip()
             #ignore junk/cr/lr
@@ -86,6 +88,8 @@ def event(event, context):
                 tokens[3] == "ownership" ):
                 #link a host to an owner
                 #ex: host matches mana1\.webapp\.scl3\.mozilla\.com ownership it webops webops-special
+                #remove simple regex escapes
+                tokens[2]=tokens[2].replace('\\d+','').replace('\\d','').replace('\\','')
                 rules.append(iRule('hostOwnership','link',tokens))
 
             elif len(tokens) == 4 and tokens[0] in ["add","remove"] and tokens[1] == "owner":
@@ -112,4 +116,10 @@ def event(event, context):
             print(rule.ruletype,
                 rule.action,
                 rule.tokens)
+            if rule.ruletype == 'hostOwnership':
+                for asset in Asset.scan(asset_identifier__contains=rule.tokens[2]):
+                    print('updating: {}'.format(asset.asset_identifier))
+                    asset.team=rule.tokens[4]
+                    asset.operator=rule.tokens[5]
+                    asset.save()
 
