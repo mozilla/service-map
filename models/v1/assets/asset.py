@@ -65,3 +65,22 @@ class search(Resource):
         except Exception as e:
             message = {"exception": "{}".format(e)}
             return json.dumps(message),500
+
+@api.route("/<uuid>")
+class remove(Resource):
+    @api.doc("delete /asset/uuid to remove an entry and it's indicators")
+    def delete(self, uuid):
+        from models.v1.indicators.indicator import Indicator
+        try:
+            assets=[]
+
+            if uuid is not None:
+                for asset in Asset.scan(id__eq=uuid):
+                    assets.append(asset.to_dict())
+                    for indicator in Indicator.scan(asset_id__eq=uuid):
+                        indicator.delete()
+
+            return json.dumps(assets),200
+        except Exception as e:
+            message = {"exception": "{}".format(e)}
+            return json.dumps(message),500
