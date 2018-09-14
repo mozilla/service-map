@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from schematics.models import Model
 from schematics.types import StringType as String, IntType as Number
 from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, DictType, ListType, PolyModelType
-from models.v1.assets.asset import Asset
+
 
 api=Namespace('indicator',
                 description='create, list, update, delete indicator',
@@ -86,6 +86,7 @@ class status(Resource):
 class create (Resource):
     @api.doc("post route to create a new indicator provided an asset's uuid or an asset_identifier (hostname)" )
     def post(self):
+        from models.v1.assets.asset import Asset
         #return jsonify(request.get_json(force=True))
         try:
             post_data=request.get_json(force=True)
@@ -173,6 +174,7 @@ class list (Resource):
 class search(Resource):
     @api.doc("/<asset_identifier> partial or full asset identifier to return all matches for this word/term")
     def get(self, identifier):
+        from models.v1.assets.asset import Asset
         try:
             assets=[]
             indicators=[]
