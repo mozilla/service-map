@@ -1,5 +1,9 @@
 import pytest
 
+def pytest_namespace():
+    return {'testvalues':
+            {'asset_id': None}
+            }
 
 def pytest_runtest_makereport(item, call):
     if "incremental" in item.keywords:

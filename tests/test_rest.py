@@ -7,6 +7,10 @@ API_URL = os.environ.get("API_URL")
 if not API_URL.endswith("/"):
     API_URL= API_URL+ "/"
 
+def test_startup():
+    print('pytest dict: {}'.format(pytest.testvalues.asset_id))
+    assert pytest.testvalues.asset_id is None
+
 class TestStatus(object):
     def test_api_status(self):
         r=requests.get('{}status'.format(API_URL))
@@ -33,7 +37,6 @@ class TestMissing(object):
 
 @pytest.mark.incremental
 class TestAsset(object):
-    asset_id = None
     def test_adding_asset_through_indicator(self):
         r=requests.post('{}api/v1/indicator'.format(API_URL),
                         data=json.dumps({
@@ -57,12 +60,21 @@ class TestAsset(object):
 
         print(r.json())
         result=json.loads(r.json())
-        self.asset_id= result['asset_id']
-        print ("Test created asset_id: {}".format(self.asset_id))
-        assert self.asset_id is not None
+        pytest.testvalues.asset_id= result['asset_id']
+        print ("Test created asset_id: {}".format(pytest.testvalues.asset_id))
+        assert pytest.testvalues.asset_id is not None
+
+    def test_retrieving_asset(self):
+        assert pytest.testvalues.asset_id is not None
+        print('retrieving asset with id: {}'.format(pytest.testvalues.asset_id))
+        r=requests.get('{}api/v1/asset/{}'.format(API_URL,pytest.testvalues.asset_id))
+        result=json.loads(r.json())
+        print(r.json())
+        assert result[0]['id'] == pytest.testvalues.asset_id
 
     def test_removing_asset(self):
-        r=requests.delete('{}api/v1/asset/{}'.format(API_URL,self.asset_id))
+        assert pytest.testvalues.asset_id is not None
+        r=requests.delete('{}api/v1/asset/{}'.format(API_URL,pytest.testvalues.asset_id))
         print(r.json())
         assert len(r.json())> 1
 
