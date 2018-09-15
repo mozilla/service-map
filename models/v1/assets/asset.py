@@ -68,6 +68,18 @@ class search(Resource):
 
 @api.route("/<uuid>")
 class remove(Resource):
+    @api.doc("get /asset/uuid to retrieve a single asset")
+    def get(self,uuid):
+        try:
+            assets=[]
+            if uuid is not None:
+                for asset in Asset.scan(id__eq=uuid):
+                    assets.append(asset.to_dict())
+            return json.dumps(assets),200
+        except Exception as e:
+            message = {"exception": "{}".format(e)}
+            return json.dumps(message),500
+
     @api.doc("delete /asset/uuid to remove an entry and it's indicators")
     def delete(self, uuid):
         from models.v1.indicators.indicator import Indicator
@@ -77,8 +89,10 @@ class remove(Resource):
             if uuid is not None:
                 for asset in Asset.scan(id__eq=uuid):
                     assets.append(asset.to_dict())
+
                     for indicator in Indicator.scan(asset_id__eq=uuid):
                         indicator.delete()
+                    asset.delete()
 
             return json.dumps(assets),200
         except Exception as e:
