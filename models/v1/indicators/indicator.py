@@ -48,6 +48,7 @@ class Indicator(DynaModel):
     class Table:
         name = '{env}-Indicators'.format(env=os.environ.get('ENVIRONMENT', 'dev'))
         hash_key = 'id'
+        range_key = 'asset_id'
 
         resource_kwargs = {
             'region_name': os.environ.get('REGION', 'us-west-2')
@@ -55,13 +56,13 @@ class Indicator(DynaModel):
         read=5
         write=5
 
-    class ByAsset(GlobalIndex):
-        name = 'indicators-by-asset'
-        hash_key = 'asset_id'
-        range_key = 'description'
-        projection = ProjectAll()
-        read = 1
-        write = 1
+    # class ByAsset(GlobalIndex):
+    #     name = 'indicators-by-asset'
+    #     hash_key = 'asset_id'
+    #     range_key = 'description'
+    #     projection = ProjectAll()
+    #     read = 1
+    #     write = 1
 
     class Schema:
         id = String(default=randuuid)
