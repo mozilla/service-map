@@ -103,6 +103,45 @@ class TestAsset(object):
         result=json.loads(r.json())
         assert pytest.testvalues.asset_id == result['asset_id']
 
+    def test_adding_observatory_indicator(self):
+        r=requests.post('{}api/v1/indicator'.format(API_URL),
+                        data=json.dumps({
+                            "asset_type": "website",
+                            "asset_identifier": "pytest.testing.com",
+                            "zone": "pytest",
+                            "description": "Mozilla Observatory scan",
+                            "event_source_name": "Mozilla Observatory",
+                            "likelihood_indicator": "medium",
+                            "details": {
+                                "grade": "F",
+                                "tests": [
+                                    {
+                                        "name": "Content security policy",
+                                        "pass": False
+                                    },
+                                    {
+                                        "name": "Cookies",
+                                        "pass": True
+                                    },
+                                    {
+                                        "name": "HTTP Public Key Pinning",
+                                        "pass": True
+                                    },
+                                    {
+                                        "name": "X-Frame-Options",
+                                        "pass": False
+                                    },
+                                    {
+                                        "name": "Cross-origin Resource Sharing",
+                                        "pass": True
+                                    }
+                                ]
+                            }
+                        })
+        )
+        print(r.json())
+        result=json.loads(r.json())
+        assert pytest.testvalues.asset_id == result['asset_id']
 
     def test_retrieving_asset(self):
         assert pytest.testvalues.asset_id is not None
