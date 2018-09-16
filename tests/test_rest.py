@@ -3,7 +3,13 @@ import os
 import requests
 import pytest
 
-API_URL = os.environ.get("API_URL")
+# export a API_URL environment varialble to be something like:
+# API_URL="https://something.execute-api.us-west-2.amazonaws.com/dev/"
+API_URL = os.environ.get("API_URL",None)
+
+def test_api_url_environtment_variable():
+    assert API_URL is not None
+
 if not API_URL.endswith("/"):
     API_URL= API_URL+ "/"
 
@@ -37,7 +43,7 @@ class TestMissing(object):
 
 @pytest.mark.incremental
 class TestAsset(object):
-    def test_adding_asset_through_indicator(self):
+    def test_adding_asset_through_scanapi_indicator(self):
         r=requests.post('{}api/v1/indicator'.format(API_URL),
                         data=json.dumps({
                             "asset_identifier": "pytest.testing.com",
@@ -46,7 +52,6 @@ class TestAsset(object):
                             "description": "scanapi vulnerability result",
                             "event_source_name": "scanapi",
                             "likelihood_indicator": "high",
-
                             "details": {
                                     "coverage": True,
                                     "maximum": 0,
@@ -63,6 +68,41 @@ class TestAsset(object):
         pytest.testvalues.asset_id= result['asset_id']
         print ("Test created asset_id: {}".format(pytest.testvalues.asset_id))
         assert pytest.testvalues.asset_id is not None
+
+    def test_adding_ZAP_scan_indicator(self):
+        r=requests.post('{}api/v1/indicator'.format(API_URL),
+                        data=json.dumps({
+                            "asset_type": "website",
+                            "asset_identifier": "pytest.testing.com",
+                            "zone": "pytest",
+                            "description": "ZAP DAST scan",
+                            "event_source_name": "ZAP DAST scan",
+                            "likelihood_indicator": "medium",
+                            "details": {
+                                    "findings":[
+
+                                {
+                                    "name": "Cookie No HttpOnly Flag",
+                                    "site": "pytest.testing.com",
+                                    "likelihood_indicator": "low"
+                                },
+                                {
+                                    "name": "Cross-Domain Javascript Source File Inclusion",
+                                    "site": "pytest.testing.com",
+                                    "likelihood_indicator": "low"
+                                },
+                                {
+                                    "name": "CSP scanner: script-src unsafe-inline",
+                                    "site": "pytest.testing.com",
+                                    "likelihood_indicator": "medium"
+                                }
+                            ]}
+                        })
+        )
+        print(r.json())
+        result=json.loads(r.json())
+        assert pytest.testvalues.asset_id == result['asset_id']
+
 
     def test_retrieving_asset(self):
         assert pytest.testvalues.asset_id is not None
