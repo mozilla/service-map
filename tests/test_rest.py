@@ -34,6 +34,10 @@ class TestStatus(object):
         r=requests.get('{}api/v1/asset-group/status'.format(API_URL))
         assert r.json()['message'] == "Qapla'!"
 
+    def test_service_status(self):
+        r=requests.get('{}api/v1/service/status'.format(API_URL))
+        assert r.json()['message'] == "Qapla'!"
+
 class TestMissing(object):
     def test_nonexistent_asset(self):
         r=requests.get('{}api/v1/assets/hereisathingthatshouldnotexist'.format(API_URL))
