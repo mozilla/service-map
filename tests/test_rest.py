@@ -45,6 +45,11 @@ class TestMissing(object):
         result=json.loads(r.json())
         assert len(result)==0
 
+    def test_nonexistent_asset_group(self):
+        r=requests.get('{}api/v1/asset-group/hereisathingthatshouldnotexist'.format(API_URL))
+        result=json.loads(r.json())
+        assert len(result)==0
+
 @pytest.mark.incremental
 class TestAsset(object):
     def test_adding_asset_through_scanapi_indicator(self):
