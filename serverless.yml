@@ -16,6 +16,7 @@ provider:
   environment:
     INDICATOR_TABLE: ${opt:stage, self:provider.stage}-Indicators
     ASSET_TABLE: ${opt:stage, self:provider.stage}-Assets
+    ASSET_GROUPS_TABLE: ${opt:stage, self:provider.stage}-AssetGroups
     ENVIRONMENT: dev
     REGION: ${opt:region, self:provider.region}
   iamRoleStatements:
@@ -53,6 +54,23 @@ provider:
         - dynamodb:DescribeLimits
         - dynamodb:UpdateTimeToLive
       Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.ASSET_TABLE}"
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:BatchGetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:DescribeTable
+        - dynamodb:CreateTable
+        - dynamodb:UpdateTable
+        - dynamodb:GetRecords
+        - dynamodb:BatchWriteItem
+        - dynamodb:DescribeLimits
+        - dynamodb:UpdateTimeToLive
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.ASSET_GROUPS_TABLE}"
     - Effect: Allow
       Action:
         - dynamodb:ListTables
