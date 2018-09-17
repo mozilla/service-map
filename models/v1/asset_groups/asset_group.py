@@ -13,7 +13,7 @@ from schematics.types import StringType as String, IntType as Number
 from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, DictType, ListType, PolyModelType
 
 api=Namespace('asset_group',
-                description='create, list, update, delete asset',
+                description='list asset groups (created through interllink.rules)',
                 path='/api/v1/asset-group')
 
 class AssetGroup(DynaModel):
@@ -71,7 +71,7 @@ class search(Resource):
             return json.dumps(message),500
 
 @api.route("/<uuid>")
-class remove(Resource):
+class specific(Resource):
     @api.doc("get /asset/uuid to retrieve a single asset group")
     def get(self,uuid):
         try:
