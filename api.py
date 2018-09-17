@@ -4,7 +4,7 @@ from flask_cors import cross_origin
 from flask_restplus import Resource,Api
 from models.v1.indicators.indicator import api as indicator_api
 from models.v1.assets.asset import api as asset_api
-from models.v1.asset_groups import asset_group import api as asset_group_api
+from models.v1.asset_groups.asset_group import api as asset_group_api
 
 logger = logging.getLogger(__name__)
 
