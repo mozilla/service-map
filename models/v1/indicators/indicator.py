@@ -73,6 +73,10 @@ class Indicator(DynaModel):
         likelihood_indicator = String()
         details=PolyModelType([ObservatoryScore,VulnerabilitySummary,DastVulnerabilities], claim_function=claim_func)
 
+#create table if needed
+inittable = Indicator(asset_id='init')
+if not inittable.Table.exists:
+    inittable.Table.create_table(wait=True)
 
 @api.route("/status")
 class status(Resource):

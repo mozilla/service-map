@@ -37,6 +37,11 @@ class Asset(DynaModel):
         timestamp_utc = String(default=datetime.now(timezone.utc).isoformat())
         description = String()
 
+#create table if needed
+inittable = Asset(asset_type='init', asset_identifier='init',zone='init')
+if not inittable.Table.exists:
+    inittable.Table.create_table(wait=True)
+
 @api.route("/status")
 class status(Resource):
     @api.doc('a klingon test/status endpoint')

@@ -34,6 +34,11 @@ class AssetGroup(DynaModel):
         name = String(required=True)
         description = String()
 
+#create table if needed
+inittable = AssetGroup(name='init')
+if not inittable.Table.exists:
+    inittable.Table.create_table(wait=True)
+
 @api.route("/status")
 class status(Resource):
     @api.doc('a klingon test/status endpoint')
