@@ -1,6 +1,7 @@
 import boto3
 from models.v1.assets.asset import Asset
 from models.v1.asset_groups.asset_group import AssetGroup
+from models.v1.services.service import Service
 
 class iRule():
     def __init__(self,ruletype,action,tokens=[]):
@@ -100,6 +101,8 @@ def event(event, context):
                 rule.tokens)
             if rule.ruletype == 'assetgroup':
                 if rule.tokens[0] == 'add':
+                    # rule will be formatted like:
+                    # add assetgroup reference a reference group of assets
                     # add unless it already exists
                     asset_group=None
                     asset_groups=[a for a in AssetGroup.scan(name__eq=rule.tokens[2])]
@@ -112,8 +115,24 @@ def event(event, context):
                         asset_group.description = ' '.join(rule.tokens[3::])
                     asset_group.save()
 
+            if rule.ruletype == 'assetgroupLinkService':
+                # rule will be formated like:
+                # assetgroup matches reference link service Reference_Service
+                #find the asset group
+                asset_group=None
+                asset_groups=[a for a in AssetGroup.scan(name__eq=rule.tokens[2])]
+                if len(asset_groups):
+                    asset_group=asset_groups[0]
+                    # find the service
+                    services=[a for a in Service.scan(name__eq=rule.tokens[-1])]
+                    if len(services):
+                        service_id=services[0].id
+                        asset_group.service_id=service_id
+                        asset_group.save()
 
             if rule.ruletype == 'assetOwnership':
+                # rule will be formatted like:
+                # asset matches www.reference.com ownership it referencegroup
                 for asset in Asset.scan(asset_identifier__contains=rule.tokens[2]):
                     print('updating: {}'.format(asset.asset_identifier))
                     asset.team=rule.tokens[4]
@@ -121,10 +140,11 @@ def event(event, context):
                     asset.save()
 
             if rule.ruletype == 'assetLinkAssetgroup':
+                # rule will be formatted like:
+                # asset matches reference link assetgroup reference
                 asset_group = rule.tokens[-1]
                 asset_group_id = None
                 asset_identifier = rule.tokens[2]
-                asset_id = None
                 # get the group id
                 for group in AssetGroup.scan(name__eq=asset_group):
                     asset_group_id= group.id
