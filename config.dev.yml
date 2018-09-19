@@ -1,0 +1,5 @@
+DOMAIN_NAME: serviceapi.security.allizom.org
+ZONE_ID: Z13VQZ50081YZU
+CERTIFICATE_NAME: serviceapi.security.allizom.org
+AUTH0_URL: auth-dev.mozilla.auth0.com
+AUDIENCE: https://serviceapi.security.allizom.org
