@@ -6,8 +6,10 @@ from models.v1.indicators.indicator import api as indicator_api
 from models.v1.assets.asset import api as asset_api
 from models.v1.asset_groups.asset_group import api as asset_group_api
 from models.v1.services.service import api as service_api
+from utils.utils import get_config
 
 logger = logging.getLogger(__name__)
+CONFIG = get_config()
 
 app = Flask(__name__)
 api = Api(app)

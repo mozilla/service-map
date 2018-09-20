@@ -4,6 +4,7 @@ custom:
   s3_bucket_arn: arn:aws:s3:::${self:custom.s3_bucket}
   pythonRequirements:
     usePipenv: true
+    dockerizePip: true
   wsgi:
     app: api.app
     packRequirements: false
@@ -28,6 +29,7 @@ provider:
     SERVICE_TABLE: ${opt:stage, self:provider.stage}-Services
     ENVIRONMENT: ${self:provider.stage}
     REGION: ${opt:region, self:provider.region}
+    CONFIGFILE: config.${self:provider.stage}.yml
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -128,6 +130,16 @@ provider:
         - dynamodb:DescribeLimits
         - dynamodb:UpdateTimeToLive
       Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.SERVICE_TABLE}"
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:Query
+        - dynamodb:Scan
+      Resource: "arn:aws:dynamodb:us-east-1:*:table/credential-store"
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+      Resource: "arn:aws:kms:us-east-1:*:key/${file(config.${self:provider.stage}.yml):KMSGUID}"
     - Effect: Allow
       Action:
         - dynamodb:ListTables

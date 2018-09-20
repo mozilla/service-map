@@ -3,3 +3,6 @@ ZONE_ID: Z13VQZ50081YZU
 CERTIFICATE_NAME: serviceapi.security.allizom.org
 AUTH0_URL: auth-dev.mozilla.auth0.com
 AUDIENCE: https://serviceapi.security.allizom.org
+ENVIRONMENT: dev
+REGION: us-west-2
+KMSGUID: 6762fa27-618c-4c0b-83d4-ca42ffac454f

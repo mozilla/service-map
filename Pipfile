@@ -11,6 +11,10 @@ flask = "*"
 flask-restplus = "*"
 flask-cors = "*"
 schematics = "*"
+python-jose-cryptodome = "*"
+everett = "*"
+credstash = "*"
+pyyaml = "*"
 
 [dev-packages]
 
