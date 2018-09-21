@@ -15,6 +15,7 @@ python-jose-cryptodome = "*"
 everett = "*"
 credstash = "*"
 pyyaml = "*"
+six = "*"
 
 [dev-packages]
 

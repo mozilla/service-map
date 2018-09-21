@@ -4,7 +4,6 @@ import uuid
 import yaml
 from everett.manager import ConfigManager, ConfigDictEnv, ConfigOSEnv
 
-
 def get_config():
     """
     Environment/yml config vars:

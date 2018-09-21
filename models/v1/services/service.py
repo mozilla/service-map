@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from schematics.models import Model
 from schematics.types import StringType as String, IntType as Number
 from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, DictType, ListType, PolyModelType
+from utils.auth import requires_auth, AuthError
 
 
 api=Namespace('service',
@@ -45,11 +46,16 @@ if not inittable.Table.exists:
 @api.route("/status")
 class status(Resource):
     @api.doc('a klingon test/status endpoint')
+    @requires_auth
     def get(self):
-        body = {
-            "message": "Qapla'!"
-        }
-        return jsonify(body)
+        try:
+            body = {
+                "message": "Qapla'!"
+            }
+            return jsonify(body)
+        except Exception as e:
+            message = {"exception": "{}".format(e)}
+            return json.dumps(message),500
 
 # service creation is handles through reading RRAs
 # so no endpoint for creation/deletion

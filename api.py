@@ -7,6 +7,7 @@ from models.v1.assets.asset import api as asset_api
 from models.v1.asset_groups.asset_group import api as asset_group_api
 from models.v1.services.service import api as service_api
 from utils.utils import get_config
+from utils.auth import AuthError
 
 logger = logging.getLogger(__name__)
 CONFIG = get_config()
@@ -27,6 +28,11 @@ class status(Resource):
         }
         return jsonify(body)
 
+@api.errorhandler(AuthError)
+def handle_auth_error(ex):
+    response = jsonify(ex.error)
+    response.status_code = ex.status_code
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True)
