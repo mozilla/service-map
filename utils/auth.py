@@ -12,11 +12,6 @@ API_AUDIENCE = CONFIG('AUDIENCE')
 ALGORITHMS = ["RS256"]
 
 # from https://auth0.com/docs/quickstart/backend/python/01-authorization#validate-access-tokens
-# Authentication Error handler
-class AuthError(Exception):
-    def __init__(self, error, status_code):
-        self.error = error
-        self.status_code = status_code
 
 # Format error response and append status code
 def get_token_auth_header():
