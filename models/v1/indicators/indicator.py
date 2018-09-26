@@ -93,7 +93,6 @@ class create (Resource):
     @requires_auth
     def post(self):
         from models.v1.assets.asset import Asset
-        #return jsonify(request.get_json(force=True))
         try:
             post_data=request.get_json(force=True)
             try:
