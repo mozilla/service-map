@@ -13,7 +13,6 @@ ALGORITHMS = ["RS256"]
 
 # from https://auth0.com/docs/quickstart/backend/python/01-authorization#validate-access-tokens
 
-# Format error response and append status code
 def get_token_auth_header():
     """Obtains the Access Token from the Authorization Header
     """
