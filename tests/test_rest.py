@@ -1,14 +1,33 @@
 import json
 import os
+import sys
 import requests
 import pytest
 
 # export a API_URL environment varialble to be something like:
 # API_URL="https://something.execute-api.us-west-2.amazonaws.com/dev/"
 API_URL = os.environ.get("API_URL",None)
+AUTH0_URL = os.environ.get("AUTH0_URL","https://auth-dev.mozilla.auth0.com/oauth/token")
+CLIENT_ID = os.environ.get("CLIENT_ID",None)
+CLIENT_SECRET = os.environ.get("CLIENT_SECRET",None)
 
-def test_api_url_environtment_variable():
-    assert API_URL is not None
+if API_URL is None:
+    pytest.fail("Missing API_URL environment variable")
+
+if CLIENT_ID is None:
+    pytest.fail("Missing CLIENT_ID environment variable")
+
+if CLIENT_SECRET is None:
+    pytest.fail("Missing CLIENT_SECRET environment variable")
+
+@pytest.mark.incremental
+class TestEnvironment(object):
+    def test_api_url_environtment_variable(self):
+        assert API_URL is not None
+    def test_client_id_environment_variable(self):
+        assert CLIENT_ID is not None
+    def test_client_secret_environment_variable(self):
+        assert CLIENT_SECRET is not None
 
 if not API_URL.endswith("/"):
     API_URL= API_URL+ "/"
@@ -35,7 +54,18 @@ class TestStatus(object):
         assert r.json()['message'] == "Qapla'!"
 
     def test_service_status(self):
-        r=requests.get('{}api/v1/service/status'.format(API_URL))
+        #get api key:
+        r=requests.post(AUTH0_URL,
+                        headers={"content-type": "application/json"},
+                        data = json.dumps({"grant_type":"client_credentials",
+                                "client_id": CLIENT_ID,
+                                "client_secret": CLIENT_SECRET,
+                                "audience": API_URL})
+                        )
+        access_token = r.json()['access_token']
+        r=requests.get('{}api/v1/service/status'.format(API_URL),
+                        headers={"Authorization": "Bearer {}".format(access_token)}
+                )
         assert r.json()['message'] == "Qapla'!"
 
 class TestMissing(object):
