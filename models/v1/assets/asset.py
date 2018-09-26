@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from schematics.models import Model
 from schematics.types import StringType as String, IntType as Number
 from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, DictType, ListType, PolyModelType
+from utils.auth import requires_auth
 
 api=Namespace('asset',
                 description='create, list, update, delete asset',
@@ -56,6 +57,7 @@ class status(Resource):
 @api.route("s/",defaults={'identifier':None})
 class search(Resource):
     @api.doc("/<asset_identifier> partial or full asset identifier to return all matches for this word/term")
+    @requires_auth
     def get(self, identifier):
         try:
             assets=[]
@@ -75,6 +77,7 @@ class search(Resource):
 @api.route("/<uuid>")
 class remove(Resource):
     @api.doc("get /asset/uuid to retrieve a single asset")
+    @requires_auth
     def get(self,uuid):
         try:
             assets=[]
@@ -87,6 +90,7 @@ class remove(Resource):
             return json.dumps(message),500
 
     @api.doc("delete /asset/uuid to remove an entry and it's indicators")
+    @requires_auth
     def delete(self, uuid):
         from models.v1.indicators.indicator import Indicator
         try:

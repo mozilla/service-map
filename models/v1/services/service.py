@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from schematics.models import Model
 from schematics.types import StringType as String, IntType as Number
 from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, DictType, ListType, PolyModelType
-from utils.auth import requires_auth, AuthError
+from utils.auth import requires_auth
 
 
 api=Namespace('service',
@@ -63,6 +63,7 @@ class status(Resource):
 @api.route("s/",defaults={'name':None})
 class search(Resource):
     @api.doc("/<name> partial or full service name to return all matches for this word/term")
+    @requires_auth
     def get(self, name):
         try:
             services=[]
@@ -82,6 +83,7 @@ class search(Resource):
 @api.route("/<uuid>")
 class specific(Resource):
     @api.doc("get /asset/uuid to retrieve a single asset group")
+    @requires_auth
     def get(self,uuid):
         try:
             services=[]

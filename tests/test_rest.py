@@ -32,6 +32,16 @@ class TestEnvironment(object):
 if not API_URL.endswith("/"):
     API_URL= API_URL+ "/"
 
+#get api key:
+r=requests.post(AUTH0_URL,
+                headers={"content-type": "application/json"},
+                data = json.dumps({"grant_type":"client_credentials",
+                        "client_id": CLIENT_ID,
+                        "client_secret": CLIENT_SECRET,
+                        "audience": API_URL})
+                )
+access_token = r.json()['access_token']
+
 def test_startup():
     print('pytest dict: {}'.format(pytest.testvalues.asset_id))
     assert pytest.testvalues.asset_id is None
@@ -54,15 +64,6 @@ class TestStatus(object):
         assert r.json()['message'] == "Qapla'!"
 
     def test_service_status(self):
-        #get api key:
-        r=requests.post(AUTH0_URL,
-                        headers={"content-type": "application/json"},
-                        data = json.dumps({"grant_type":"client_credentials",
-                                "client_id": CLIENT_ID,
-                                "client_secret": CLIENT_SECRET,
-                                "audience": API_URL})
-                        )
-        access_token = r.json()['access_token']
         r=requests.get('{}api/v1/service/status'.format(API_URL),
                         headers={"Authorization": "Bearer {}".format(access_token)}
                 )
@@ -70,17 +71,20 @@ class TestStatus(object):
 
 class TestMissing(object):
     def test_nonexistent_asset(self):
-        r=requests.get('{}api/v1/assets/hereisathingthatshouldnotexist'.format(API_URL))
+        r=requests.get('{}api/v1/assets/hereisathingthatshouldnotexist'.format(API_URL),
+                        headers={"Authorization": "Bearer {}".format(access_token)})
         result=json.loads(r.json())
         assert len(result)==0
 
     def test_nonexistent_indicator(self):
-        r=requests.get('{}api/v1/indicators/hereisathingthatshouldnotexist'.format(API_URL))
+        r=requests.get('{}api/v1/indicators/hereisathingthatshouldnotexist'.format(API_URL),
+                        headers={"Authorization": "Bearer {}".format(access_token)})
         result=json.loads(r.json())
         assert len(result)==0
 
     def test_nonexistent_asset_group(self):
-        r=requests.get('{}api/v1/asset-group/hereisathingthatshouldnotexist'.format(API_URL))
+        r=requests.get('{}api/v1/asset-group/hereisathingthatshouldnotexist'.format(API_URL),
+                        headers={"Authorization": "Bearer {}".format(access_token)})
         result=json.loads(r.json())
         assert len(result)==0
 
@@ -88,6 +92,7 @@ class TestMissing(object):
 class TestAsset(object):
     def test_adding_asset_through_scanapi_indicator(self):
         r=requests.post('{}api/v1/indicator'.format(API_URL),
+                        headers={"Authorization": "Bearer {}".format(access_token)},
                         data=json.dumps({
                             "asset_identifier": "pytest.testing.com",
                             "asset_type": "website",
@@ -114,6 +119,7 @@ class TestAsset(object):
 
     def test_adding_ZAP_scan_indicator(self):
         r=requests.post('{}api/v1/indicator'.format(API_URL),
+                        headers={"Authorization": "Bearer {}".format(access_token)},
                         data=json.dumps({
                             "asset_type": "website",
                             "asset_identifier": "pytest.testing.com",
@@ -148,6 +154,7 @@ class TestAsset(object):
 
     def test_adding_observatory_indicator(self):
         r=requests.post('{}api/v1/indicator'.format(API_URL),
+                        headers={"Authorization": "Bearer {}".format(access_token)},
                         data=json.dumps({
                             "asset_type": "website",
                             "asset_identifier": "pytest.testing.com",
@@ -189,14 +196,16 @@ class TestAsset(object):
     def test_retrieving_asset(self):
         assert pytest.testvalues.asset_id is not None
         print('retrieving asset with id: {}'.format(pytest.testvalues.asset_id))
-        r=requests.get('{}api/v1/asset/{}'.format(API_URL,pytest.testvalues.asset_id))
+        r=requests.get('{}api/v1/asset/{}'.format(API_URL,pytest.testvalues.asset_id),
+                        headers={"Authorization": "Bearer {}".format(access_token)})
         result=json.loads(r.json())
         print(r.json())
         assert result[0]['id'] == pytest.testvalues.asset_id
 
     def test_removing_asset(self):
         assert pytest.testvalues.asset_id is not None
-        r=requests.delete('{}api/v1/asset/{}'.format(API_URL,pytest.testvalues.asset_id))
+        r=requests.delete('{}api/v1/asset/{}'.format(API_URL,pytest.testvalues.asset_id),
+                        headers={"Authorization": "Bearer {}".format(access_token)})
         print(r.json())
         assert len(r.json())> 1
 
