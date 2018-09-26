@@ -33,10 +33,6 @@ def get_token_auth_header():
     elif len(parts) == 1:
         abort(401, 'Invalid header, token not found')
     elif len(parts) > 2:
-        raise AuthError({"code": "invalid_header",
-                        "description":
-                            "Authorization header must be"
-                            " Bearer token"}, 401)
         abort(401,'Authorization header must be in the form of "Bearer token"')
 
     token = parts[1]
