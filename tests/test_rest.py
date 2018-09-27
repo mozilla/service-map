@@ -193,6 +193,52 @@ class TestAsset(object):
         result=json.loads(r.json())
         assert pytest.testvalues.asset_id == result['asset_id']
 
+    def test_adding_observatory_api_indicator(self):
+        # api endpoints can have troublesome data types (grade: null, pass;null)
+        # Fields with None as the value aren't stored in the dynamo table:
+        # https://github.com/NerdWalletOSS/dynamorm/issues/57
+        # so the schema needs to be watching to add missing fields back in as null in json, None in python
+        r=requests.post('{}api/v1/indicator'.format(API_URL),
+                        headers={"Authorization": "Bearer {}".format(access_token)},
+                        data=json.dumps({
+                            "asset_type": "website",
+                            "asset_identifier": "pytest.testing.com",
+                            "zone": "pytest",
+                            "description": "Mozilla Observatory scan",
+                            "event_source_name": "Mozilla Observatory",
+                            "likelihood_indicator": "medium",
+                            "details": {
+                                "grade": None,
+                                "tests": [
+                                    {
+                                        "name": "Content security policy",
+                                        "pass": None
+                                    },
+                                    {
+                                        "name": "Cookies",
+                                        "pass": True
+                                    },
+                                    {
+                                        "name": "HTTP Public Key Pinning",
+                                        "pass": True
+                                    },
+                                    {
+                                        "name": "X-Frame-Options",
+                                        "pass": None
+                                    },
+                                    {
+                                        "name": "Cross-origin Resource Sharing",
+                                        "pass": True
+                                    }
+                                ]
+                            }
+                        })
+        )
+        print(r.json())
+        result=json.loads(r.json())
+        assert pytest.testvalues.asset_id == result['asset_id']
+        assert result['details']['grade'] is None
+
     def test_retrieving_asset(self):
         assert pytest.testvalues.asset_id is not None
         print('retrieving asset with id: {}'.format(pytest.testvalues.asset_id))
