@@ -26,7 +26,7 @@ class VulnerabilitySummary(Model):
     low = Number(default=0)
 
 class ObservatoryScore(Model):
-    grade=String()
+    grade=BaseType(serialize_when_none=True)
     tests = ListType(BaseType)
 
 class DastVulnerabilities(Model):
@@ -39,7 +39,7 @@ def claim_func(field, data):
     '''
     if 'coverage' in data:
         return VulnerabilitySummary
-    elif 'grade' in data:
+    elif 'tests' in data:
         return ObservatoryScore
     elif 'findings' in data:
         return DastVulnerabilities
@@ -124,12 +124,13 @@ class create (Resource):
                 # let dynamorn/marshmallow validate the data
                 indicator=Indicator.new_from_raw(post_data)
                 indicator.save()
+                return json.dumps(indicator.to_dict())
             except ValidationError as e:
                 #api.abort(code=400,message=jsonify(e.errors))
                 return json.dumps(e.errors),400
 
 
-            return json.dumps(indicator.to_dict())
+
 
         except Exception as e:
             message = {"exception": "{}".format(e)}
