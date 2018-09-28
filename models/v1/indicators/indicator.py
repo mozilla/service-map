@@ -67,7 +67,7 @@ class Indicator(DynaModel):
     class Schema:
         id = String(default=randuuid)
         asset_id = String(required=False)
-        timestamp_utc = String(default=datetime.now(timezone.utc).isoformat()) #
+        timestamp_utc = String(default=datetime.now(timezone.utc).isoformat())
         description = String()
         event_source_name = String()
         likelihood_indicator = String()
@@ -123,6 +123,10 @@ class create (Resource):
 
                 # let dynamorn/marshmallow validate the data
                 indicator=Indicator.new_from_raw(post_data)
+                # find/remove any previous indicators of this type
+                # to retain only the most recent indicator
+                for oldindicator in Indicator.scan(asset_id__eq=asset_id , event_source_name__eq=indicator.event_source_name):
+                    oldindicator.delete()
                 indicator.save()
                 return json.dumps(indicator.to_dict())
             except ValidationError as e:
