@@ -15,8 +15,14 @@ python-jose-cryptodome = "*"
 everett = "*"
 pyyaml = "*"
 six = "*"
+requests = "*"
+credstash = "*"
+gspread = "*"
+oauth2client = "*"
 
 [dev-packages]
+pytest="*"
+requests="*"
 
 [requires]
 python_version = "3.6"
