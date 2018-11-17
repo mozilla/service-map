@@ -16,5 +16,21 @@ The goal is to use as little servers, containers, etc as possible and rely on se
 ## Deployment
     ```
     pipenv shell
-    sls deploy -f api
+    sls deploy
+
     ```
+
+## Testing
+Get credstash creds for oidc auth:
+```
+credstash --profile devadmin get serviceapi.oidc_client_secret app=serviceapi
+credstash --profile devadmin get serviceapi.oidc_client_id app=serviceapi
+```
+
+Set env variables:
+```
+export API_URL="https://serviceapi.security.allizom.org"
+export CLIENT_ID = value from above
+export CLIENT_SECRET =  value from above
+```
+and run pytest
