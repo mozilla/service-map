@@ -33,10 +33,17 @@ class Service(DynaModel):
         id = String(default=randuuid)
         timestamp_utc = String(default=datetime.now(timezone.utc).isoformat()) #
         name = String(required=True)
-        rra_id = String(required=False)
+        link = String(required=False)
         masked = BooleanType(default=False)
-        description = String()
-        risk_level = String()
+        service_owner = String()
+        director = String()
+        service_data_classification = String()
+        highest_risk_impact = String()
+        recommendations = Number()
+        highest_recommendation=String()
+        creation_date = String()
+        modification_date = String()
+
 
 #create table if needed
 inittable = Service(name='init')
