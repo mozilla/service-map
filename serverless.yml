@@ -166,6 +166,10 @@ functions:
       - s3:
           bucket: ${self:custom.s3_bucket}
           event: s3:ObjectCreated:*
+  cron:
+    handler: cron.event
+    events:
+      - schedule: rate(1 hour)
 
 plugins:
   - serverless-python-requirements
