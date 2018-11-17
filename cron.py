@@ -39,3 +39,6 @@ def event(event, context):
                 break
             else:
                 print (json.dumps(dict(zip(heading_keys, row)),indent=4))
+                #create a service
+                service=Service.new_from_raw(dict(zip(heading_keys, row)))
+                service.save()
