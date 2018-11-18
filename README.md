@@ -14,6 +14,18 @@ The goal is to use as little servers, containers, etc as possible and rely on se
 
 
 ## Deployment
+First setup creds in credstash for the functions to use:
+The cron function needs oauth creds as per the gspread docs:
+https://gspread.readthedocs.io/en/latest/oauth2.html
+
+Store these in credstash as a json blob:
+```
+credstash  --profile devadmin put serviceapi.gdrive @yourfilename.json app=serviceapi
+```
+where devadmin is the name of your aws profile in ~/.aws/config specifying where you will be deploying.
+
+Then deploy:
+
     ```
     pipenv shell
     sls deploy
