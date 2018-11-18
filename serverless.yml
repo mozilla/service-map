@@ -168,6 +168,7 @@ functions:
           event: s3:ObjectCreated:*
   cron:
     handler: cron.event
+    timeout: 600
     events:
       - schedule: rate(1 hour)
 
