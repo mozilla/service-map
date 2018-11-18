@@ -4,8 +4,6 @@ import gspread
 import json
 from oauth2client.service_account import ServiceAccountCredentials
 from oauth2client import file, client, tools
-from models.v1.assets.asset import Asset
-from models.v1.asset_groups.asset_group import AssetGroup
 from models.v1.services.service import Service
 
 def event(event, context):
@@ -33,12 +31,31 @@ def event(event, context):
                 #lowercase and underscore the keys to fields
                 heading_keys.append(key.lower().replace(' ','_'))
 
-        elif r >88:
+        else:
             row=rras.row_values(r)
             if len(row)==0:
                 break
             else:
-                print (json.dumps(dict(zip(heading_keys, row)),indent=4))
-                #create a service
-                service=Service.new_from_raw(dict(zip(heading_keys, row)))
-                service.save()
+                try:
+                    service_dict=dict(zip(heading_keys, row))
+                    # empty strings can't be stored in dynamodb
+                    # convert any empty string to None
+                    for key,value in service_dict.items():
+                        if not value:
+                            service_dict[key]=None
+                    #find the service or create it
+                    services=[s for s in Service.scan(name__eq=service_dict['name'])]
+                    if len(services):
+                        #found one, update it
+                        service=services[0]
+                        service.update(update_item_kwargs=service_dict)
+                        service.save()
+                    else:
+                        #create a service
+                        service=Service.new_from_raw(service_dict)
+                        service.save()
+                except Exception as e:
+                    message = {"exception": "{}".format(e)}
+                    print(message,service_dict)
+                    continue
+
