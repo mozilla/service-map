@@ -84,9 +84,9 @@ def event(event, context):
                 tokens[2]=tokens[2].replace('\\d+','').replace('\\d','').replace('\\','')
                 rules.append(iRule('assetOwnership','link',tokens))
 
-            elif (len(tokens) == 4 and
+            elif (len(tokens) > 2 and
                 tokens[0] == "service" and
-                tokens[3] == "mask"):
+                tokens[1] == "mask"):
                 #mask a service/rra from being reported as active
                 #ex: service matches SSO\s+\(Okta\) mask
                 rules.append(iRule('maskService','mask',tokens))
@@ -99,6 +99,13 @@ def event(event, context):
             print(rule.ruletype,
                 rule.action,
                 rule.tokens)
+            if rule.ruletype == 'maskService':
+                # set masked to true for this service
+                # to weed out things that are deprecated, template docs, etc
+                for service in Service.scan(name__eq=' '.join(rule.tokens[2::])):
+                    service.masked=True
+                    service.save()
+
             if rule.ruletype == 'assetgroup':
                 if rule.tokens[0] == 'add':
                     # rule will be formatted like:
