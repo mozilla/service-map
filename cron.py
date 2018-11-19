@@ -43,8 +43,9 @@ def event(event, context):
                     for key,value in service_dict.items():
                         if not value:
                             service_dict[key]=None
-                    #find the service or create it
-                    services=[s for s in Service.scan(name__eq=service_dict['name'])]
+                    # find the service or create it
+                    # matching on name and link
+                    services=[s for s in Service.scan(name__eq=service_dict['name'], link__eq=service_dict['link'])]
                     if len(services):
                         #found one, update it
                         service=services[0]
