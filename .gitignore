@@ -24,3 +24,8 @@ node_modules/
 
 #vscode
 settings.json
+.cache
+
+#cruft
+tests/__pycache__
+.pytest_cache
