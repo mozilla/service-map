@@ -43,6 +43,7 @@ class Service(DynaModel):
         highest_recommendation=String()
         creation_date = String()
         modification_date = String()
+        score = Number(default=0)
 
 
 #create table if needed

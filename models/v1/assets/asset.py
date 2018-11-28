@@ -38,6 +38,7 @@ class Asset(DynaModel):
         asset_group_id = String(required=False)
         timestamp_utc = String(default=datetime.now(timezone.utc).isoformat())
         description = String()
+        score = Number(default=0)
 
 #create table if needed
 inittable = Asset(asset_type='init', asset_identifier='init',zone='init')
