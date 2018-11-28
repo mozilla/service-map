@@ -6,3 +6,5 @@ AUDIENCE: https://serviceapi.security.allizom.org/
 ENVIRONMENT: dev
 REGION: us-west-2
 KMSGUID: 6762fa27-618c-4c0b-83d4-ca42ffac454f
+RISKS_BUCKET_NAME: infosec-risk-data-dev
+RISKS_KEY_NAME: risks.json

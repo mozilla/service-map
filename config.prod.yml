@@ -6,3 +6,5 @@ AUDIENCE: https://serviceapi.security.mozilla.org/
 ENVIRONMENT: prod
 REGION: us-west-2
 KMSGUID: 7e581152-11be-44eb-9867-ea25afff8981
+RISKS_BUCKET_NAME: infosec-risk-data
+RISKS_KEY_NAME: risks.json

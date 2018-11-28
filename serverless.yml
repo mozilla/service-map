@@ -2,6 +2,8 @@ service: servicemapper
 custom:
   s3_bucket: mozilla-service-map-${opt:stage, self:provider.stage}
   s3_bucket_arn: arn:aws:s3:::${self:custom.s3_bucket}
+  s3_risk_bucket: ${file(config.${self:provider.stage}.yml):RISKS_BUCKET_NAME}
+  s3_risk_bucket_arn: arn:aws:s3:::${self:custom.s3_risk_bucket}
   pythonRequirements:
     usePipenv: true
     dockerizePip: true
@@ -30,6 +32,8 @@ provider:
     ENVIRONMENT: ${self:provider.stage}
     REGION: ${opt:region, self:provider.region}
     CONFIGFILE: config.${self:provider.stage}.yml
+    RISKS_BUCKET_NAME: ${file(config.${self:provider.stage}.yml):RISKS_BUCKET_NAME}
+    RISKS_KEY_NAME: ${file(config.${self:provider.stage}.yml):RISKS_KEY_NAME}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -150,7 +154,9 @@ provider:
     - Effect: Allow
       Action:
         - s3:*
-      Resource: ${self:custom.s3_bucket_arn}/*
+      Resource:
+        - ${self:custom.s3_bucket_arn}/*
+        - ${self:custom.s3_risk_bucket_arn}/*
 
 
 functions:
