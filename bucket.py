@@ -56,14 +56,23 @@ def event(event, context):
                 #ex: add assetgroup mana-production description goes here
                 rules.append(iRule('assetgroup',tokens[0],tokens))
 
-            elif (len(tokens) == 6 and
+            elif (len(tokens) >= 5 and
                 tokens[0] == "assetgroup" and
                 tokens[1] == "matches" and
                 tokens[3] == "link" and
                 tokens[4] == "service"):
                 #link a service to an asset group
-                #ex: assetgroup matches officeadminhosts-production link service Admin\s+hosts
-                rules.append(iRule('assetgroupLinkService','link',tokens))
+                #ex: assetgroup matches officeadminhosts-production link service Admin hosts
+                #since services can have spaces in the name
+                #make sure the last token is the complete service name
+                ruletokens=[]
+                ruletokens.append(tokens[0])
+                ruletokens.append(tokens[1])
+                ruletokens.append(tokens[2])
+                ruletokens.append(tokens[3])
+                ruletokens.append(tokens[4])
+                ruletokens.append(' '.join(tokens[5::]))
+                rules.append(iRule('assetgroupLinkService','link',ruletokens))
 
             elif (len(tokens) == 6 and
                 tokens[0] == "asset" and
@@ -110,11 +119,11 @@ def event(event, context):
                 # handy if an RRA doesn't exist
                 # add unless it already exists
                 service=None
-                service_matches=[s for s in Service.scan(name__eq=rule.tokens[2::])]
+                service_matches=[s for s in Service.scan(name__eq=' '.join(rule.tokens[2::]))]
                 if len(service_matches):
                     service=service_matches[0]
                 else:
-                    service = Service(name=rule.tokens[2::])
+                    service = Service(name=' '.join(rule.tokens[2::]))
                     service.save()
 
             if rule.ruletype == 'maskService':
