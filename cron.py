@@ -92,7 +92,7 @@ def event(event, context):
         'assets':[],
         'indicators':[]
     }
-    risks['services'] = [s.to_dict() for s in Service.scan(id__exists=True).recursive()]
+    risks['services'] = [s.to_dict() for s in Service.scan(id__exists=True, masked__eq=False).recursive()]
     risks['assets'] = [a.to_dict() for a in Asset.scan(id__exists=True).recursive()]
     risks['indicators'] = [i.to_dict() for i in Indicator.scan(id__exists=True).recursive()]
     s3=boto3.resource('s3')
