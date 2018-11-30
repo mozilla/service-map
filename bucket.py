@@ -88,8 +88,14 @@ def event(event, context):
                 tokens[0] == "service" and
                 tokens[1] == "mask"):
                 #mask a service/rra from being reported as active
-                #ex: service matches SSO\s+\(Okta\) mask
+                #ex: service mask SSO OKTA
                 rules.append(iRule('maskService','mask',tokens))
+            elif (len(tokens) > 2 and
+                tokens[0] == "service" and
+                tokens[1] == "add"):
+                #add a service/rra if it doesn't exist
+                #ex: service add Mozdef
+                rules.append(iRule('addService','add',tokens))
             else:
                 print('unparsed rule {0}',rule)
 
@@ -99,6 +105,18 @@ def event(event, context):
             print(rule.ruletype,
                 rule.action,
                 rule.tokens)
+            if rule.ruletype == 'addService':
+                # add a service
+                # handy if an RRA doesn't exist
+                # add unless it already exists
+                service=None
+                service_matches=[s for s in Service.scan(name__eq=rule.tokens[2::])]
+                if len(service_matches):
+                    service=service_matches[0]
+                else:
+                    service = Service(name=rule.tokens[2::])
+                    service.save()
+
             if rule.ruletype == 'maskService':
                 # set masked to true for this service
                 # to weed out things that are deprecated, template docs, etc
