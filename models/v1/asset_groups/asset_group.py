@@ -34,6 +34,7 @@ class AssetGroup(DynaModel):
         timestamp_utc = String(default=datetime.now(timezone.utc).isoformat())
         name = String(required=True)
         description = String()
+        assets = ListType(BaseType)
 
 #create table if needed
 inittable = AssetGroup(name='init')

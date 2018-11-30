@@ -35,7 +35,6 @@ class Asset(DynaModel):
         team = String()
         operator = String()
         zone = String(required=True)
-        asset_group_id = String(required=False)
         timestamp_utc = String(default=datetime.now(timezone.utc).isoformat())
         description = String()
         score = Number(default=0)
