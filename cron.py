@@ -7,6 +7,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from oauth2client import file, client, tools
 from models.v1.services.service import Service
 from models.v1.assets.asset import Asset
+from models.v1.asset_groups.asset_group import AssetGroup
 from models.v1.indicators.indicator import Indicator
 
 def event(event, context):
@@ -53,9 +54,7 @@ def event(event, context):
                             service_dict[key]=None
                     # determine the risk score for a service
                     if service_dict['highest_risk_impact']:
-                        service_dict['score']=int(service_dict['recommendations']) * risk_scores[service_dict['highest_risk_impact'].strip().upper()]
-                    else:
-                        service_dict['score']=int(service_dict['recommendations'])
+                        service_dict['score']= risk_scores[service_dict['highest_risk_impact'].strip().upper()]
                     # find the service or create it
                     # matching on name and link
                     services=[s for s in Service.scan(name__eq=service_dict['name'], link__eq=service_dict['link'])]
@@ -88,13 +87,35 @@ def event(event, context):
     # write risks.json out for the heatmap
     #risks structure
     risks={
-        'services':[],
-        'assets':[],
-        'indicators':[]
+        'services':[]
     }
     risks['services'] = [s.to_dict() for s in Service.scan(id__exists=True, masked__eq=False).recursive()]
-    risks['assets'] = [a.to_dict() for a in Asset.scan(id__exists=True).recursive()]
-    risks['indicators'] = [i.to_dict() for i in Indicator.scan(id__exists=True).recursive()]
+    for service in risks['services']:
+        # add asset groups for this service
+        service['assetgroups']=[a.to_dict() for a in AssetGroup.scan(service_id__eq=service['id'],assets__exists=True).recursive()]
+
+        for ag in service['assetgroups']:
+            # do we have assets?
+            if 'assets' in ag:
+                # add assets for this asset group
+                # they are stored in dynamo as just the ID
+                # so replace the ID with the full record
+                ag['assetids']=ag['assets']
+                ag['assets']=[]
+                for assetid in ag['assetids']:
+                    assets=[a.to_dict() for a in Asset.scan(id__eq=assetid).recursive()]
+                    for a in assets:
+                        # add indicators for this asset
+                        a['indicators']=[i.to_dict() for i in Indicator.scan(asset_id__eq=a['id']).recursive()]
+                        # finally append the asset with indicators to the asset group
+                        ag['assets'].append(a)
+                        # does this asset increase the service score?
+                        service['score']= max(service['score'], a['score'])
+
+
+    # risks['assets'] = [a.to_dict() for a in Asset.scan(id__exists=True).recursive()]
+    #risks['assetgroups'] = [a.to_dict() for a in AssetGroup.scan(id__exists=True).recursive()]
+    #risks['indicators'] = [i.to_dict() for i in Indicator.scan(id__exists=True).recursive()]
     s3=boto3.resource('s3')
     s3object = s3.Object(os.environ['RISKS_BUCKET_NAME'], os.environ['RISKS_KEY_NAME'])
     s3object.put(
