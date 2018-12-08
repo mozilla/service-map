@@ -180,12 +180,16 @@ def event(event, context):
                 asset_group_id = None
                 asset_identifier = rule.tokens[2]
                 # get the group id
-                for group in AssetGroup.scan(name__eq=asset_group):
-                    asset_group_id= group.id
-                # update all assets to be in this group
-                for asset in Asset.scan(asset_identifier__contains=asset_identifier):
-                    asset.asset_group_id= asset_group_id
-                    asset.save()
-
+                groups=AssetGroup.scan(name__eq=asset_group)
+                for group in groups:
+                    # update all matching assets to be in this group
+                    # by adding them to the asset_group.assets list
+                    assets=Asset.scan(asset_identifier__contains=asset_identifier).recursive()
+                    for asset in assets:
+                        if group.assets:
+                            group.assets.append(asset.id)
+                        else:
+                            group.assets=[asset.id]
+                        group.save()
 
 
