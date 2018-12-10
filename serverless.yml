@@ -1,0 +1,184 @@
+service: servicemapper
+custom:
+  s3_bucket: mozilla-service-map-${opt:stage, self:provider.stage}
+  s3_bucket_arn: arn:aws:s3:::${self:custom.s3_bucket}
+  s3_risk_bucket: ${file(config.${self:provider.stage}.yml):RISKS_BUCKET_NAME}
+  s3_risk_bucket_arn: arn:aws:s3:::${self:custom.s3_risk_bucket}
+  pythonRequirements:
+    usePipenv: true
+    dockerizePip: true
+  wsgi:
+    app: api.app
+    packRequirements: false
+  customDomain:
+    domainName: ${file(config.${self:provider.stage}.yml):DOMAIN_NAME}
+    stage: ${self:provider.stage}
+    createRoute53Record: true
+    hostedZoneId:  ${file(config.${self:provider.stage}.yml):ZONE_ID}
+    certificateName: ${file(config.${self:provider.stage}.yml):CERTIFICATE_NAME}
+    endpointType: "regional"
+    enabled: true
+
+provider:
+  name: aws
+  runtime: python3.6
+  stage: ${opt:stage,'dev'}
+  region: us-west-2
+  environment:
+    INDICATOR_TABLE: ${opt:stage, self:provider.stage}-Indicators
+    ASSET_TABLE: ${opt:stage, self:provider.stage}-Assets
+    ASSET_GROUP_TABLE: ${opt:stage, self:provider.stage}-AssetGroups
+    SERVICE_TABLE: ${opt:stage, self:provider.stage}-Services
+    ENVIRONMENT: ${self:provider.stage}
+    REGION: ${opt:region, self:provider.region}
+    CONFIGFILE: config.${self:provider.stage}.yml
+    RISKS_BUCKET_NAME: ${file(config.${self:provider.stage}.yml):RISKS_BUCKET_NAME}
+    RISKS_KEY_NAME: ${file(config.${self:provider.stage}.yml):RISKS_KEY_NAME}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - acm:ListCertificates
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - route53:ChangeResourceRecordSets
+        - route53:GetHostedZone
+        - route53:ListResourceRecordSets
+      Resource: "arn:aws:route53:::hostedzone/${self:custom.customDomain.hostedZoneId}"
+    - Effect: Allow
+      Action:
+        - route53:ListHostedZones
+      Resource: "*"
+    - Effect: Allow
+      Action:
+      - cloudfront:UpdateDistribution
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - apigateway:POST
+      Resource: "arn:aws:apigateway:${self:provider.region}::/domainnames"
+    - Effect: Allow
+      Action:
+        - apigateway:GET
+        - apigateway:DELETE
+      Resource: "arn:aws:apigateway:${self:provider.region}::/domainnames/*"
+    - Effect: Allow
+      Action:
+        - apigateway:POST
+      Resource: "arn:aws:apigateway:${self:provider.region}::/domainnames/*"
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:BatchGetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:DescribeTable
+        - dynamodb:CreateTable
+        - dynamodb:UpdateTable
+        - dynamodb:GetRecords
+        - dynamodb:BatchWriteItem
+        - dynamodb:DescribeLimits
+        - dynamodb:UpdateTimeToLive
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.INDICATOR_TABLE}"
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:BatchGetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:DescribeTable
+        - dynamodb:CreateTable
+        - dynamodb:UpdateTable
+        - dynamodb:GetRecords
+        - dynamodb:BatchWriteItem
+        - dynamodb:DescribeLimits
+        - dynamodb:UpdateTimeToLive
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.ASSET_TABLE}"
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:BatchGetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:DescribeTable
+        - dynamodb:CreateTable
+        - dynamodb:UpdateTable
+        - dynamodb:GetRecords
+        - dynamodb:BatchWriteItem
+        - dynamodb:DescribeLimits
+        - dynamodb:UpdateTimeToLive
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.ASSET_GROUP_TABLE}"
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:BatchGetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:DescribeTable
+        - dynamodb:CreateTable
+        - dynamodb:UpdateTable
+        - dynamodb:GetRecords
+        - dynamodb:BatchWriteItem
+        - dynamodb:DescribeLimits
+        - dynamodb:UpdateTimeToLive
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.SERVICE_TABLE}"
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:Query
+        - dynamodb:Scan
+      Resource: "arn:aws:dynamodb:us-east-1:*:table/credential-store"
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+      Resource: "arn:aws:kms:us-east-1:*:key/${file(config.${self:provider.stage}.yml):KMSGUID}"
+    - Effect: Allow
+      Action:
+        - dynamodb:ListTables
+        - dynamodb:DescribeLimits
+        - dynamodb:DescribeReservedCapacity
+        - dynamodb:DescribeReservedCapacityOfferings
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - s3:*
+      Resource:
+        - ${self:custom.s3_bucket_arn}/*
+        - ${self:custom.s3_risk_bucket_arn}/*
+
+
+functions:
+  api:
+    handler: wsgi.handler
+    events:
+      - http: ANY /
+      - http: ANY {proxy+}
+
+  bucket:
+    handler: bucket.event
+    events:
+      - s3:
+          bucket: ${self:custom.s3_bucket}
+          event: s3:ObjectCreated:*
+  cron:
+    handler: cron.event
+    timeout: 600
+    events:
+      - schedule: rate(1 hour)
+
+plugins:
+  - serverless-python-requirements
+  - serverless-wsgi
+  - serverless-domain-manager

@@ -1,0 +1,28 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+marshmallow = "==2.15.4"
+dynamorm = "*"
+"boto3" = "*"
+flask = "*"
+flask-restplus = "*"
+flask-cors = "*"
+schematics = "*"
+python-jose-cryptodome = "*"
+everett = "*"
+pyyaml = "*"
+six = "*"
+requests = "*"
+credstash = "*"
+gspread = "*"
+oauth2client = "*"
+
+[dev-packages]
+pytest="*"
+requests="*"
+
+[requires]
+python_version = "3.6"
