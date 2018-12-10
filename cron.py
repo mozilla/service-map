@@ -12,11 +12,11 @@ from models.v1.indicators.indicator import Indicator
 
 def event(event, context):
     # print('event: {}'.format(event))
-    risk_scores={'MAXIMUM':10,
-        'HIGH':9,
-        'MEDIUM':8,
-        'LOW':7,
-        'UNKNOWN':6}
+    risk_scores={'MAXIMUM':5,
+        'HIGH':4,
+        'MEDIUM':3,
+        'LOW':2,
+        'UNKNOWN':1}
     # get our gdrive creds
     # and auth to google
     gcreds_json=credstash.getSecret(
@@ -75,6 +75,8 @@ def event(event, context):
     # get all assets, letting dynamorm do paging
     assets=Asset.scan(id__exists=True).recursive()
     for asset in assets:
+        # recalc the score
+        asset.score=0
         indicators=Indicator.scan(asset_id__eq=asset.id)
         for indicator in indicators:
             if 'likelihood_indicator' in indicator.to_dict():
@@ -91,6 +93,10 @@ def event(event, context):
     }
     risks['services'] = [s.to_dict() for s in Service.scan(id__exists=True, masked__eq=False).recursive()]
     for service in risks['services']:
+        if not 'highest_risk_impact' in service:
+            # the score is not set by an RRA, but by it's assets
+            # reset it to zero to get current asset rollup
+            service['score']=0
         # add asset groups for this service
         service['assetgroups']=[a.to_dict() for a in AssetGroup.scan(service_id__eq=service['id'],assets__exists=True).recursive()]
 
