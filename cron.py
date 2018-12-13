@@ -55,6 +55,12 @@ def event(event, context):
                     # determine the risk score for a service
                     if service_dict['highest_risk_impact']:
                         service_dict['score']= risk_scores[service_dict['highest_risk_impact'].strip().upper()]
+                    else:
+                        service_dict['score']= 0
+                    if 'recommendations' in service_dict:
+                        # adjust the score if the recomendations outweigh the risk score
+                        if int(service_dict['recommendations']) > service_dict['score']:
+                            service_dict['score']= int(service_dict['recommendations']) - service_dict['score']
                     # find the service or create it
                     # matching on name and link
                     services=[s for s in Service.scan(name__eq=service_dict['name'], link__eq=service_dict['link'])]
