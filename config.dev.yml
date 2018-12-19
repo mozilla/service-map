@@ -1,6 +1,6 @@
 DOMAIN_NAME: serviceapi.security.allizom.org
 ZONE_ID: Z13VQZ50081YZU
-CERTIFICATE_NAME: serviceapi.security.allizom.org
+CERTIFICATE_ARN: arn:aws:acm:us-west-2:656532927350:certificate/436a9e26-6fc9-496d-a383-53b7c144e21a
 AUTH0_URL: auth-dev.mozilla.auth0.com
 AUDIENCE: https://serviceapi.security.allizom.org/
 ENVIRONMENT: dev

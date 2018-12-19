@@ -15,7 +15,7 @@ custom:
     stage: ${self:provider.stage}
     createRoute53Record: true
     hostedZoneId:  ${file(config.${self:provider.stage}.yml):ZONE_ID}
-    certificateName: ${file(config.${self:provider.stage}.yml):CERTIFICATE_NAME}
+    certificateArn: ${file(config.${self:provider.stage}.yml):CERTIFICATE_ARN}
     endpointType: "regional"
     enabled: true
 
