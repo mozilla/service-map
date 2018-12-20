@@ -1,6 +1,6 @@
 DOMAIN_NAME: serviceapi.security.mozilla.org
 ZONE_ID:  ZBALOKPGJTQW
-CERTIFICATE_NAME: serviceapi.security.mozilla.org
+CERTIFICATE_ARN: arn:aws:acm:us-west-2:371522382791:certificate/77e8a1bd-8f66-455d-99a3-261c64c661ec
 AUTH0_URL: auth.mozilla.auth0.com
 AUDIENCE: https://serviceapi.security.mozilla.org/
 ENVIRONMENT: prod
