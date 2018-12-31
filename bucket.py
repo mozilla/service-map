@@ -88,7 +88,7 @@ def event(event, context):
                 tokens[1] == "matches" and
                 tokens[3] == "ownership" ):
                 #link an asset to an owner
-                #ex: asset matches mana1\.webapp\.scl3\.mozilla\.com ownership it webops webops-special
+                #ex: asset matches mana1.webapp.mdc1.mozilla.com ownership webops it
                 #remove simple regex escapes
                 tokens[2]=tokens[2].replace('\\d+','').replace('\\d','').replace('\\','')
                 rules.append(iRule('assetOwnership','link',tokens))
@@ -166,7 +166,8 @@ def event(event, context):
 
             if rule.ruletype == 'assetOwnership':
                 # rule will be formatted like:
-                # asset matches www.reference.com ownership it referencegroup
+                # asset matches www.reference.com ownership referencegroup it
+                # team is generally a subgroup of operator
                 for asset in Asset.scan(asset_identifier__contains=rule.tokens[2]):
                     print('updating: {}'.format(asset.asset_identifier))
                     asset.team=rule.tokens[4]
