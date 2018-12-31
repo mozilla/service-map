@@ -88,7 +88,7 @@ def event(event, context):
                 tokens[1] == "matches" and
                 tokens[3] == "ownership" ):
                 #link an asset to an owner
-                #ex: asset matches mana1\.webapp\.scl3\.mozilla\.com ownership webops it
+                #ex: asset matches mana1.webapp.mdc1.mozilla.com ownership webops it
                 #remove simple regex escapes
                 tokens[2]=tokens[2].replace('\\d+','').replace('\\d','').replace('\\','')
                 rules.append(iRule('assetOwnership','link',tokens))
