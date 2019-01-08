@@ -162,12 +162,14 @@ provider:
 functions:
   api:
     handler: wsgi.handler
+    timeout: 60
     events:
       - http: ANY /
       - http: ANY {proxy+}
 
   bucket:
     handler: bucket.event
+    timeout: 600
     events:
       - s3:
           bucket: ${self:custom.s3_bucket}
