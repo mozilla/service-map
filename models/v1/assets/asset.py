@@ -10,23 +10,30 @@ from flask_restplus import Namespace, Resource
 from datetime import datetime, timezone
 from schematics.models import Model
 from schematics.types import StringType as String, IntType as Number
-from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, DictType, ListType, PolyModelType
+from schematics.types import (
+    DateTimeType,
+    ModelType,
+    BooleanType,
+    BaseType,
+    DictType,
+    ListType,
+    PolyModelType,
+)
 from utils.auth import requires_auth
 
-api=Namespace('asset',
-                description='create, list, update, delete asset',
-                path='/api/v1/asset')
+api = Namespace(
+    "asset", description="create, list, update, delete asset", path="/api/v1/asset"
+)
+
 
 class Asset(DynaModel):
     class Table:
-        name = '{env}-Assets'.format(env=os.environ.get('ENVIRONMENT', 'dev'))
-        hash_key = 'id'
+        name = "{env}-Assets".format(env=os.environ.get("ENVIRONMENT", "dev"))
+        hash_key = "id"
 
-        resource_kwargs = {
-            'region_name': os.environ.get('REGION', 'us-west-2')
-        }
-        read=5
-        write=5
+        resource_kwargs = {"region_name": os.environ.get("REGION", "us-west-2")}
+        read = 5
+        write = 5
 
     class Schema:
         id = String(default=randuuid)
@@ -39,28 +46,31 @@ class Asset(DynaModel):
         description = String()
         score = Number(default=0)
 
-#create table if needed
-inittable = Asset(asset_type='init', asset_identifier='init',zone='init')
+
+# create table if needed
+inittable = Asset(asset_type="init", asset_identifier="init", zone="init")
 if not inittable.Table.exists:
     inittable.Table.create_table(wait=True)
 
+
 @api.route("/status")
 class status(Resource):
-    @api.doc('a klingon test/status endpoint')
+    @api.doc("a klingon test/status endpoint")
     def get(self):
-        body = {
-            "message": "Qapla'!"
-        }
+        body = {"message": "Qapla'!"}
         return jsonify(body)
 
+
 @api.route("s/<identifier>")
-@api.route("s/",defaults={'identifier':None})
+@api.route("s/", defaults={"identifier": None})
 class search(Resource):
-    @api.doc("/<asset_identifier> partial or full asset identifier to return all matches for this word/term")
+    @api.doc(
+        "/<asset_identifier> partial or full asset identifier to return all matches for this word/term"
+    )
     @requires_auth
     def get(self, identifier):
         try:
-            assets=[]
+            assets = []
 
             if identifier is not None:
                 for asset in Asset.scan(asset_identifier__contains=identifier):
@@ -69,32 +79,34 @@ class search(Resource):
                 for asset in Asset.scan(asset_identifier__exists=True):
                     assets.append(asset.to_dict())
 
-            return json.dumps(assets),200
+            return json.dumps(assets), 200
         except Exception as e:
             message = {"exception": "{}".format(e)}
-            return json.dumps(message),500
+            return json.dumps(message), 500
+
 
 @api.route("/<uuid>")
 class remove(Resource):
     @api.doc("get /asset/uuid to retrieve a single asset")
     @requires_auth
-    def get(self,uuid):
+    def get(self, uuid):
         try:
-            assets=[]
+            assets = []
             if uuid is not None:
                 for asset in Asset.scan(id__eq=uuid):
                     assets.append(asset.to_dict())
-            return json.dumps(assets),200
+            return json.dumps(assets), 200
         except Exception as e:
             message = {"exception": "{}".format(e)}
-            return json.dumps(message),500
+            return json.dumps(message), 500
 
     @api.doc("delete /asset/uuid to remove an entry and it's indicators")
     @requires_auth
     def delete(self, uuid):
         from models.v1.indicators.indicator import Indicator
+
         try:
-            assets=[]
+            assets = []
 
             if uuid is not None:
                 for asset in Asset.scan(id__eq=uuid):
@@ -104,7 +116,7 @@ class remove(Resource):
                         indicator.delete()
                     asset.delete()
 
-            return json.dumps(assets),200
+            return json.dumps(assets), 200
         except Exception as e:
             message = {"exception": "{}".format(e)}
-            return json.dumps(message),500
+            return json.dumps(message), 500

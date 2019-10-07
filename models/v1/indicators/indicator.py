@@ -10,12 +10,22 @@ from flask_restplus import Namespace, Resource
 from datetime import datetime, timezone
 from schematics.models import Model
 from schematics.types import StringType as String, IntType as Number
-from schematics.types import DateTimeType, ModelType, BooleanType, BaseType, DictType, ListType, PolyModelType
+from schematics.types import (
+    DateTimeType,
+    ModelType,
+    BooleanType,
+    BaseType,
+    DictType,
+    ListType,
+    PolyModelType,
+)
 from utils.auth import requires_auth
 
-api=Namespace('indicator',
-                description='create, list, update, delete indicator',
-                path='/api/v1/indicator')
+api = Namespace(
+    "indicator",
+    description="create, list, update, delete indicator",
+    path="/api/v1/indicator",
+)
 
 # supporting Models for the details portion of the indicator
 class VulnerabilitySummary(Model):
@@ -25,36 +35,38 @@ class VulnerabilitySummary(Model):
     medium = Number(default=0)
     low = Number(default=0)
 
+
 class ObservatoryScore(Model):
-    grade=BaseType(serialize_when_none=True)
+    grade = BaseType(serialize_when_none=True)
     tests = ListType(BaseType)
+
 
 class DastVulnerabilities(Model):
     findings = ListType(BaseType)
 
+
 # helper function to figure out which 'details' we are working with:
 def claim_func(field, data):
-    '''
+    """
     figure out which schema to use for the 'details' field
-    '''
-    if 'coverage' in data:
+    """
+    if "coverage" in data:
         return VulnerabilitySummary
-    elif 'tests' in data:
+    elif "tests" in data:
         return ObservatoryScore
-    elif 'findings' in data:
+    elif "findings" in data:
         return DastVulnerabilities
+
 
 class Indicator(DynaModel):
     class Table:
-        name = '{env}-Indicators'.format(env=os.environ.get('ENVIRONMENT', 'dev'))
-        hash_key = 'id'
-        range_key = 'asset_id'
+        name = "{env}-Indicators".format(env=os.environ.get("ENVIRONMENT", "dev"))
+        hash_key = "id"
+        range_key = "asset_id"
 
-        resource_kwargs = {
-            'region_name': os.environ.get('REGION', 'us-west-2')
-        }
-        read=5
-        write=5
+        resource_kwargs = {"region_name": os.environ.get("REGION", "us-west-2")}
+        read = 5
+        write = 5
 
     # class ByAsset(GlobalIndex):
     #     name = 'indicators-by-asset'
@@ -71,85 +83,102 @@ class Indicator(DynaModel):
         description = String()
         event_source_name = String()
         likelihood_indicator = String()
-        details=PolyModelType([ObservatoryScore,VulnerabilitySummary,DastVulnerabilities], claim_function=claim_func)
+        details = PolyModelType(
+            [ObservatoryScore, VulnerabilitySummary, DastVulnerabilities],
+            claim_function=claim_func,
+        )
 
-#create table if needed
-inittable = Indicator(asset_id='init')
+
+# create table if needed
+inittable = Indicator(asset_id="init")
 if not inittable.Table.exists:
     inittable.Table.create_table(wait=True)
 
+
 @api.route("/status")
 class status(Resource):
-    @api.doc('a klingon test/status endpoint')
+    @api.doc("a klingon test/status endpoint")
     def get(self):
-        body = {
-            "message": "Qapla'!"
-        }
+        body = {"message": "Qapla'!"}
         return jsonify(body)
 
-@api.route("","/")
-class create (Resource):
-    @api.doc("post route to create a new indicator provided an asset's uuid or an asset_identifier (hostname)" )
+
+@api.route("", "/")
+class create(Resource):
+    @api.doc(
+        "post route to create a new indicator provided an asset's uuid or an asset_identifier (hostname)"
+    )
     @requires_auth
     def post(self):
         from models.v1.assets.asset import Asset
+
         try:
-            post_data=request.get_json(force=True)
+            post_data = request.get_json(force=True)
             try:
                 # were we given an asset_id?
-                asset_id=''
-                if 'asset_id' not in post_data.keys():
-                    #find the asset or create it
-                    assets=[a for a in Asset.scan(asset_identifier__eq=post_data['asset_identifier'])]
+                asset_id = ""
+                if "asset_id" not in post_data.keys():
+                    # find the asset or create it
+                    assets = [
+                        a
+                        for a in Asset.scan(
+                            asset_identifier__eq=post_data["asset_identifier"]
+                        )
+                    ]
                     if len(assets):
                         asset_id = assets[0].id
                     else:
-                        #create an asset
-                        asset=Asset.new_from_raw({
-                            "asset_type": post_data['asset_type'],
-                            "asset_identifier": post_data['asset_identifier'],
-                            "zone": post_data['zone']
-                        })
+                        # create an asset
+                        asset = Asset.new_from_raw(
+                            {
+                                "asset_type": post_data["asset_type"],
+                                "asset_identifier": post_data["asset_identifier"],
+                                "zone": post_data["zone"],
+                            }
+                        )
                         asset.save()
-                        asset_id=asset.id
-                    post_data['asset_id']= asset_id
+                        asset_id = asset.id
+                    post_data["asset_id"] = asset_id
                 else:
-                    #asset_id was included in the post data, lets make sure it's valid
-                    assets=[a for a in Asset.scan(id__eq=post_data['asset_id'])]
+                    # asset_id was included in the post data, lets make sure it's valid
+                    assets = [a for a in Asset.scan(id__eq=post_data["asset_id"])]
                     if len(assets):
                         asset_id = assets[0].id
                     else:
-                        raise ValueError('invalid asset_id, no matching asset found')
+                        raise ValueError("invalid asset_id, no matching asset found")
 
                 # let dynamorn/marshmallow validate the data
-                indicator=Indicator.new_from_raw(post_data)
+                indicator = Indicator.new_from_raw(post_data)
                 # find/remove any previous indicators of this type
                 # to retain only the most recent indicator
-                for oldindicator in Indicator.scan(asset_id__eq=asset_id , event_source_name__eq=indicator.event_source_name):
+                for oldindicator in Indicator.scan(
+                    asset_id__eq=asset_id,
+                    event_source_name__eq=indicator.event_source_name,
+                ):
                     oldindicator.delete()
                 indicator.save()
                 return json.dumps(indicator.to_dict())
             except ValidationError as e:
-                #api.abort(code=400,message=jsonify(e.errors))
-                return json.dumps(e.errors),400
-
-
-
+                # api.abort(code=400,message=jsonify(e.errors))
+                return json.dumps(e.errors), 400
 
         except Exception as e:
             message = {"exception": "{}".format(e)}
-            #api.abort(code=500,message=jsonify(message))
-            return json.dumps(message),500
+            # api.abort(code=500,message=jsonify(message))
+            return json.dumps(message), 500
+
 
 # endpoint /indicators
 @api.route("/<id>")
-@api.route('s', defaults={'id':None})
-class list (Resource):
-    @api.doc("get /indicators to get all entries, hit /indicator/<substring UUID> for any partial or full UUID match")
+@api.route("s", defaults={"id": None})
+class list(Resource):
+    @api.doc(
+        "get /indicators to get all entries, hit /indicator/<substring UUID> for any partial or full UUID match"
+    )
     @requires_auth
     def get(self, id):
         try:
-            indicators=[]
+            indicators = []
             if id is None:
                 # return everything
 
@@ -159,16 +188,16 @@ class list (Resource):
                 for indicator in Indicator.scan(id__contains=id):
                     indicators.append(indicator.to_dict())
 
-            return json.dumps(indicators),200
+            return json.dumps(indicators), 200
         except Exception as e:
             message = {"exception": "{}".format(e)}
-            return json.dumps(message),500
+            return json.dumps(message), 500
 
     @api.doc("delete /indicator/uuid to remove an entry")
     @requires_auth
     def delete(self, id):
         try:
-            indicators=[]
+            indicators = []
 
             if id is not None:
 
@@ -176,21 +205,25 @@ class list (Resource):
                     indicators.append(indicator.to_dict())
                     indicator.delete()
 
-            return json.dumps(indicators),200
+            return json.dumps(indicators), 200
         except Exception as e:
             message = {"exception": "{}".format(e)}
-            return json.dumps(message),500
+            return json.dumps(message), 500
+
 
 @api.route("s/<identifier>")
-@api.route("s/",defaults={'identifier':None})
+@api.route("s/", defaults={"identifier": None})
 class search(Resource):
-    @api.doc("/<asset_identifier> partial or full asset identifier to return all matches for this word/term")
+    @api.doc(
+        "/<asset_identifier> partial or full asset identifier to return all matches for this word/term"
+    )
     @requires_auth
     def get(self, identifier):
         from models.v1.assets.asset import Asset
+
         try:
-            assets=[]
-            indicators=[]
+            assets = []
+            indicators = []
 
             if identifier is not None:
                 for asset in Asset.scan(asset_identifier__contains=identifier):
@@ -199,13 +232,12 @@ class search(Resource):
                     for indicator in Indicator.scan(asset_id__eq=asset.id):
                         indicators.append(indicator.to_dict())
 
-                    returnAsset=asset.to_dict()
-                    returnAsset['indicators']=indicators
+                    returnAsset = asset.to_dict()
+                    returnAsset["indicators"] = indicators
 
                     assets.append(returnAsset)
 
-            return json.dumps(assets),200
+            return json.dumps(assets), 200
         except Exception as e:
             message = {"exception": "{}".format(e)}
-            return json.dumps(message),500
-
+            return json.dumps(message), 500

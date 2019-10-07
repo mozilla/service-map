@@ -7,38 +7,41 @@ from utils.utils import get_config
 
 CONFIG = get_config()
 
-AUTH0_DOMAIN = CONFIG('AUTH0_URL')
-API_AUDIENCE = CONFIG('AUDIENCE')
+AUTH0_DOMAIN = CONFIG("AUTH0_URL")
+API_AUDIENCE = CONFIG("AUDIENCE")
 ALGORITHMS = ["RS256"]
 
 # from https://auth0.com/docs/quickstart/backend/python/01-authorization#validate-access-tokens
+
 
 def get_token_auth_header():
     """Obtains the Access Token from the Authorization Header
     """
     auth = request.headers.get("Authorization", None)
     if not auth:
-        abort(401, 'Authorization header is expected')
+        abort(401, "Authorization header is expected")
 
     parts = auth.split()
 
     if parts[0].lower() != "bearer":
-        abort(401,'Authorization header must start with Bearer')
+        abort(401, "Authorization header must start with Bearer")
     elif len(parts) == 1:
-        abort(401, 'Invalid header, token not found')
+        abort(401, "Invalid header, token not found")
     elif len(parts) > 2:
-        abort(401,'Authorization header must be in the form of "Bearer token"')
+        abort(401, 'Authorization header must be in the form of "Bearer token"')
 
     token = parts[1]
     return token
 
+
 def requires_auth(f):
     """Determines if the Access Token is valid
     """
+
     @wraps(f)
     def decorated(*args, **kwargs):
         token = get_token_auth_header()
-        jsonurl = urlopen("https://"+AUTH0_DOMAIN+"/.well-known/jwks.json")
+        jsonurl = urlopen("https://" + AUTH0_DOMAIN + "/.well-known/jwks.json")
         jwks = json.loads(jsonurl.read())
         unverified_header = jwt.get_unverified_header(token)
         rsa_key = {}
@@ -49,7 +52,7 @@ def requires_auth(f):
                     "kid": key["kid"],
                     "use": key["use"],
                     "n": key["n"],
-                    "e": key["e"]
+                    "e": key["e"],
                 }
         if rsa_key:
             try:
@@ -58,16 +61,20 @@ def requires_auth(f):
                     rsa_key,
                     algorithms=ALGORITHMS,
                     audience=API_AUDIENCE,
-                    issuer="https://"+AUTH0_DOMAIN+"/"
+                    issuer="https://" + AUTH0_DOMAIN + "/",
                 )
             except jwt.ExpiredSignatureError:
-                abort(401,'Authorization token is expired')
+                abort(401, "Authorization token is expired")
             except jwt.JWTClaimsError:
-                abort(401,'Authorization claim is incorrect, please check audience and issuer')
+                abort(
+                    401,
+                    "Authorization claim is incorrect, please check audience and issuer",
+                )
             except Exception:
-                abort(401,'Authorization header cannot be parsed')
+                abort(401, "Authorization header cannot be parsed")
             _request_ctx_stack.top.current_user = payload
             return f(*args, **kwargs)
         else:
-            abort(401,"Authorization error, unable to find appropriate key")
+            abort(401, "Authorization error, unable to find appropriate key")
+
     return decorated
