@@ -14,7 +14,7 @@ CONFIG = get_config()
 
 
 app = Flask(__name__)
-api = Api(app)
+api = Api(app, doc=False)
 api.add_namespace(indicator_api)
 api.add_namespace(asset_api)
 api.add_namespace(asset_group_api)
