@@ -1,4 +1,10 @@
 service: servicemapper
+resources:
+  Description: >
+    A set of micro serverless services that marry services, their risk levels,
+    indicators about the security posture of the service and various control
+    metrics into an ongoing risk score for each service based on what we know
+    about it. https://github.com/mozilla/service-map
 custom:
   s3_bucket: mozilla-service-map-${opt:stage, self:provider.stage}
   s3_bucket_arn: arn:aws:s3:::${self:custom.s3_bucket}
