@@ -24,6 +24,7 @@ custom:
     certificateArn: ${file(config.${self:provider.stage}.yml):CERTIFICATE_ARN}
     endpointType: "regional"
     enabled: true
+  logRetentionInDays: 30
 
 provider:
   name: aws
@@ -190,3 +191,4 @@ plugins:
   - serverless-python-requirements
   - serverless-wsgi
   - serverless-domain-manager
+  - serverless-plugin-log-retention
